@@ -4,27 +4,25 @@ import com.hitbd.proj.Exception.DuplicatedPKException;
 import com.hitbd.proj.Exception.ForeignKeyException;
 import com.hitbd.proj.Exception.NotExistException;
 import com.hitbd.proj.Exception.TimeException;
-import com.hitbd.proj.model.IAlarm;
 import com.hitbd.proj.model.IDevice;
 import com.hitbd.proj.model.IUserB;
 import com.hitbd.proj.model.IUserC;
 
 import java.util.Date;
-import java.util.List;
 
 /*
  * 本文件不允许擅自修改，有修改需求请联系负责人
  */
 public interface IIgniteSearch {
     /**
-     * C
+     * C5.1
      * 连接到Ignite
      * @return
      */
     boolean connect();
 
     /**
-     * C
+     * C5.1
      * 使用特定的IP和端口号连接到Ignite
      * @param hostname Ignite节点地址
      * @param port 端口
@@ -33,7 +31,7 @@ public interface IIgniteSearch {
     boolean connect(String hostname, int port);
 
     /**
-     * C
+     * C5.2
      * 获取设备imei的累计告警计数值
      * @param imei
      * @return
@@ -41,7 +39,7 @@ public interface IIgniteSearch {
     int getAlarmCount(long imei);
 
     /**
-     * C
+     * C5.2
      * 修改设备imei的累计告警计数值
      * @param imei
      * @param count
@@ -49,7 +47,7 @@ public interface IIgniteSearch {
     void setAlarmCount(long imei, int count);
 
     /**
-     * C
+     * C5.2
      * 获取设备imei的累计已读告警计数值
      * @param imei
      * @return
@@ -57,7 +55,7 @@ public interface IIgniteSearch {
     int getViewedCount(long imei);
 
     /**
-     * C
+     * C5.2
      * 获取设备imei的累计已读告警计数值
      * @param imei
      * @param count
@@ -65,7 +63,7 @@ public interface IIgniteSearch {
     void setViewedCount(long imei, int count);
 
     /**
-     * C
+     * C5.3
      * 获取一个B端用户
      * @param userBId
      * @return
@@ -74,7 +72,7 @@ public interface IIgniteSearch {
     IUserB getUserB(int userBId) throws NotExistException;
 
     /**
-     * C
+     * C5.3
      * 获取一个设备
      * @param imei
      * @return
@@ -83,7 +81,7 @@ public interface IIgniteSearch {
     IDevice getDevice(int imei) throws NotExistException;
 
     /**
-     * C
+     * C5.3
      * 获取一个C端用户
      * @param userCId
      * @return
@@ -214,7 +212,7 @@ public interface IIgniteSearch {
     void removeCDevice(long imei) throws NotExistException;
 
     /**
-     * C
+     * C5.1
      * 断开与Ignite的连接
      * @return
      */

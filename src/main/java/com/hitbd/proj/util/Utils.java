@@ -4,6 +4,7 @@ import java.util.Date;
 
 public class Utils {
     /**
+     * A5.3
      * 获取Hbase的Alarm表名
      * @param date 该Alarm的创建时间
      * @return 对应的表名

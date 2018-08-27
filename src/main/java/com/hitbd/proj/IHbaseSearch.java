@@ -20,14 +20,14 @@ public interface IHbaseSearch {
     int SORT_BY_USER_ID = 2;
     int SORT_BY_IMEI = 3;
     /**
-     * A
+     * A5.1
      * 连接到Hbase集群
      * @return
      */
     boolean connect();
 
     /**
-     * A
+     * A5.1
      * 使用预定义的设置进行连接
      * @param config
      * @return
@@ -35,7 +35,7 @@ public interface IHbaseSearch {
     boolean connect(Configuration config);
 
     /**
-     * A
+     * A5.2
      * 获取一部分的告警数据，可以指定imei范围和时间范围
      * @param startImei
      * @param endImei
@@ -81,7 +81,7 @@ public interface IHbaseSearch {
     void deleteAlarm(List<Pair<String, String>> rowKeys) throws NotExistException;
 
     /**
-     * 5.1-5.3
+     * 5.1-5.3a
      * 按照指定用户查询告警
      * @param userBIds 待查询的用户
      * @param recursive 是否递归查询其所有子用户
@@ -92,7 +92,7 @@ public interface IHbaseSearch {
     List<IAlarm> queryAlarmByUser(List<Integer> userBIds, boolean recursive, int sortType, QueryFilter filter);
 
     /**
-     * 5.1-5.3
+     * 5.1-5.3a
      * 按照指定设备查询告警
      * @param imeis 待查询的设备
      * @param sortType 排序类型
@@ -102,7 +102,7 @@ public interface IHbaseSearch {
     List<IAlarm> queryAlarmByImei(List<Long> imeis, int sortType, QueryFilter filter);
 
     /**
-     * 5.1-5.3
+     * 5.1-5.3b
      * 在新线程中按照指定用户查询告警，查询结果录入查询日志。
      * @param qid 查询编号
      * @param userBIds 待查询的用户
@@ -113,7 +113,7 @@ public interface IHbaseSearch {
     void asyncQueryAlarmByUser(int qid, List<Integer> userBIds, boolean recursive, int sortType, QueryFilter filter);
 
     /**
-     * 5.1-5.3
+     * 5.1-5.3b
      * 在新线程中按照指定设备查询告警，查询结果录入查询日志。
      * @param qid 查询编号
      * @param imeis 待查询的设备
@@ -157,7 +157,7 @@ public interface IHbaseSearch {
     Map<String, Integer> groupCountByUserId(List<Integer> parentBIds, boolean recursive, int topK);
 
     /**
-     * A
+     * A5.3
      * 关闭连接
      * @return
      */
