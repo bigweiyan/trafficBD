@@ -17,4 +17,12 @@ public class TestUtils {
         date = new Date(1262966401000L); //2010-01-09 00:00:01
         Assert.assertEquals("alarm_0109", Utils.getTableName(date));
     }
+
+    @Test
+    public void testRelativeSecond() {
+        Date date = new Date(1262966401000L);
+        Assert.assertEquals("00001", Utils.getRelativeSecond(date));
+        date = new Date(1262966417000L);
+        Assert.assertEquals("00011", Utils.getRelativeSecond(date));
+    }
 }
