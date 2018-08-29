@@ -15,6 +15,9 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Scanner;
 import java.util.Set;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.configuration.CacheConfiguration;
 import com.hitbd.proj.IIgniteSearch;
 import com.hitbd.proj.Exception.DuplicatedPKException;
 import com.hitbd.proj.Exception.ForeignKeyException;
@@ -26,6 +29,8 @@ import com.hitbd.proj.model.IUserC;
 import com.hitbd.proj.model.TreeNode.Tree;
 import com.hitbd.proj.model.device.DeviceTable;
 import com.hitbd.proj.model.device.device;
+import com.hitbd.proj.model.igniteinfo.Alarm_c;
+import com.hitbd.proj.model.igniteinfo.Viewed_c;
 import com.hitbd.proj.model.randomDate.Randomdate;
 import com.hitbd.proj.model.user_B.userBtable;
 import com.hitbd.proj.model.user_B.user_B;
@@ -41,7 +46,8 @@ public class manager implements IIgniteSearch{
   Tree tre = new Tree();
   ArrayList<String> deviceIMEI = new ArrayList<String>();
   File file = new File("userC.txt");
-
+  Viewed_c vc=new Viewed_c();
+  Alarm_c ac=new Alarm_c();
   public void read(String filepath) throws Exception {
     this.connect();
     Statement stmt = connection.createStatement();
@@ -234,6 +240,8 @@ public class manager implements IIgniteSearch{
   @Override
   public boolean connect() {
     try {
+    vc.createCache();
+    ac.createCache();
     connection = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1/");
     }catch (SQLException e) {
       e.printStackTrace();
@@ -256,25 +264,25 @@ public class manager implements IIgniteSearch{
   @Override
   public int getAlarmCount(long imei) {
     // TODO 自动生成的方法存根
-    return 0;
+    return ac.getAlarmCount(imei);
   }
 
   @Override
   public void setAlarmCount(long imei, int count) {
-    // TODO 自动生成的方法存根
+    ac.setAlarmCount(imei, count);
     
   }
 
   @Override
   public int getViewedCount(long imei) {
     // TODO 自动生成的方法存根
-    return 0;
+    return vc.getViewedCount(imei);
   }
 
   @Override
   public void setViewedCount(long imei, int count) {
     // TODO 自动生成的方法存根
-    
+    vc.setViewedCount(imei, count);
   }
 
   @Override
@@ -474,14 +482,68 @@ public class manager implements IIgniteSearch{
   }
   
   @Override
-  public void addUserCDevice(int userCId, long imei) throws ForeignKeyException, NotExistException {
-    // TODO 自动生成的方法存根
-    
+  public void addUserCDevice(int userCId, long imei) throws ForeignKeyException, NotExistException, SQLException {
+    this.connect();
+    String sql1 = "select user_id from user_C where user_id=?";
+    PreparedStatement pstmt1 = connection.prepareStatement(sql1);
+    pstmt1.setInt(1, userCId);
+    ResultSet rs1=pstmt1.executeQuery();
+    String sql2 = "select imei from device where imei=?";
+    PreparedStatement pstmt2 = connection.prepareStatement(sql2);
+    pstmt2.setLong(1, imei);
+    ResultSet rs2=pstmt2.executeQuery();
+    if(rs1.isBeforeFirst()&rs2.isBeforeFirst()) {
+      String sql3 = "select devices from user_C where where charindex (+'"+imei+",'+,devices)>0";
+      PreparedStatement pstmt3 = connection.prepareStatement(sql3);
+      pstmt3.setInt(1, userCId);
+      ResultSet rs3=pstmt1.executeQuery();
+      String devices=rs1.getString("devices");
+      if(!rs3.isBeforeFirst()) {
+        String sql = "update user_C set devices=? where user_id=?";
+        PreparedStatement pstmt = connection.prepareStatement(sql);
+        pstmt.setString(1, devices+","+imei);
+        pstmt.setLong(2,imei);
+        pstmt.executeUpdate();
+      }
+      else {
+        throw new ForeignKeyException();
+      }
+    }
+    else {
+      throw new NotExistException();
+    }
+    this.close();
   }
  
   @Override
-  public void authorizeCDevice(long imei, int toCId) throws ForeignKeyException, NotExistException {
-    // TODO 自动生成的方法存根
+  public void authorizeCDevice(long imei, int toCId) throws ForeignKeyException, NotExistException, SQLException {
+    this.connect();
+    String sql1 = "select user_id from user_C where user_id=?";
+    PreparedStatement pstmt1 = connection.prepareStatement(sql1);
+    pstmt1.setInt(1, toCId);
+    ResultSet rs1=pstmt1.executeQuery();
+    String sql2 = "select imei from device where imei=?";
+    PreparedStatement pstmt2 = connection.prepareStatement(sql2);
+    pstmt2.setLong(1, imei);
+    ResultSet rs2=pstmt2.executeQuery();
+    if(rs1.isBeforeFirst()&rs2.isBeforeFirst()) {
+      String devices=rs1.getString("devices");
+      String authed_device=rs1.getString("authed_device");
+      if(devices.indexOf(""+imei)!=-1) {
+        String sql = "update user_C set authed_device=? where user_id=?";
+        PreparedStatement pstmt = connection.prepareStatement(sql);
+        pstmt.setString(1, authed_device+","+imei);
+        pstmt.setLong(2,imei);
+        pstmt.executeUpdate();
+      }
+      else {
+        throw new ForeignKeyException();
+      }
+    }
+    else {
+      throw new NotExistException();
+    }
+    this.close();
     
   }
 
