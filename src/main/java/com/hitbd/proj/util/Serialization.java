@@ -12,7 +12,8 @@ public class Serialization {
 	 */
 	public static void main(String[] args) {
 		String[] lis = { "3423", "8743", "8723", "9279" };
-		Date[] lli = { new Date(112, 0, 1), new Date(112, 1, 1), new Date(253, 0, 1), new Date(283, 0, 1) };
+		Date[] lli = { new Date(112, 0, 1), new Date(112, 1, 1),
+				new Date(253, 0, 1), new Date(283, 0, 1) };
 		countExpireList(lis, lli);
 	}
 
@@ -77,8 +78,7 @@ public class Serialization {
 	/**
 	 * 去掉user_B中父亲列表的孩子
 	 * 
-	 * @param children_ids
-	 *            child
+	 * @param children_ids child
 	 */
 	public static ArrayList<Integer> deleteChild(ArrayList<Integer> children_ids, int child) {
 		children_ids.remove(Integer.valueOf(child));

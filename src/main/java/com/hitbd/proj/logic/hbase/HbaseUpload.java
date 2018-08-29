@@ -95,7 +95,7 @@ public class HbaseUpload {
             put.addColumn("r".getBytes(), "record".getBytes(), rowRecord.getBytes());
             put.addColumn("r".getBytes(), "stat".getBytes(), record.get(11).getBytes());
             put.addColumn("r".getBytes(), "type".getBytes(), record.get(1).getBytes());
-            put.addColumn("r".getBytes(), "viewed".getBytes(), record.get(9).getBytes());
+            put.addColumn("r".getBytes(), "viewed".getBytes(), record.get(9).equals("0")?"0".getBytes():"1".getBytes());
             putList.add(put);
 
             // 判断是否批上传
