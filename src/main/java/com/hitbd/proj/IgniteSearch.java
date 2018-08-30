@@ -324,7 +324,7 @@ public class IgniteSearch implements IIgniteSearch {
             ArrayList<Long> imeis = new ArrayList<Long>();
             int count = 1;
             childqueue.add(childBId);
-            while (childqueue.isEmpty() == false) {
+            while (!childqueue.isEmpty()) {
                 // query new value
                 sql = "select imei from Device where user_b_id in (" + Serialization.listToStr(childqueue) + ")";
                 sql2 = "select children_ids from UserB where user_id in (" + Serialization.listToStr(childqueue) + ")";
@@ -355,9 +355,9 @@ public class IgniteSearch implements IIgniteSearch {
                 pstmt.clearBatch();
                 while (expireset.next()) {
                     ArrayList<Integer> temp = Serialization.strToList(expireset.getString("expire_list"));
-                    String newvalue = new String();
+                    StringBuilder newvalue = new StringBuilder();
                     for (int i = 0; i <= count * 2 - 1; i++) {
-                        newvalue = newvalue + Integer.toString(temp.get(i)) + ",";
+                        newvalue.append(Integer.toString(temp.get(i))).append(",");
                     }
                     pstmt.setString(1, newvalue.substring(0, newvalue.length() - 1));
                     pstmt.setLong(2, expireset.getLong("imei"));
@@ -419,7 +419,7 @@ public class IgniteSearch implements IIgniteSearch {
         ArrayList<Integer> aud;
         if (rs1.next()) {
             devices = Serialization.longToList(rs1.getString("devices"));
-            devices.remove(Long.valueOf(imei));
+            devices.remove(imei);
             String temp = rs1.getString("auth_user_ids");
             aud = Serialization.strToList(temp);
             // aud exist
@@ -436,8 +436,8 @@ public class IgniteSearch implements IIgniteSearch {
                     ArrayList<Long> adevice = Serialization.longToList(rs2.getString("authed_device"));
                     int user = rs2.getInt("user_id");
                     if (adevice.contains(imei)) {
-                        adevice.remove(Long.valueOf(imei));
-                        if (Serialization.isContain(devices, adevice) == false)
+                        adevice.remove(imei);
+                        if (! Serialization.isContain(devices, adevice))
                             aud.remove(Integer.valueOf(user));
                         pstmt.setString(1, Serialization.listToStr(adevice));
                         pstmt.setInt(2, user);
@@ -455,14 +455,12 @@ public class IgniteSearch implements IIgniteSearch {
                 rs.close();
                 rs1.close();
                 rs2.close();
-                return;
             }
 
         } else {
             pstmt.close();
             rs.close();
             rs1.close();
-            return;
         }
 
     }
@@ -476,7 +474,7 @@ public class IgniteSearch implements IIgniteSearch {
         ArrayList<Long> adevice = new ArrayList<>();
         if (rs.next())
             adevice = Serialization.longToList(rs.getString("authed_device"));
-        adevice.remove(Long.valueOf(imei));
+        adevice.remove(imei);
         String sql1 = "update user_c  set authed_device='" + Serialization.listToStr(adevice) + "' where user_id="
                 + Integer.toString(userCId);
 
@@ -496,7 +494,7 @@ public class IgniteSearch implements IIgniteSearch {
         pstmt = connection.prepareStatement(sql1);
         pstmt.executeUpdate();
         PreparedStatement pstmt1 = null;
-        if (Serialization.isContain(devices, adevice) == false) {
+        if (! Serialization.isContain(devices, adevice)) {
             aui.remove(Integer.valueOf(userCId));
             sql = "update user_c set auth_user_ids = '" + Serialization.listToStr(aui) + "' where "
                     + "user_id = (select user_c_id from Device where imei = " + Long.toString(imei) + ")";
@@ -508,7 +506,7 @@ public class IgniteSearch implements IIgniteSearch {
         pstmt.close();
         rs.close();
         rs1.close();
-        pstmt1.close();
+        if (pstmt1 != null) pstmt1.close();
 
     }
 
@@ -519,7 +517,7 @@ public class IgniteSearch implements IIgniteSearch {
             if (day < 0) { //日期不合法
                 throw new TimeException();
             }
-            String sql = "select expire_list from Device where imei = " + Long.valueOf(imei);
+            String sql = "select expire_list from Device where imei = " + imei;
             PreparedStatement pstmt = connection.prepareStatement(sql);
             ResultSet rs = pstmt.executeQuery();
             ArrayList<Integer> list = new ArrayList<>();
@@ -544,7 +542,7 @@ public class IgniteSearch implements IIgniteSearch {
             }
 
             sql = "update Device set expire_list = '" + Serialization.listToStr(list) + "' where imei = "
-                    + Long.valueOf(imei);
+                    + imei;
             pstmt = connection.prepareStatement(sql);
             pstmt.executeUpdate();
             pstmt.close();
@@ -574,7 +572,7 @@ public class IgniteSearch implements IIgniteSearch {
         ArrayList<Integer> aud;
         if (rs1.next()) {
             devices = Serialization.longToList(rs1.getString("devices"));
-            devices.remove(Long.valueOf(imei));
+            devices.remove(imei);
             String temp = rs1.getString("auth_user_ids");
             aud = Serialization.strToList(temp);
             // aud exist
@@ -591,8 +589,8 @@ public class IgniteSearch implements IIgniteSearch {
                     ArrayList<Long> adevice = Serialization.longToList(rs2.getString("authed_device"));
                     int user = rs2.getInt("user_id");
                     if (adevice.contains(imei)) {
-                        adevice.remove(Long.valueOf(imei));
-                        if (Serialization.isContain(devices, adevice) == false)
+                        adevice.remove(imei);
+                        if (! Serialization.isContain(devices, adevice))
                             aud.remove(Integer.valueOf(user));
                         pstmt.setString(1, Serialization.listToStr(adevice));
                         pstmt.setInt(2, user);
