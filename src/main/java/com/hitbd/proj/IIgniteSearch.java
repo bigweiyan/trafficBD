@@ -164,8 +164,9 @@ public interface IIgniteSearch {
      * 删除父子关系
      * @param childBId 被删除的父子关系中的儿子
      * @throws SQLException 该id不存在或该id没有父用户时抛出异常
+     * @throws NotExistException 
      */
-    void deleteParentLink(int childBId) throws SQLException;
+    void deleteParentLink(int childBId) throws SQLException, NotExistException;
 
     /**
      * No4.4
@@ -175,8 +176,9 @@ public interface IIgniteSearch {
      * @param parentIds 新父用户id
      * @param expireDates 新父用户对应的过期时间
      * @throws ForeignKeyException 设备或用户不存在时抛出异常
+     * @throws TimeException 
      */
-    void relocateDevice(long imei, int toBid, String[] parentIds, Date[] expireDates) throws SQLException, ForeignKeyException;
+    void relocateDevice(long imei, int toBid, String[] parentIds, Date[] expireDates) throws SQLException, ForeignKeyException, TimeException;
 
     /**
      * No4.6
