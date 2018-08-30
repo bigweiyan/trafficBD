@@ -293,14 +293,16 @@ public class IgniteSearch implements IIgniteSearch {
     }
 
     @Override
-    public void deleteParentLink(int childBId) throws SQLException {
+    public void deleteParentLink(int childBId) throws SQLException, NotExistException {
         String sql = "select parent_id from user_b where user_id = " + String.valueOf(childBId);
         PreparedStatement pstmt = connection.prepareStatement(sql);
         ResultSet rs = pstmt.executeQuery();
         int parent = -1;
-        if (rs.next())
+        if (rs.next()) {
             parent = rs.getInt("parent_id");
-        else {
+            if(parent==-1) {
+            	throw new NotExistException();
+            }
             // delete child
             sql = "select children_ids from UserB where user_id = " + String.valueOf(parent);
             pstmt = connection.prepareStatement(sql);
@@ -364,14 +366,14 @@ public class IgniteSearch implements IIgniteSearch {
                 pstmt.executeBatch();
                 connection.setAutoCommit(true);
                 count++;
-            }
+            }   
             // Ignite.disConnect(conn);
             pstmt.close();
         }
     }
 
     @Override
-    public void relocateDevice(long imei, int toBid, String[] parentIds,Date[] expireDates) throws SQLException {
+    public void relocateDevice(long imei, int toBid, String[] parentIds,Date[] expireDates) throws SQLException, TimeException {
         // is toBid exist
         String sql = "select * from user_b where user_id = " + String.valueOf(toBid);
         PreparedStatement pstmt = connection.prepareStatement(sql);
@@ -379,7 +381,7 @@ public class IgniteSearch implements IIgniteSearch {
         //count expire_list
         String expire_list = Serialization.countExpireList(parentIds, expireDates);
         if(expire_list==null) //时间格式出错
-            return;
+        	throw new TimeException();
         // update
         sql = "update Device set user_b_id=?,expire_list=? where imei=?";
         pstmt = connection.prepareStatement(sql);
