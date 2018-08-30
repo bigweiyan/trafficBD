@@ -7,6 +7,7 @@ import com.hitbd.proj.Exception.TimeException;
 import com.hitbd.proj.model.IDevice;
 import com.hitbd.proj.model.IUserB;
 import com.hitbd.proj.model.IUserC;
+
 import java.sql.SQLException;
 import java.util.Date;
 
@@ -165,44 +166,46 @@ public interface IIgniteSearch {
      * @param projectId
      * @param enabled
      * @param repayment
-     * @throws NotExistException 该设备不存在时抛出此异常
+     * @throws SQLException 该设备不存在时抛出此异常
      */
-    void updateDevice(long imei, String deviceType, String deviceName, String projectId, boolean enabled,
-                      boolean repayment) throws NotExistException;
+    public void updateDevice(long imei, String deviceType, String deviceName, String projectId, boolean enabled,
+                             boolean repayment, String isupdate) throws SQLException;
 
     /**
      * No4.3
      * 删除父子关系
      * @param childBId 被删除的父子关系中的儿子
-     * @throws NotExistException 该id不存在或该id没有父用户时抛出异常
+     * @throws SQLException 该id不存在或该id没有父用户时抛出异常
      */
-    void deleteParentLink(int childBId) throws NotExistException;
+    void deleteParentLink(int childBId) throws SQLException;
 
     /**
      * No4.4
      * 将一个用户的设备转移给另一个用户
      * @param imei 被转移的设备
      * @param toBid 被转移到的用户
-     * @throws NotExistException 设备或用户不存在时抛出异常
+     * @param parentIds 新父用户id
+     * @param expireDates 新父用户对应的过期时间
+     * @throws ForeignKeyException 设备或用户不存在时抛出异常
      */
-    void relocateDevice(long imei, int toBid) throws NotExistException;
+    void relocateDevice(long imei, int toBid, String[] parentIds, Date[] expireDates) throws SQLException, ForeignKeyException;
 
     /**
      * No4.6
      * 删除一个设备
      * @param imei
-     * @throws NotExistException 设备不存在时抛出异常
+     * @throws SQLException 设备不存在时抛出异常
      */
-    void deleteDevice(long imei) throws NotExistException;
+    void deleteDevice(long imei) throws SQLException;
 
     /**
      * No4.7
      * 删除一个用户的设备授权，但不会删除这个设备
      * @param imei 被移除授权的设备
      * @param userCId 被移除授权的用户
-     * @throws NotExistException 用户或设备不存在时抛出异常
+     * @throws SQLException 用户或设备不存在时抛出异常
      */
-    void deleteAuthorization(long imei, int userCId) throws NotExistException;
+    void deleteAuthorization(long imei, int userCId) throws SQLException;
 
     /**
      * No4.8
@@ -219,9 +222,9 @@ public interface IIgniteSearch {
      * 4.10
      * 移除一个设备与其C端用户的拥有关系，移除时不会删除该C端用户或设备
      * @param imei
-     * @throws NotExistException 用户或设备不存在时抛出异常
+     * @throws SQLException 用户或设备不存在时抛出异常
      */
-    void removeCDevice(long imei) throws NotExistException;
+    void removeCDevice(long imei) throws SQLException;
 
     /**
      * C5.1
