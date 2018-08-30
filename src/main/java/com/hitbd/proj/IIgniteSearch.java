@@ -19,6 +19,7 @@ public interface IIgniteSearch {
      * C5.1
      * 连接到Ignite
      * @return
+     * @throws SQLException 
      */
     boolean connect();
 
@@ -28,6 +29,7 @@ public interface IIgniteSearch {
      * @param hostname Ignite节点地址
      * @param port 端口
      * @return
+     * @throws SQLException 
      */
     boolean connect(String hostname, int port);
 
@@ -69,8 +71,9 @@ public interface IIgniteSearch {
      * @param userBId
      * @return
      * @throws NotExistException 该b端用户不存在时抛出此异常
+     * @throws SQLException 
      */
-    IUserB getUserB(int userBId) throws NotExistException;
+    IUserB getUserB(int userBId) throws NotExistException, SQLException;
 
     /**
      * C5.3
@@ -78,8 +81,9 @@ public interface IIgniteSearch {
      * @param imei
      * @return
      * @throws NotExistException 该设备不存在时抛出异常
+     * @throws SQLException 
      */
-    IDevice getDevice(int imei) throws NotExistException;
+    IDevice getDevice(int imei) throws NotExistException, SQLException;
 
     /**
      * C5.3
@@ -87,23 +91,27 @@ public interface IIgniteSearch {
      * @param userCId
      * @return
      * @throws NotExistException 该C端用户不存在时抛出异常
+     * @throws SQLException 
      */
-    IUserC getUserC(int userCId) throws NotExistException;
+    IUserC getUserC(int userCId) throws NotExistException, SQLException;
 
     /**
      * No3.1
      * 新建一个b端用户
      * @param parentId 该b端用户的父用户id，如果没有父用户，设置为-1
      * @return 新增用户的id
+     * @throws Exception 
      */
-    int createUserB(int parentId);
+    int createUserB(int parentId) throws Exception;
 
     /**
      * No3.2
      * 新建一个c端用户
      * @return 新增用户的id
+     * @throws SQLException 
+     * @throws Exception 
      */
-    int createUserC();
+    int createUserC() throws SQLException, Exception;
 
     /**
      * No3.3
@@ -112,8 +120,9 @@ public interface IIgniteSearch {
      * @param userBId 该设备直属的b端用户
      * @throws DuplicatedPKException 该imei号与其他设备的imei号重合时抛出异常
      * @throws ForeignKeyException 设置的直属b端用户不存在或数值非法(小于0)时抛出异常
+     * @throws SQLException 
      */
-    void createDevice(long imei, int userBId) throws DuplicatedPKException, ForeignKeyException;
+    void createDevice(long imei, int userBId) throws DuplicatedPKException, ForeignKeyException, SQLException;
 
     /**
      * No3.5
@@ -122,8 +131,9 @@ public interface IIgniteSearch {
      * @param parentBId 父b端用户id
      * @throws ForeignKeyException 子用户不得已经存在父用户，存在时抛出异常
      * @throws NotExistException 输入id必须都是b端用户表中已经存在的用户，否则抛出异常
+     * @throws SQLException 
      */
-    void setNewParent(int childBId, int parentBId) throws ForeignKeyException, NotExistException;
+    void setNewParent(int childBId, int parentBId) throws ForeignKeyException, NotExistException, SQLException;
 
     /**
      * No3.6
@@ -132,8 +142,9 @@ public interface IIgniteSearch {
      * @param imei 拥有的设备
      * @throws ForeignKeyException 该设备已被另一个C端用户拥有时抛出异常
      * @throws NotExistException 该设备或该C端用户不存在时抛出异常
+     * @throws SQLException 
      */
-    void addUserCDevice(int userCId, long imei) throws ForeignKeyException, NotExistException;
+    void addUserCDevice(int userCId, long imei) throws ForeignKeyException, NotExistException, SQLException;
 
     /**
      * No3.8
@@ -142,8 +153,9 @@ public interface IIgniteSearch {
      * @param toCId 得到授权的C端用户
      * @throws ForeignKeyException 得到授权的C端用户不得是该设备的拥有者，否则抛出此异常
      * @throws NotExistException 设备号或C端用户id不存在时抛出此异常
+     * @throws SQLException 
      */
-    void authorizeCDevice(long imei, int toCId) throws ForeignKeyException, NotExistException;
+    void authorizeCDevice(long imei, int toCId) throws ForeignKeyException, NotExistException, SQLException;
 
     /**
      * No4.1
