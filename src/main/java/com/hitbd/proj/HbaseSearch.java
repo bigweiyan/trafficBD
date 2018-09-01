@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 public class HbaseSearch implements IHbaseSearch {
+
     @Override
     public boolean connect() {
         return false;

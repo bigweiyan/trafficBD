@@ -37,6 +37,16 @@ public class IgniteSearch implements IIgniteSearch {
     }
 
     @Override
+    public boolean newIgniteClient() {
+        return false;
+    }
+
+    @Override
+    public boolean closeIgniteClient() {
+        return false;
+    }
+
+    @Override
     public int getAlarmCount(long imei) {
         return 0;
     }
@@ -617,6 +627,9 @@ public class IgniteSearch implements IIgniteSearch {
 
     @Override
     public boolean close() {
+        if (connection == null) {
+            return false;
+        }
         try {
             connection.close();
             return true;
