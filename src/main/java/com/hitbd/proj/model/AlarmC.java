@@ -7,12 +7,14 @@ import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.configuration.CacheConfiguration;
 
 public class AlarmC {
-	static private Ignite ignite = Ignition.start();
+	static private Ignite ignite;
 	static private IgniteCache<Long, Integer> cache;
 	/**
 	 * 建表
 	 */
 	public void createCache() {
+		//首先调用启动客户端的函数启动客户端
+		ignite = Ignition.ignite(); 
 		CacheConfiguration<Long, Integer> cfg = new CacheConfiguration<Long, Integer>();
 		cfg.setName("Test");
 		cfg.setCacheMode(CacheMode.PARTITIONED);// 存储方式 PARTITIONED适合分布式存储
