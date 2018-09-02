@@ -7,12 +7,16 @@ import com.hitbd.proj.Exception.TimeException;
 import com.hitbd.proj.model.*;
 import com.hitbd.proj.model.UserC;
 import com.hitbd.proj.util.Serialization;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.Ignition;
 
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 public class IgniteSearch implements IIgniteSearch {
+    Ignite ignite;
     Connection connection;
     @Override
     public boolean connect() {
@@ -38,11 +42,13 @@ public class IgniteSearch implements IIgniteSearch {
 
     @Override
     public boolean newIgniteClient() {
+        // TODO
         return false;
     }
 
     @Override
     public boolean closeIgniteClient() {
+        // TODO
         return false;
     }
 
@@ -100,8 +106,13 @@ public class IgniteSearch implements IIgniteSearch {
                 int user_b_id = rs.getInt("user_b_id");
                 long Imei = rs.getInt("imei");
                 String device_type = rs.getString("device_type");
-                String undifined=rs.getString("undifined");
-                return new Device(user_b_id,Imei,device_type, undifined);
+                String deviceName = rs.getString("device_name");
+                String expireDate = rs.getString("expire_date");
+                Device device = new Device(user_b_id,Imei,device_type, deviceName);
+                if (expireDate != null && !expireDate.isEmpty()) {
+                    device.setExpireListByText(expireDate);
+                }
+                return device;
             }
             else {
                 throw new NotExistException();
