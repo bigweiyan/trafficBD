@@ -1,26 +1,29 @@
 package com.hitbd.proj.model;
 
+import com.hitbd.proj.Settings;
+import com.hitbd.proj.util.Utils;
+
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
 public class Device implements IDevice {
     private int userBId;
     private long imei;
-    private StringBuffer deviceType;
-    private StringBuffer undifined;
-    private StringBuffer projectId;
+    private String deviceType;
+    private String projectId;
     private boolean enabled;
     private boolean repayment;
-    private StringBuffer expire_list;
+    private String deviceName;
     List<Pair<Integer, Date>> expireList;
     private int user_c_id;
 
-    public Device(int userBId, long imei, String deviceType, String undifined) {
+    public Device(int userBId, long imei, String deviceType, String deviceName) {
         super();
         this.userBId = userBId;
         this.imei = imei;
-        this.deviceType = new StringBuffer(deviceType);
-        this.setUndifined(undifined);
+        this.deviceType = deviceType;
+        this.deviceName = deviceName;
     }
 
     public Device(int userBId, long imei) {
@@ -57,34 +60,6 @@ public class Device implements IDevice {
         this.repayment = repayment;
     }
 
-    /**
-     * @return expire_list
-     */
-    public String getExpire_list() {
-        return new String(expire_list);
-    }
-
-    /**
-     * @param expire_list 要设置的 expire_list
-     */
-    public void setExpire_list(String expire_list) {
-        this.expire_list = new StringBuffer(expire_list);
-    }
-
-    /**
-     * @return undifined
-     */
-    public String getUndifined() {
-        return new String(undifined);
-    }
-
-    /**
-     * @param undifined 要设置的 undifined
-     */
-    public void setUndifined(String undifined) {
-        this.undifined = new StringBuffer(undifined);
-    }
-
     @Override
     public int getUserBId() {
         return this.userBId;
@@ -107,22 +82,22 @@ public class Device implements IDevice {
 
     @Override
     public String getDeviceType() {
-        return new String(this.deviceType);
+        return deviceType;
     }
 
     @Override
     public void setDeviceType(String deviceType) {
-        this.deviceType = new StringBuffer(deviceType);
+        this.deviceType = deviceType;
     }
 
     @Override
     public String getDeviceName() {
-        return new String(this.undifined);
+        return deviceName;
     }
 
     @Override
     public void setDeviceName(String deviceName) {
-        this.undifined = new StringBuffer(deviceName);
+        this.deviceName = deviceName;
     }
 
     @Override
@@ -132,7 +107,7 @@ public class Device implements IDevice {
 
     @Override
     public void setProjectId(String projectId) {
-        this.projectId = new StringBuffer(projectId);
+        this.projectId = projectId;
     }
 
     @Override
@@ -148,6 +123,32 @@ public class Device implements IDevice {
     @Override
     public List<Pair<Integer, Date>> getExpireList() {
         return this.expireList;
+    }
+
+    public String getExpireListText() {
+        if (expireList == null) return null;
+        StringBuilder sb = new StringBuilder();
+        for (Pair<Integer, Date> pair : expireList) {
+            sb.append(pair.getKey()).append(",").append(Utils.getRelativeDate(pair.getValue())).append(",");
+        }
+        if (sb.length() > 0) sb.setLength(sb.length() - 1);
+        return sb.toString();
+    }
+
+    public void setExpireListByText(String expireList) {
+        if (expireList == null || expireList.isEmpty()) {
+            return;
+        }
+        String[] list = expireList.split(",");
+        if (list.length % 2 != 0) {
+            throw new IllegalArgumentException("the argument should be even");
+        }
+        List<Pair<Integer, Date>> expireDate = new ArrayList<>();
+        for (int i = 0; i < list.length; i+=2) {
+            expireDate.add(new Pair<>(Integer.parseInt(list[i]),
+                    new Date(Settings.BASETIME + 1000L * Integer.parseInt(list[i + 1]) * 3600 * 24)));
+        }
+        this.expireList = expireDate;
     }
 
     @Override

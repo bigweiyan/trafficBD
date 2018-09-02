@@ -1,6 +1,8 @@
 package com.hitbd.proj;
 
 import com.hitbd.proj.logic.hbase.HbaseUpload;
+import com.hitbd.proj.logic.ignite.DeviceUpload;
+import org.apache.ignite.Ignition;
 
 import java.io.File;
 import java.io.IOException;
@@ -12,10 +14,14 @@ public class Main {
             System.out.println("Usage: trafficBD [Action] [Parameter]");
             System.out.println("Actions:");
             System.out.println("ImportAlarm [FileName/Folder] [HBaseConfFile] import alarm file to hbase");
+            System.out.println("ImportDevice [FileName/Folder] import alarm file to ignite");
+            return;
         }
         loadSettings();
         if (args[0].equals("ImportAlarm")) {
             HbaseUpload.main(args);
+        }else if(args[0].equals("ImportDevice")) {
+            DeviceUpload.main(args);
         }
     }
 

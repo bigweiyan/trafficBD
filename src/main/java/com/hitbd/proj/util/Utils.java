@@ -30,4 +30,10 @@ public class Utils {
         Formatter formatter = new Formatter();
         return formatter.format("%05x", relativeSec).toString();
     }
+
+    public static int getRelativeDate(Date date) {
+        long milliSecond = date.getTime() - Settings.BASETIME;
+        int dayPass = (int) (milliSecond / (1000L * 3600* 24));
+        return dayPass;
+    }
 }

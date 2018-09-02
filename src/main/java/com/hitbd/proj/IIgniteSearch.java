@@ -31,6 +31,10 @@ public interface IIgniteSearch {
      */
     boolean connect(String hostname, int port);
 
+    boolean newIgniteClient();
+
+    boolean closeIgniteClient();
+
     /**
      * C5.2
      * 获取设备imei的累计告警计数值
