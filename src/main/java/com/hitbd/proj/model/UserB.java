@@ -8,7 +8,9 @@ import com.hitbd.proj.model.IUserB;
 public class UserB implements IUserB {
     private int user_id;
     public int parent_id;
-    public StringBuffer children_ids;
+    public String children_ids;
+
+    public UserB(){};
 
     public UserB(int user_id, int parent_id) {
         super();
@@ -19,13 +21,13 @@ public class UserB implements IUserB {
     public UserB(int user_id, String children_ids) {
         super();
         this.user_id = user_id;
-        this.children_ids = new StringBuffer(children_ids);
+        this.children_ids = children_ids;
     }
 
     public UserB(int user_id, int parent_id, String children_ids) {
         super();
         this.user_id = user_id;
-        this.children_ids = new StringBuffer(children_ids);
+        this.children_ids = children_ids;
         this.parent_id = parent_id;
     }
 
@@ -51,8 +53,9 @@ public class UserB implements IUserB {
 
     @Override
     public List<Integer> getChildren() {
-        String[] children = new String(children_ids).split(",");
-        ArrayList<Integer> result = new ArrayList<Integer>();
+        if (children_ids == null) return new ArrayList<>();
+        String[] children = children_ids.split(",");
+        ArrayList<Integer> result = new ArrayList<>();
         for (int i = 0; i < children.length; i++) {
             result.add(Integer.valueOf(children[i]));
         }
@@ -61,10 +64,15 @@ public class UserB implements IUserB {
 
     @Override
     public void setChildren(List<Integer> childrenIds) {
-        StringBuffer temp = new StringBuffer();
-        for (Integer child : childrenIds) {
-            temp.append(child + ",");
+        if (childrenIds == null) {
+            this.children_ids = "";
+            return;
         }
-        this.children_ids = temp.deleteCharAt(temp.length() - 1);
+        StringBuilder temp = new StringBuilder();
+        for (Integer child : childrenIds) {
+            temp.append(child).append(",");
+        }
+        if (temp.length() > 0) temp.setLength(temp.length() - 1);
+        this.children_ids = temp.toString();
     }
 }

@@ -208,9 +208,9 @@ public class IgniteSearch implements IIgniteSearch {
         String sql = "insert into UserC values(?,?,?,?)";
         PreparedStatement pstmt = conn.prepareStatement(sql);
         pstmt.setInt(1, usr.getUserCId());
-        pstmt.setString(2, usr.getDevicesString());
-        pstmt.setString(3,usr.getAuthed_deviceString());
-        pstmt.setString(4,usr.getAuth_user_idsString());
+        pstmt.setString(2, usr.getDevicesText());
+        pstmt.setString(3,usr.getAuthedDevicesText());
+        pstmt.setString(4,usr.getAuthUserIdsText());
         int result = pstmt.executeUpdate();
         return result;
     }
