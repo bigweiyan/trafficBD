@@ -137,6 +137,7 @@ public class Device implements IDevice {
 
     public void setExpireListByText(String expireList) {
         if (expireList == null || expireList.isEmpty()) {
+            this.expireList = new ArrayList<>();
             return;
         }
         String[] list = expireList.split(",");
