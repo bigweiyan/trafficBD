@@ -10,6 +10,7 @@ import com.hitbd.proj.model.IUserC;
 
 import java.sql.SQLException;
 import java.util.Date;
+import java.util.List;
 
 /*
  * 本文件不允许擅自修改，有修改需求请联系负责人
@@ -30,6 +31,10 @@ public interface IIgniteSearch {
      * @return
      */
     boolean connect(String hostname, int port);
+
+    boolean newIgniteClient();
+
+    boolean closeIgniteClient();
 
     /**
      * C5.2
@@ -222,4 +227,13 @@ public interface IIgniteSearch {
      * @return
      */
     boolean close();
+
+    /**
+     * 根据用户id查找直接设备
+     * @param user_b_id
+     * @return IDevice
+     * @throws NotExistException
+     * 备注：代洋洋增加
+     */
+    List<Long> getAllDirectDevice(int user_b_id) throws NotExistException;
 }

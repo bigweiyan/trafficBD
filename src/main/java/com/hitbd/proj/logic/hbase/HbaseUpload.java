@@ -62,6 +62,7 @@ public class HbaseUpload {
         records.next();
         Random random = new Random();
         logWriter.write("start " + file.getName() + ": \n");
+        Date date = new Date();
         while (records.hasNext()){
             CSVRecord record = records.next();
             // 获取Put列表
@@ -124,6 +125,8 @@ public class HbaseUpload {
             table.put(putList);
             table.close();
         }
+        long useTime = (new Date().getTime() - date.getTime()) / 1000;
+        logWriter.write("size: " + lineRead + " time used: " + Long.toString(useTime) + "s\n");
         logWriter.write(file.getName() + " finished!\n");
         logWriter.flush();
     }
