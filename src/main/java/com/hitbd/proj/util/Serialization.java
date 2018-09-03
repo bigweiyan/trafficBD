@@ -23,7 +23,7 @@ public class Serialization {
 	 * @return 转换后的int值
 	 */
 	public static int booToInt(boolean bool) {
-		if (bool == true)
+		if (bool)
 			return 1;
 		else
 			return 0;
@@ -36,15 +36,14 @@ public class Serialization {
 	 */
 	public static <E> String listToStr(ArrayList<E> list) {
 		int i;
-		String str = new String();
+		StringBuilder str = new StringBuilder();
 		if (list.size() == 0)
 			return "";
-		for (i = 0; i < list.size() - 1; i++) {
-			str = str + list.get(i).toString();
-			str = str + ",";
+		for (E item : list) {
+			str.append(item.toString()).append(",");
 		}
-		str = str + list.get(i);
-		return str;
+		str.setLength(str.length()-1);
+		return str.toString();
 	}
 
 	/**
@@ -55,22 +54,22 @@ public class Serialization {
 	 */
 	public static ArrayList<Integer> strToList(String str) {
 		ArrayList<Integer> list = new ArrayList<Integer>();
-		if (str.equals("") || str == null)
+		if (str == null || str.equals(""))
 			return list;
 		String[] s = str.split(",");
 		for (int i = 0; i < s.length; i++) {
-			list.add(Integer.valueOf(s[i]).intValue());
+			list.add(Integer.valueOf(s[i]));
 		}
 		return list;
 	}
 
 	public static ArrayList<Long> longToList(String str) {
 		ArrayList<Long> list = new ArrayList<Long>();
-		if (str.equals("") || str == null)
+		if (str == null || str.equals(""))
 			return list;
 		String[] s = str.split(",");
 		for (int i = 0; i < s.length; i++) {
-			list.add(Long.valueOf(s[i]).longValue());
+			list.add(Long.valueOf(s[i]));
 		}
 		return list;
 	}
@@ -107,7 +106,7 @@ public class Serialization {
      * @param expireDates parentIds 对应过期时间 expireDates
 	 */
 	public static String countExpireList(String[] parentIds, Date[] expireDates) {
-		String expirelist = new String();
+		StringBuilder expirelist = new StringBuilder();
 		int chick = 0;
 		for (int i = 0; i < parentIds.length; i++) {
 			long temp = (expireDates[i].getTime() - Settings.BASETIME) / (1000 * 60 * 60 * 24);
@@ -117,7 +116,7 @@ public class Serialization {
 				temp = 0;
 			} else
 				temp = temp - chick;
-			expirelist = expirelist + parentIds[i] + "," + String.valueOf(temp) + ",";
+			expirelist.append(parentIds[i]).append(",").append(temp).append(",");
 			chick = (int) (chick + temp);
 		}
 		return expirelist.substring(0, expirelist.length() - 1);

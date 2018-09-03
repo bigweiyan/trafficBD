@@ -649,4 +649,32 @@ public class IgniteSearch implements IIgniteSearch {
             return false;
         }
     }
+
+    /**
+     * 根据用户id查找直接设备
+     * @param user_b_id
+     * @return IDevice
+     * @throws NotExistException
+     * 备注：代洋洋增加
+     */
+    @Override
+    public List<Long> getAllDirectDevice(int user_b_id) throws NotExistException{
+        try {
+            List<Long> directDevice = new ArrayList<>();
+            String sql1="SELECT imei FROM Device WHERE user_b_id = ?";
+            PreparedStatement pstmt = connection.prepareStatement(sql1);
+            pstmt.setInt(1, user_b_id);
+            ResultSet rs=pstmt.executeQuery();
+            while(rs.next()){
+                long Imei = rs.getLong("imei");
+                directDevice.add(Imei);
+            }
+            return directDevice;
+        }
+        catch(SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+
+    }
 }
