@@ -14,6 +14,7 @@ public class AlarmC {
 	 */
 	public void createCache() {
 		//首先调用启动客户端的函数启动客户端
+		
 		ignite = Ignition.ignite(); 
 		CacheConfiguration<Long, Integer> cfg = new CacheConfiguration<Long, Integer>();
 		cfg.setName("Test");

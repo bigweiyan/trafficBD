@@ -43,13 +43,16 @@ public class IgniteSearch implements IIgniteSearch {
     @Override
     public boolean newIgniteClient() {
         // TODO
-        return false;
+    	Ignite ignite = Ignition.start();
+        return true;
     }
 
     @Override
     public boolean closeIgniteClient() {
         // TODO
-        return false;
+    	Ignite ignite = Ignition.ignite();
+    	ignite.close();
+        return true;
     }
 
     @Override
