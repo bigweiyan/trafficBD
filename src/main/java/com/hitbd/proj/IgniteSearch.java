@@ -7,6 +7,8 @@ import com.hitbd.proj.Exception.TimeException;
 import com.hitbd.proj.model.*;
 import com.hitbd.proj.model.UserC;
 import com.hitbd.proj.util.Serialization;
+import com.hitbd.proj.model.AlarmC;
+import com.hitbd.proj.model.ViewedC;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
 
@@ -57,22 +59,32 @@ public class IgniteSearch implements IIgniteSearch {
 
     @Override
     public int getAlarmCount(long imei) {
-        return 0;
+    	AlarmC ac = new AlarmC();
+    	ac.createCache(); //获取ignite和cache对象
+    	int count = ac.getAlarmCount(imei);
+        return count;
     }
 
     @Override
     public void setAlarmCount(long imei, int count) {
-
+    	AlarmC ac = new AlarmC();
+    	ac.createCache();
+    	ac.setAlarmCount(imei, count);
     }
 
     @Override
     public int getViewedCount(long imei) {
-        return 0;
+    	ViewedC vc = new ViewedC();
+    	vc.createCache();
+    	int count = vc.getViewedCount(imei);
+        return count;
     }
 
     @Override
     public void setViewedCount(long imei, int count) {
-
+    	ViewedC vc = new ViewedC();
+    	vc.createCache();
+    	vc.setViewedCount(imei, count);
     }
 
     @Override
