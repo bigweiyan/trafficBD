@@ -96,15 +96,7 @@ public class DeviceUpload {
             StringBuilder parentIds = new StringBuilder(record.get(7));
             parentIds.setLength(parentIds.length() - 1);
             String[] parents = parentIds.toString().split(",");
-            int parentId = 0;
-            if (parents.length > 1) {
-                parentId = Integer.parseInt(parents[parents.length -2]);
-            }
-            userParent.put(userID, parentId);
-            if (!userChildren.containsKey(parentId)) {
-                userChildren.put(parentId, new HashSet<>());
-            }
-            userChildren.get(parentId).add(userID);
+            addUser(parents);
 
             // imei去重：重复的imei不进行插入
             if (!devices.contains(imei)) {
@@ -123,6 +115,7 @@ public class DeviceUpload {
             pst.executeBatch();
         }
         logWriter.append(" SUCCESS!\n");
+        logWriter.flush();
     }
 
     private static void insertDevice(PreparedStatement pstmt, int userId, long imei, String deviceType, String appid,
@@ -156,5 +149,24 @@ public class DeviceUpload {
             pstmt.setNull(3, Types.VARCHAR);
         }
         pstmt.addBatch();
+    }
+
+    private static void addUser(String[] parentIds){
+        if (parentIds == null || parentIds.length == 0) {
+            return;
+        }
+        if (parentIds.length == 1) {
+            userParent.put(Integer.valueOf(parentIds[0]), null);
+        }
+        int userID, parentId;
+        for (int j = 1; j < parentIds.length; j++) {
+            userID = Integer.parseInt(parentIds[j]);
+            parentId = Integer.parseInt(parentIds[j - 1]);
+            userParent.put(userID, parentId);
+            if (!userChildren.containsKey(parentId)) {
+                userChildren.put(parentId, new HashSet<>());
+            }
+            userChildren.get(parentId).add(userID);
+        }
     }
 }
