@@ -14,9 +14,9 @@ public class AlarmC {
 	 * 新建或获取alarmC表
 	 */
 	public void createCache() {
-		//首先调用启动客户端的函数启动客户端
-		
-		ignite = Ignition.ignite(); 
+		// 首先调用启动客户端的函数启动客户端
+
+		ignite = Ignition.ignite();
 		CacheConfiguration<Long, Integer> cfg = new CacheConfiguration<Long, Integer>();
 		cfg.setName("alarm_c");
 		cfg.setCacheMode(CacheMode.PARTITIONED);// 存储方式 PARTITIONED适合分布式存储
@@ -26,6 +26,7 @@ public class AlarmC {
 
 	/**
 	 * 获取设备对应的告警数
+	 * 
 	 * @param imei
 	 * @return
 	 */
@@ -35,6 +36,7 @@ public class AlarmC {
 
 	/**
 	 * 插入设备对应的告警数
+	 * 
 	 * @param imei
 	 * @param count
 	 */
