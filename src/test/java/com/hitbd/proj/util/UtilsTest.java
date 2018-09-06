@@ -6,7 +6,7 @@ import org.junit.Test;
 
 import java.util.Date;
 
-public class TestUtils {
+public class UtilsTest {
     @Test
     public void testAlarmName(){
         Date date = new Date(1262707140000L); //2010-01-05 23:59:00
