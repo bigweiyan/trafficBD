@@ -876,7 +876,7 @@ public class HbaseSearch implements IHbaseSearch {
     		while(rs.next()){
     			imeimap.put(rs.getLong("imei"), rs.getInt("user_b_id"));
     		}
-    		IgniteSearch
+    		IgniteSearch ignitesearch = new IgniteSearch();
     		for(int i = 0;i < parentBIds.size();i++) {
     			int count = 0;
     			for(Long imei : imeimap.keySet()) {
