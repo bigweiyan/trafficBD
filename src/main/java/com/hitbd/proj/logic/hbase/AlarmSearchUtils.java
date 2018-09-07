@@ -6,13 +6,11 @@ import com.hitbd.proj.model.AlarmImpl;
 import com.hitbd.proj.model.IAlarm;
 import com.hitbd.proj.model.Pair;
 import com.hitbd.proj.model.UserB;
-import com.hitbd.proj.util.Serialization;
 import com.hitbd.proj.util.Utils;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.util.Bytes;
 
-import java.io.BufferedWriter;
 import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -20,53 +18,6 @@ import java.util.*;
 
 
 public class AlarmSearchUtils {
-
-    /**
-     * 根据userB id获取直属设备
-     * @param userBId
-     * @return
-     */
-    public List<Long> getdirectDevicesOfUserB(Integer userBId){
-        List<Long> allDirectDevicesOfUserB = new ArrayList<>();
-        IgniteSearch igniteSearchObj = new IgniteSearch();
-        try{
-            allDirectDevicesOfUserB.addAll(igniteSearchObj.getAllDirectDevice(userBId));
-        }catch (NotExistException e){
-            e.printStackTrace();
-        }
-        return allDirectDevicesOfUserB;
-    }
-
-    /**
-     * 获取用户的所有可访问设备
-     * @param userBId
-     * @return
-     */
-    public HashMap<Integer, ArrayList<Long>> getImeiOfDevicesOfUserB(Integer userBId, Set<Integer> userFilter){
-        HashMap<Integer, ArrayList<Long>> imeiOfDevicesOfUserB = new HashMap<Integer, ArrayList<Long>>();
-        IgniteSearch igniteSearchObj = new IgniteSearch();
-        try {
-            UserB b = (UserB) igniteSearchObj.getUserB(userBId);
-
-            ArrayList<Long> imeiOfDevicesOfB = new ArrayList<Long>();
-
-            Queue<UserB> queue = new LinkedList<UserB>();
-            queue.offer(b);
-            while (!queue.isEmpty()) {
-                UserB queueHead = queue.poll();
-                List<Long> directDevices = getdirectDevicesOfUserB(queueHead.getUserBId());
-                imeiOfDevicesOfB.addAll(directDevices);
-                ArrayList<Integer> children_list = Serialization.strToList(queueHead.children_ids.toString());
-                for (Integer element : children_list) {
-                    queue.offer((UserB) igniteSearchObj.getUserB(element));
-                }
-            }
-            imeiOfDevicesOfUserB.put(userBId, imeiOfDevicesOfB);
-        } catch (NotExistException e) {
-            e.printStackTrace();
-        }
-        return imeiOfDevicesOfUserB;
-    }
 
     /**
      * 根据imei与创建时间与E创建行键rouKey
