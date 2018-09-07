@@ -12,7 +12,7 @@ public class IgniteTest {
          * 测试AlarmC和ViewedC是否可以正确执行
          * 已经完成的测试，出于性能原因，在打包时进行忽略
          */
-        IgniteSearch search = new IgniteSearch();
+        IgniteSearch search = IgniteSearch.getInstance();
         search.setAlarmCount(123L, 2);
         Assert.assertEquals(search.getAlarmCount(123L), 2);
         search.setAlarmCount(456L, 456);

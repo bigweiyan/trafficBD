@@ -8,6 +8,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
+import com.hitbd.proj.logic.AlarmScanner;
 import com.hitbd.proj.logic.hbase.AlarmSearchUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
@@ -307,40 +308,27 @@ public class HbaseSearch implements IHbaseSearch {
     }
 
     @Override
-    public List<IAlarm> queryAlarmByUser(List<Integer> userBIds, boolean recursive, int sortType, QueryFilter filter) {
-        // TODO 使用imei变量判断是否读取孩子
-        // TODO 在没有设置imei过滤的时候读取所有设备
-        IgniteSearch  igniteSearchObj = new IgniteSearch();
+    public AlarmScanner queryAlarmByUser(int queryUser, List<Integer> userBIds, boolean recursive, int sortType, QueryFilter filter) {
+        // 存放用户及其对应设备
+        HashMap<Integer, List<Long>> userAndDevice;
+        // 读取用户及其对应设备imei,这些设备将被过期时间进行过滤
+        if (recursive) {
+            userAndDevice = IgniteSearch.getInstance().getChildrenDevicesOfUserB(queryUser, false);
+        } else {
+            userAndDevice = new HashMap<>();
+            for (int user : userBIds) userAndDevice.put(user, IgniteSearch.getInstance().getDirectDevices(user, queryUser, false));
+        }
+        // 计算全部设备数
+        int totalDevice = 0;
+        for (List<Long> value: userAndDevice.values()) {
+            totalDevice += value.size();
+        }
+        ArrayList<String> usedTable = new ArrayList<>();
+        // TODO 根据Filter计算需要访问的表
 
-        // 用户id为user_id的所有子用户
-        // HashMap<Integer, ArrayList<Integer>> childrenOfUserB = new HashMap<>();
-        HashMap<Integer, ArrayList<Long>> directDevicesOfUserB = new HashMap<>();
-        HashMap<Integer, ArrayList<Long>> imeiOfDevicesOfUserB = new HashMap<>();
+        if (usedTable.size() <= 2 && totalDevice < 100) {
 
-        // 创建使用AlarmSearchUtil的对象,方便操作
-        AlarmSearchUtils utilsObj = new AlarmSearchUtils();
-//        if(igniteSearchObj.connect()){
-//            for (Integer userBId : userBIds) {
-//                if (directDevicesOfUserB.containsKey(userBId)) {
-//                    directDevicesOfUserB.get(userBId).addAll(utilsObj.getdirectDevicesOfUserB(userBId));
-//                }else {
-//                    directDevicesOfUserB.put(userBId, new ArrayList<>(utilsObj.getdirectDevicesOfUserB(userBId)));
-//                }
-//                imeiOfDevicesOfUserB.putAll(utilsObj.getImeiOfDevicesOfUserB(userBId));
-//            }
-//        }
-        // 通过imeiOfDevicesOfUserB 查询用户的所有警告表
-
-        // 四种过滤类型
-
-        // 先使用allowIMEIs和allowTimeRange进行过滤
-        List<Long> allowIMEIs = filter.getAllowIMEIs();
-        Pair<Date, Date> allowTimeRange = filter.getAllowTimeRange();
-
-        // 再使用allowUserIds和allowAlarmType进行过滤
-        List<Integer> allowUserIds = filter.getAllowUserIds();
-        List<String> allowAlarmType = filter.getAllowAlarmType();
-
+        }
         // 根据imei与创建时间与E创建行键rouKeys
         List<Pair<String, String>> rowKeys = new ArrayList<>();
         Date startTime = allowTimeRange.getKey();
@@ -547,7 +535,7 @@ public class HbaseSearch implements IHbaseSearch {
 
     @Override
     public void asyncQueryAlarmByUser(int qid, List<Integer> userBIds, boolean recursive, int sortType, QueryFilter filter) {
-        IgniteSearch  igniteSearchObj = new IgniteSearch();
+        IgniteSearch  igniteSearchObj = IgniteSearch.getInstance();
 
         // 用户id为user_id的所有子用户
         // HashMap<Integer, ArrayList<Integer>> childrenOfUserB = new HashMap<Integer, ArrayList<Integer>>();
