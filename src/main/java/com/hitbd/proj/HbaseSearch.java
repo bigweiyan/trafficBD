@@ -163,11 +163,13 @@ public class HbaseSearch implements IHbaseSearch {
         try {
             table = connection.getTable(TableName.valueOf(tablename));
             Scan scan = new Scan(start.getBytes(),end.getBytes());
+            scan.addFamily("r".getBytes());
             ResultScanner scanner = table.getScanner(scan);
-            Iterator<Result> ret = scanner.iterator();
+            Result ret = scanner.next();
+            System.out.println(new String(ret.getValue("r".getBytes(), "type".getBytes())));
             scanner.close();
             table.close();
-            return ret;
+            return null;
         } catch (IOException e) {
             e.printStackTrace();
         }  //IOException
