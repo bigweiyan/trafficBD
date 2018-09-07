@@ -8,7 +8,7 @@ import org.junit.Test;
 import java.util.ArrayList;
 import java.util.Date;
 
-public class TestModel {
+public class ModelTest {
     @Test
     public void testString2List() {
         UserC c = new UserC();
