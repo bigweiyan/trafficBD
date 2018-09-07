@@ -1,6 +1,7 @@
 package com.hitbd.proj;
 
 import com.hitbd.proj.logic.hbase.HbaseUpload;
+import com.hitbd.proj.logic.ignite.CreateIgniteTable;
 import com.hitbd.proj.logic.ignite.DeviceUpload;
 import org.apache.ignite.Ignition;
 
@@ -11,21 +12,34 @@ import java.util.Scanner;
 public class Main {
     public static void main(String[] args) {
         if (args.length < 1) {
-            System.out.println("Usage: trafficBD [Action] [Parameter]");
+            System.out.println("Usage: trafficBD Action [Parameter]");
             System.out.println("Actions:");
-            System.out.println("ImportAlarm [FileName/Folder] [HBaseConfFile] import alarm file to hbase");
-            System.out.println("ImportDevice [FileName/Folder] import alarm file to ignite");
+            System.out.println("ImportAlarm FileName/Folder HBaseConfFile   #import alarm file to hbase");
+            System.out.println("ImportDevice FileName/Folder import   #alarm file to ignite");
+            System.out.println("CreateIgniteTable [hostname]  #create user_b, user_c and device table");
             return;
         }
         loadSettings();
-        if (args[0].equals("ImportAlarm")) {
-            HbaseUpload.main(args);
-        }else if(args[0].equals("ImportDevice")) {
-            DeviceUpload.main(args);
+        switch (args[0]) {
+            case "ImportAlarm":
+                HbaseUpload.main(args);
+                break;
+            case "ImportDevice":
+                DeviceUpload.main(args);
+                break;
+            case "CreateIgniteTable":
+                CreateIgniteTable.main(args);
+                break;
+            default:
+                System.out.println("Usage: trafficBD Action [Parameter]");
+                System.out.println("Actions:");
+                System.out.println("ImportAlarm FileName/Folder HBaseConfFile   #import alarm file to hbase");
+                System.out.println("ImportDevice FileName/Folder import   #alarm file to ignite");
+                System.out.println("CreateIgniteTable [hostname]  #create user_b, user_c and device table");
         }
     }
 
-    public static void loadSettings() {
+    static void loadSettings() {
         File settings;
         try {
             settings = new File ("conf/settings");
