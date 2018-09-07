@@ -8,4 +8,5 @@ public class Settings {
     public static String igniteHostAddress = "127.0.0.1";
     public static String logDir = "./";
     public static Date MAXTIME = new Date(199,1,1);
+    public static int ROW_KEY_E_FACTOR = 9;
 }

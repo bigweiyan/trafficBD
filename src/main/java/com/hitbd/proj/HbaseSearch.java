@@ -166,11 +166,13 @@ public class HbaseSearch implements IHbaseSearch {
         try {
             table = connection.getTable(TableName.valueOf(tablename));
             Scan scan = new Scan(start.getBytes(),end.getBytes());
+            scan.addFamily("r".getBytes());
             ResultScanner scanner = table.getScanner(scan);
-            Iterator<Result> ret = scanner.iterator();
+            Result ret = scanner.next();
+            System.out.println(new String(ret.getValue("r".getBytes(), "type".getBytes())));
             scanner.close();
             table.close();
-            return ret;
+            return null;
         } catch (IOException e) {
             e.printStackTrace();
         }  //IOException
@@ -320,16 +322,16 @@ public class HbaseSearch implements IHbaseSearch {
 
         // 创建使用AlarmSearchUtil的对象,方便操作
         AlarmSearchUtils utilsObj = new AlarmSearchUtils();
-        if(igniteSearchObj.connect()){
-            for (Integer userBId : userBIds) {
-                if (directDevicesOfUserB.containsKey(userBId)) {
-                    directDevicesOfUserB.get(userBId).addAll(utilsObj.getdirectDevicesOfUserB(userBId));
-                }else {
-                    directDevicesOfUserB.put(userBId, new ArrayList<>(utilsObj.getdirectDevicesOfUserB(userBId)));
-                }
-                imeiOfDevicesOfUserB.putAll(utilsObj.getImeiOfDevicesOfUserB(userBId));
-            }
-        }
+//        if(igniteSearchObj.connect()){
+//            for (Integer userBId : userBIds) {
+//                if (directDevicesOfUserB.containsKey(userBId)) {
+//                    directDevicesOfUserB.get(userBId).addAll(utilsObj.getdirectDevicesOfUserB(userBId));
+//                }else {
+//                    directDevicesOfUserB.put(userBId, new ArrayList<>(utilsObj.getdirectDevicesOfUserB(userBId)));
+//                }
+//                imeiOfDevicesOfUserB.putAll(utilsObj.getImeiOfDevicesOfUserB(userBId));
+//            }
+//        }
         // 通过imeiOfDevicesOfUserB 查询用户的所有警告表
 
         // 四种过滤类型
@@ -557,16 +559,16 @@ public class HbaseSearch implements IHbaseSearch {
 
         // 创建使用AlarmSearchUtil的对象,方便操作
         AlarmSearchUtils utilsObj = new AlarmSearchUtils();
-        if(igniteSearchObj.connect()){
-            for (Integer userBId : userBIds) {
-                if (directDevicesOfUserB.containsKey(userBId)) {
-                    directDevicesOfUserB.get(userBId).addAll(utilsObj.getdirectDevicesOfUserB(userBId));
-                }else {
-                    directDevicesOfUserB.put(userBId, new ArrayList<>(utilsObj.getdirectDevicesOfUserB(userBId)));
-                }
-                imeiOfDevicesOfUserB.putAll(utilsObj.getImeiOfDevicesOfUserB(userBId));
-            }
-        }
+//        if(igniteSearchObj.connect()){
+//            for (Integer userBId : userBIds) {
+//                if (directDevicesOfUserB.containsKey(userBId)) {
+//                    directDevicesOfUserB.get(userBId).addAll(utilsObj.getdirectDevicesOfUserB(userBId));
+//                }else {
+//                    directDevicesOfUserB.put(userBId, new ArrayList<>(utilsObj.getdirectDevicesOfUserB(userBId)));
+//                }
+//                imeiOfDevicesOfUserB.putAll(utilsObj.getImeiOfDevicesOfUserB(userBId));
+//            }
+//        }
         // 通过imeiOfDevicesOfUserB 查询用户的所有警告表
 
         // 四种过滤类型
