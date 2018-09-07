@@ -319,16 +319,16 @@ public class HbaseSearch implements IHbaseSearch {
 
         // 创建使用AlarmSearchUtil的对象,方便操作
         AlarmSearchUtils utilsObj = new AlarmSearchUtils();
-        if(igniteSearchObj.connect()){
-            for (Integer userBId : userBIds) {
-                if (directDevicesOfUserB.containsKey(userBId)) {
-                    directDevicesOfUserB.get(userBId).addAll(utilsObj.getdirectDevicesOfUserB(userBId));
-                }else {
-                    directDevicesOfUserB.put(userBId, new ArrayList<>(utilsObj.getdirectDevicesOfUserB(userBId)));
-                }
-                imeiOfDevicesOfUserB.putAll(utilsObj.getImeiOfDevicesOfUserB(userBId));
-            }
-        }
+//        if(igniteSearchObj.connect()){
+//            for (Integer userBId : userBIds) {
+//                if (directDevicesOfUserB.containsKey(userBId)) {
+//                    directDevicesOfUserB.get(userBId).addAll(utilsObj.getdirectDevicesOfUserB(userBId));
+//                }else {
+//                    directDevicesOfUserB.put(userBId, new ArrayList<>(utilsObj.getdirectDevicesOfUserB(userBId)));
+//                }
+//                imeiOfDevicesOfUserB.putAll(utilsObj.getImeiOfDevicesOfUserB(userBId));
+//            }
+//        }
         // 通过imeiOfDevicesOfUserB 查询用户的所有警告表
 
         // 四种过滤类型
@@ -556,16 +556,16 @@ public class HbaseSearch implements IHbaseSearch {
 
         // 创建使用AlarmSearchUtil的对象,方便操作
         AlarmSearchUtils utilsObj = new AlarmSearchUtils();
-        if(igniteSearchObj.connect()){
-            for (Integer userBId : userBIds) {
-                if (directDevicesOfUserB.containsKey(userBId)) {
-                    directDevicesOfUserB.get(userBId).addAll(utilsObj.getdirectDevicesOfUserB(userBId));
-                }else {
-                    directDevicesOfUserB.put(userBId, new ArrayList<>(utilsObj.getdirectDevicesOfUserB(userBId)));
-                }
-                imeiOfDevicesOfUserB.putAll(utilsObj.getImeiOfDevicesOfUserB(userBId));
-            }
-        }
+//        if(igniteSearchObj.connect()){
+//            for (Integer userBId : userBIds) {
+//                if (directDevicesOfUserB.containsKey(userBId)) {
+//                    directDevicesOfUserB.get(userBId).addAll(utilsObj.getdirectDevicesOfUserB(userBId));
+//                }else {
+//                    directDevicesOfUserB.put(userBId, new ArrayList<>(utilsObj.getdirectDevicesOfUserB(userBId)));
+//                }
+//                imeiOfDevicesOfUserB.putAll(utilsObj.getImeiOfDevicesOfUserB(userBId));
+//            }
+//        }
         // 通过imeiOfDevicesOfUserB 查询用户的所有警告表
 
         // 四种过滤类型

@@ -13,10 +13,10 @@ import org.apache.ignite.Ignition;
 import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.configuration.CacheConfiguration;
 
+import javax.annotation.Nullable;
 import java.sql.*;
-import java.util.ArrayList;
+import java.util.*;
 import java.util.Date;
-import java.util.List;
 
 public class IgniteSearch implements IIgniteSearch {
     static Ignite ignite;
@@ -37,6 +37,14 @@ public class IgniteSearch implements IIgniteSearch {
 //        viewedCCache = ignite.getOrCreateCache(cfg);// 根据配置创建缓存
 //	}
 	Connection connection;
+	static IgniteSearch search = null;
+
+	public static IgniteSearch getInstance() {
+	    if (search == null) {
+	        search = new IgniteSearch();
+        }
+        return search;
+    }
 
 	@Override
 	public boolean connect() {
@@ -659,13 +667,14 @@ public class IgniteSearch implements IIgniteSearch {
 	}
 
     /**
+     * 补充代码1
      * 根据用户id查找直接设备
      * @param userBId
      * @return 直属设备列表
      * @throws NotExistException
-     * 备注：代洋洋增加
      */
-    public List<Long> getDirectDevices(int userBId) throws NotExistException{
+    public List<Long> getDirectDevices(int userBId) {
+        if (connection == null) connect();
         List<Long> result = new ArrayList<>();
         try {
             PreparedStatement pstmt = connection.prepareStatement("SELECT imei FROM Device WHERE user_b_id = ?;");
@@ -682,19 +691,55 @@ public class IgniteSearch implements IIgniteSearch {
         return result;
     }
 
-    public List<Integer> getChildrenAndDevice(int userBId) {
+    /**
+     * 补充代码2
+     * 获取一个B端用户的所有孩子
+     * @param userBId
+     * @return 孩子的bid列表
+     */
+    public List<Integer> getChildren(int userBId) {
+        if (connection == null) connect();
         List<Integer> children = new ArrayList<>();
         try {
-            PreparedStatement pst = connection.prepareStatement("SELECT children from user_b where user_b_id = ?;");
+            PreparedStatement pst = connection.prepareStatement("SELECT children_ids from user_b where user__id = ?;");
             pst.setInt(1, userBId);
             ResultSet resultSet = pst.executeQuery();
             while (resultSet.next()) {
-                String childrenText = resultSet.getString("children");
+                String childrenText = resultSet.getString("children_ids");
                 children.addAll(Serialization.strToList(childrenText));
             }
         }catch (SQLException e){
             e.printStackTrace();
         }
         return children;
+    }
+
+    public HashMap<Integer, List<Long>> getChildrenDevicesOfUserB(Integer userBId){
+        return getChildrenDevicesOfUserB(userBId, null);
+    }
+
+    /**
+     * 补充代码
+     * 获取用户的所有可访问设备
+     * @param userBId
+     * @return
+     */
+    public HashMap<Integer, List<Long>> getChildrenDevicesOfUserB(Integer userBId, @Nullable Set<Integer> userFilter){
+        HashMap<Integer, List<Long>> userImeiMap = new HashMap<>();
+        Queue<Integer> queue = new LinkedList<>();
+        queue.offer(userBId);
+        while (!queue.isEmpty()) {
+            int user = queue.poll();
+            List<Integer> children_list = getChildren(user);
+            for (Integer element : children_list) {
+                queue.offer(element);
+            }
+
+            //如果设置了Filter并且filter中没有允许该用户，则不进行访问
+            if (userFilter != null && !userFilter.contains(user)) continue;
+            List<Long> directDevices = getDirectDevices(user);
+            userImeiMap.put(user, directDevices);
+        }
+        return userImeiMap;
     }
 }
