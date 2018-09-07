@@ -4,6 +4,9 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -24,7 +27,7 @@ import com.hitbd.proj.model.AlarmImpl;
 import com.hitbd.proj.model.IAlarm;
 import com.hitbd.proj.model.Pair;
 import com.hitbd.proj.util.Utils;
-
+import com.hitbd.proj.util.Serialization;
 public class HbaseSearch implements IHbaseSearch {
 
     private static Connection connection;
@@ -834,11 +837,59 @@ public class HbaseSearch implements IHbaseSearch {
 
     @Override
     public Map<String, Integer> groupCountByImeiStatus(int parentBId, boolean recursive) {
+    	if(recursive==false) {
+    		String sql = "select imei from device where user_id = " + String.valueOf(parentBId);
+    		PreparedStatement pstmt = connection.prepareStatement(sql);
+    		ResultSet rs = pstmt.executeQuery();
+    		Map<String,Integer> map = new HashMap<String,Integer>();
+    		ArrayList<Long> imeilist = new ArrayList<Long>();
+    		while(rs.next()) {
+    			imeilist.add(rs.getLong("imei"));
+    		}
+    		for(int i = 0;i<imeilist.size();i++) {
+    			List<IAlarm> ialarmlist = new ArrayList<IAlarm>();
+    			Date endtime = new Date();
+        		ialarmlist = getAlarms(imeilist.get(i), imeilist.get(i), new Date(Settings.BASETIME),endtime);
+        		String temp = ialarmlist.get(i).getStatus();
+        		if(map.containsKey(temp)==true)
+        			map.replace(temp, map.get(temp), map.get(temp)+1);
+        		else
+        			map.put(temp, 1);
+    		}
+    		return map;
+    	}
+    	else {
+    		
+    	}
         return null;
     }
 
     @Override
-    public Map<String, Integer> groupCountByUserIdViewed(List<Integer> parentBIds, boolean recursive) {
+    public Map<String, Integer> groupCountByUserIdViewed(ArrayList<Integer> parentBIds, boolean recursive) {
+    	if(recursive==false) {
+    		String sql = "select imei,user_b_id from device where user_b_id in ("
+    				+ Serialization.listToStr(parentBIds) + ")";
+    		Map<String, Integer> map = new HashMap<String, Integer>();
+    		Map<Long, Integer> imeimap = new HashMap<Long,Integer>();
+    		PreparedStatement pstmt = connection.prepareStatement(sql);
+    		ResultSet rs = pstmt.executeQuery();
+    		while(rs.next()){
+    			imeimap.put(rs.getLong("imei"), rs.getInt("user_b_id"));
+    		}
+    		IgniteSearch
+    		for(int i = 0;i < parentBIds.size();i++) {
+    			int count = 0;
+    			for(Long imei : imeimap.keySet()) {
+    				if(imeimap.get(imei).equals(parentBIds.get(i))) {
+    					count = count + 
+    				}
+    				
+    			}
+    		}
+    	}
+    	else {
+    		
+    	}
         return null;
     }
 
