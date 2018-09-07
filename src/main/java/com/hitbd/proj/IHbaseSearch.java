@@ -155,7 +155,7 @@ public interface IHbaseSearch {
      * @param topK
      * @return
      */
-    Map<String, Integer> groupCountByUserId(List<Integer> parentBIds, boolean recursive, int topK);
+    Map<Integer, Integer> groupCountByUserId(ArrayList<Integer> parentBIds, boolean recursive, int topK);
 
     /**
      * A5.3
