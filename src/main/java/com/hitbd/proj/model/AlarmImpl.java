@@ -1,6 +1,8 @@
 package com.hitbd.proj.model;
 
 import java.util.Date;
+
+import com.hitbd.proj.IgniteSearch;
 import com.hitbd.proj.util.Utils;
 
 public class AlarmImpl implements IAlarm {
@@ -122,7 +124,8 @@ public class AlarmImpl implements IAlarm {
         for (int j = 0; j < 17 - imeistr.length(); j++) {
             sb.append(0);
         }
-        sb.append(imeistr).append(Utils.getRelativeSecond(this.createTime)).append((new AlarmC().getAlarmCount(this.imei)+1)%10);
+        // TODO 正确性测试及性能优化（去除对象的创建）
+        sb.append(imeistr).append(Utils.getRelativeSecond(this.createTime)).append((new IgniteSearch().getAlarmCount(this.imei)+1)%10);
         return sb.toString();
     }
 

@@ -18,9 +18,13 @@ import java.sql.*;
 import java.util.*;
 
 public class DeviceUpload {
-    static Map<Integer, Set<Integer>> userChildren = new HashMap<>();
-    static Map<Integer, Integer> userParent = new HashMap<>();
-    static String INSERT_DEVICE = "insert into device" +
+    // 记录全局的user-childre关系，避免重复插入
+    private static Map<Integer, Set<Integer>> userChildren = new HashMap<>();
+    // 记录全局的user-parent关系，避免重复插入
+    private static Map<Integer, Integer> userParent = new HashMap<>();
+    // 记录全局的imei，避免重复插入
+    private static Set<Long> devices = new HashSet<>();
+    private static String INSERT_DEVICE = "insert into device" +
             "(user_b_id,imei,device_type,device_name,project_id,enabled,repayment,user_c_id) " +
             "values(?,?,?,?,?,?,?,?)";
     public static void main(String args[]){
@@ -35,6 +39,7 @@ public class DeviceUpload {
                 System.out.println("Connect Success");
                 if (src.isFile()) {
                     uploadFile(connection, src, writer);
+                    uploadUser(connection);
                 } else {
                     File[] files = src.listFiles();
                     if (files != null) {
@@ -44,6 +49,7 @@ public class DeviceUpload {
                             }
                         }
                     }
+                    uploadUser(connection);
                 }
             }catch (SQLException | IOException e){
                 e.printStackTrace();
@@ -53,7 +59,26 @@ public class DeviceUpload {
         }
     }
 
-    static void uploadFile(Connection connection, File file, FileWriter logWriter) throws SQLException, IOException {
+    private static void uploadUser(Connection connection) throws SQLException{
+        // 插入user_b记录
+        PreparedStatement pst = connection.prepareStatement("insert into user_b values(?,?,?)");
+        Set<Integer> users = new HashSet<>(userParent.keySet());
+        users.addAll(userChildren.keySet());
+        int userCount = 0;
+        for (Integer user: users) {
+            insertUserB(pst, user, userParent.get(user), userChildren.get(user));
+            userCount++;
+            if (userCount % 100 == 0) {
+                pst.executeBatch();
+            }
+        }
+        if (userCount % 100 != 0) {
+            pst.executeBatch();
+        }
+    }
+
+    private static void uploadFile(Connection connection, File file, FileWriter logWriter) throws SQLException, IOException {
+        logWriter.append("upload " + file.getName());
         CSVParser parser = new CSVParser(new FileReader(file), CSVFormat.DEFAULT);
         Iterator<CSVRecord> records = parser.iterator();
         records.next();
@@ -71,43 +96,26 @@ public class DeviceUpload {
             StringBuilder parentIds = new StringBuilder(record.get(7));
             parentIds.setLength(parentIds.length() - 1);
             String[] parents = parentIds.toString().split(",");
-            int parentId = 0;
-            if (parents.length > 1) {
-                parentId = Integer.parseInt(parents[parents.length -2]);
-            }
-            userParent.put(userID, parentId);
-            if (!userChildren.containsKey(parentId)) {
-                userChildren.put(parentId, new HashSet<>());
-            }
-            userChildren.get(parentId).add(userID);
+            addUser(parents);
 
-            insertDevice(pst, userID, imei, deviceType, appid, enabled, repayment);
-            deviceCount++;
+            // imei去重：重复的imei不进行插入
+            if (!devices.contains(imei)) {
+                devices.add(imei);
+                insertDevice(pst, userID, imei, deviceType, appid, enabled, repayment);
+                deviceCount++;
+            }
+            // 每100个device进行一次上传
             if (deviceCount > 100) {
                 pst.executeBatch();
                 deviceCount = 0;
             }
         }
-
+        // 上传剩余的device
         if(deviceCount > 0) {
             pst.executeBatch();
         }
-
-        // 插入user_b记录
-        pst = connection.prepareStatement("insert into user_b values(?,?,?)");
-        Set<Integer> users = new HashSet<>(userParent.keySet());
-        users.addAll(userChildren.keySet());
-        int userCount = 0;
-        for (Integer user: users) {
-            insertUserB(pst, user, userParent.get(user), userChildren.get(user));
-            userCount++;
-            if (userCount % 100 == 0) {
-                pst.executeBatch();
-            }
-        }
-        if (userCount % 100 != 0) {
-            pst.executeBatch();
-        }
+        logWriter.append(" SUCCESS!\n");
+        logWriter.flush();
     }
 
     private static void insertDevice(PreparedStatement pstmt, int userId, long imei, String deviceType, String appid,
@@ -141,5 +149,24 @@ public class DeviceUpload {
             pstmt.setNull(3, Types.VARCHAR);
         }
         pstmt.addBatch();
+    }
+
+    private static void addUser(String[] parentIds){
+        if (parentIds == null || parentIds.length == 0) {
+            return;
+        }
+        if (parentIds.length == 1) {
+            userParent.put(Integer.valueOf(parentIds[0]), null);
+        }
+        int userID, parentId;
+        for (int j = 1; j < parentIds.length; j++) {
+            userID = Integer.parseInt(parentIds[j]);
+            parentId = Integer.parseInt(parentIds[j - 1]);
+            userParent.put(userID, parentId);
+            if (!userChildren.containsKey(parentId)) {
+                userChildren.put(parentId, new HashSet<>());
+            }
+            userChildren.get(parentId).add(userID);
+        }
     }
 }
