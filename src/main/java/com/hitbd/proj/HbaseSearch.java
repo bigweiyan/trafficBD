@@ -315,7 +315,7 @@ public class HbaseSearch implements IHbaseSearch {
 
         // 用户id为user_id的所有子用户
         // HashMap<Integer, ArrayList<Integer>> childrenOfUserB = new HashMap<>();
-        HashMap<Integer, List<Long>> directDevicesOfUserB = new HashMap<>();
+        HashMap<Integer, ArrayList<Long>> directDevicesOfUserB = new HashMap<>();
         HashMap<Integer, ArrayList<Long>> imeiOfDevicesOfUserB = new HashMap<>();
 
         // 创建使用AlarmSearchUtil的对象,方便操作

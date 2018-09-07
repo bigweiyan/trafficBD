@@ -7,10 +7,11 @@ import com.hitbd.proj.Exception.TimeException;
 import com.hitbd.proj.model.*;
 import com.hitbd.proj.model.UserC;
 import com.hitbd.proj.util.Serialization;
-import com.hitbd.proj.model.AlarmC;
-import com.hitbd.proj.model.ViewedC;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
 import org.apache.ignite.Ignition;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.configuration.CacheConfiguration;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -18,7 +19,23 @@ import java.util.Date;
 import java.util.List;
 
 public class IgniteSearch implements IIgniteSearch {
-	Ignite ignite;
+    static Ignite ignite;
+    static IgniteCache<Long, Integer> alarmCCache;
+    static IgniteCache<Long, Integer> viewedCCache;
+	static {
+        Ignition.setClientMode(true);
+        ignite = Ignition.start();
+        CacheConfiguration<Long, Integer> cfg = new CacheConfiguration<Long, Integer>();
+        cfg.setName("alarm_c");
+        cfg.setCacheMode(CacheMode.PARTITIONED);// 存储方式 PARTITIONED适合分布式存储
+        cfg.setIndexedTypes(Long.class, Integer.class); // 必须设置索引类否则只能以key-value方式查询
+        alarmCCache = ignite.getOrCreateCache(cfg);// 根据配置创建缓存
+        cfg = new CacheConfiguration<Long, Integer>();
+        cfg.setName("viewed_c");
+        cfg.setCacheMode(CacheMode.PARTITIONED);// 存储方式 PARTITIONED适合分布式存储
+        cfg.setIndexedTypes(Long.class, Integer.class); // 必须设置索引类否则只能以key-value方式查询
+        viewedCCache = ignite.getOrCreateCache(cfg);// 根据配置创建缓存
+	}
 	Connection connection;
 
 	@Override
@@ -44,48 +61,31 @@ public class IgniteSearch implements IIgniteSearch {
 	}
 
 	@Override
-	public boolean newIgniteClient() {
-		// TODO
-		Ignite ignite = Ignition.start();
-		return true;
-	}
-
-	@Override
-	public boolean closeIgniteClient() {
-		// TODO
-		Ignite ignite = Ignition.ignite();
-		ignite.close();
-		return true;
-	}
-
-	@Override
 	public int getAlarmCount(long imei) {
-		AlarmC ac = new AlarmC();
-		ac.createCache(); // 获取ignite和cache对象
-		int count = ac.getAlarmCount(imei);
-		return count;
+		Integer result = alarmCCache.get(imei);
+		return result == null ? 0 : result;
 	}
 
 	@Override
 	public void setAlarmCount(long imei, int count) {
-		AlarmC ac = new AlarmC();
-		ac.createCache();
-		ac.setAlarmCount(imei, count);
+        if (alarmCCache.containsKey(imei))
+            alarmCCache.replace(imei, count);
+        else
+            alarmCCache.put(imei, count);
 	}
 
 	@Override
 	public int getViewedCount(long imei) {
-		ViewedC vc = new ViewedC();
-		vc.createCache();
-		int count = vc.getViewedCount(imei);
-		return count;
+        Integer result = viewedCCache.get(imei);
+        return result == null ? 0 : result;
 	}
 
 	@Override
 	public void setViewedCount(long imei, int count) {
-		ViewedC vc = new ViewedC();
-		vc.createCache();
-		vc.setViewedCount(imei, count);
+        if (viewedCCache.containsKey(imei))
+            viewedCCache.replace(imei, count);
+        else
+            viewedCCache.put(imei, count);
 	}
 
 	@Override
@@ -658,31 +658,43 @@ public class IgniteSearch implements IIgniteSearch {
 		}
 	}
 
-	/**
-	 * 根据用户id查找直接设备
-	 * 
-	 * @param user_b_id
-	 * @return IDevice
-	 * @throws NotExistException
-	 *             备注：代洋洋增加
-	 */
-	@Override
-	public List<Long> getAllDirectDevice(int user_b_id) throws NotExistException {
-		try {
-			List<Long> directDevice = new ArrayList<>();
-			String sql1 = "SELECT imei FROM Device WHERE user_b_id = ?";
-			PreparedStatement pstmt = connection.prepareStatement(sql1);
-			pstmt.setInt(1, user_b_id);
-			ResultSet rs = pstmt.executeQuery();
-			while (rs.next()) {
-				long Imei = rs.getLong("imei");
-				directDevice.add(Imei);
-			}
-			return directDevice;
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-		return null;
+    /**
+     * 根据用户id查找直接设备
+     * @param userBId
+     * @return 直属设备列表
+     * @throws NotExistException
+     * 备注：代洋洋增加
+     */
+    public List<Long> getDirectDevices(int userBId) throws NotExistException{
+        List<Long> result = new ArrayList<>();
+        try {
+            PreparedStatement pstmt = connection.prepareStatement("SELECT imei FROM Device WHERE user_b_id = ?;");
+            pstmt.setInt(1, userBId);
+            ResultSet rs=pstmt.executeQuery();
+            while(rs.next()){
+                long Imei = rs.getLong("imei");
+                result.add(Imei);
+            }
+        }
+        catch(SQLException e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
 
-	}
+    public List<Integer> getChildrenAndDevice(int userBId) {
+        List<Integer> children = new ArrayList<>();
+        try {
+            PreparedStatement pst = connection.prepareStatement("SELECT children from user_b where user_b_id = ?;");
+            pst.setInt(1, userBId);
+            ResultSet resultSet = pst.executeQuery();
+            while (resultSet.next()) {
+                String childrenText = resultSet.getString("children");
+                children.addAll(Serialization.strToList(childrenText));
+            }
+        }catch (SQLException e){
+            e.printStackTrace();
+        }
+        return children;
+    }
 }
