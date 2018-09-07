@@ -227,13 +227,4 @@ public interface IIgniteSearch {
      * @return
      */
     boolean close();
-
-    /**
-     * 根据用户id查找直接设备
-     * @param user_b_id
-     * @return IDevice
-     * @throws NotExistException
-     * 备注：代洋洋增加
-     */
-    List<Long> getAllDirectDevice(int user_b_id) throws NotExistException;
 }

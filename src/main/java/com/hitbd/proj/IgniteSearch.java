@@ -652,29 +652,41 @@ public class IgniteSearch implements IIgniteSearch {
 
     /**
      * 根据用户id查找直接设备
-     * @param user_b_id
-     * @return IDevice
+     * @param userBId
+     * @return 直属设备列表
      * @throws NotExistException
      * 备注：代洋洋增加
      */
-    @Override
-    public List<Long> getAllDirectDevice(int user_b_id) throws NotExistException{
+    public List<Long> getDirectDevices(int userBId) throws NotExistException{
+        List<Long> result = new ArrayList<>();
         try {
-            List<Long> directDevice = new ArrayList<>();
-            String sql1="SELECT imei FROM Device WHERE user_b_id = ?";
-            PreparedStatement pstmt = connection.prepareStatement(sql1);
-            pstmt.setInt(1, user_b_id);
+            PreparedStatement pstmt = connection.prepareStatement("SELECT imei FROM Device WHERE user_b_id = ?;");
+            pstmt.setInt(1, userBId);
             ResultSet rs=pstmt.executeQuery();
             while(rs.next()){
                 long Imei = rs.getLong("imei");
-                directDevice.add(Imei);
+                result.add(Imei);
             }
-            return directDevice;
         }
         catch(SQLException e) {
             e.printStackTrace();
         }
-        return null;
+        return result;
+    }
 
+    public List<Integer> getChildrenAndDevice(int userBId) {
+        List<Integer> children = new ArrayList<>();
+        try {
+            PreparedStatement pst = connection.prepareStatement("SELECT children from user_b where user_b_id = ?;");
+            pst.setInt(1, userBId);
+            ResultSet resultSet = pst.executeQuery();
+            while (resultSet.next()) {
+                String childrenText = resultSet.getString("children");
+                children.addAll(Serialization.strToList(childrenText));
+            }
+        }catch (SQLException e){
+            e.printStackTrace();
+        }
+        return children;
     }
 }

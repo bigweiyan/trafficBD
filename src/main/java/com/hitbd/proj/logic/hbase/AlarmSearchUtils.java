@@ -38,11 +38,11 @@ public class AlarmSearchUtils {
     }
 
     /**
-     * 根据userB  id获取其能够访问的设备编号
+     * 获取用户的所有可访问设备
      * @param userBId
      * @return
      */
-    public HashMap<Integer, ArrayList<Long>> getImeiOfDevicesOfUserB(Integer userBId){
+    public HashMap<Integer, ArrayList<Long>> getImeiOfDevicesOfUserB(Integer userBId, Set<Integer> userFilter){
         HashMap<Integer, ArrayList<Long>> imeiOfDevicesOfUserB = new HashMap<Integer, ArrayList<Long>>();
         IgniteSearch igniteSearchObj = new IgniteSearch();
         try {
