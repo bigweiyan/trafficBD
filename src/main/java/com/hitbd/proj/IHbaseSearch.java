@@ -8,6 +8,7 @@ import com.hitbd.proj.model.IAlarm;
 import com.hitbd.proj.model.Pair;
 import org.apache.hadoop.conf.Configuration;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -147,7 +148,7 @@ public interface IHbaseSearch {
      * @param recursive 是否递归查询所有用户
      * @return
      */
-    Map<String, Integer> groupCountByUserIdViewed(List<Integer> parentBIds, boolean recursive);
+    Map<String, Integer> groupCountByUserIdViewed(ArrayList<Integer> parentBIds, boolean recursive);
 
     /**
      * 5.5 按照用户Count查询，只要求前K个结果
@@ -156,7 +157,7 @@ public interface IHbaseSearch {
      * @param topK
      * @return
      */
-    Map<String, Integer> groupCountByUserId(List<Integer> parentBIds, boolean recursive, int topK);
+    Map<Integer, Integer> groupCountByUserId(ArrayList<Integer> parentBIds, boolean recursive, int topK);
 
     /**
      * A5.3
