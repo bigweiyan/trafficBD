@@ -125,7 +125,7 @@ public class AlarmImpl implements IAlarm {
             sb.append(0);
         }
         // TODO 正确性测试及性能优化（去除对象的创建）
-        sb.append(imeistr).append(Utils.getRelativeSecond(this.createTime)).append((new IgniteSearch().getAlarmCount(this.imei)+1)%10);
+        sb.append(imeistr).append(Utils.getRelativeSecond(this.createTime)).append((IgniteSearch.getInstance().getAlarmCount(this.imei)+1)%10);
         return sb.toString();
     }
 

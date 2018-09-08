@@ -1,35 +1,37 @@
 package com.hitbd.proj;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
+import com.hitbd.proj.Exception.ForeignKeyException;
+import com.hitbd.proj.Exception.NotExistException;
+import com.hitbd.proj.Exception.TimeException;
+import com.hitbd.proj.logic.AlarmScanner;
+import com.hitbd.proj.logic.Query;
+import com.hitbd.proj.model.AlarmImpl;
+import com.hitbd.proj.model.IAlarm;
+import com.hitbd.proj.model.Pair;
+import com.hitbd.proj.util.Utils;
+import org.apache.commons.lang.StringUtils;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.HBaseConfiguration;
+import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.util.Bytes;
+
 import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
-import com.hitbd.proj.logic.AlarmScanner;
-import com.hitbd.proj.logic.hbase.AlarmSearchUtils;
-import org.apache.commons.lang.StringUtils;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.HBaseConfiguration;
-import org.apache.hadoop.hbase.HTableDescriptor;
-import org.apache.hadoop.hbase.TableName;
-import org.apache.hadoop.hbase.client.*;
-import org.apache.hadoop.hbase.util.Bytes;
-
-import com.hitbd.proj.Exception.ForeignKeyException;
-import com.hitbd.proj.Exception.NotExistException;
-import com.hitbd.proj.Exception.TimeException;
-import com.hitbd.proj.model.AlarmImpl;
-import com.hitbd.proj.model.IAlarm;
-import com.hitbd.proj.model.Pair;
-import com.hitbd.proj.util.Utils;
-
 public class HbaseSearch implements IHbaseSearch {
 
     private static Connection connection;
     private static Configuration config;
+    private static HbaseSearch search;
+
+    private HbaseSearch(){};
+    public static HbaseSearch getInstance() {
+        if (search == null) search = new HbaseSearch();
+        return search;
+    }
 
     @Override
     public boolean connect() {
@@ -310,7 +312,7 @@ public class HbaseSearch implements IHbaseSearch {
     @Override
     public AlarmScanner queryAlarmByUser(int queryUser, List<Integer> userBIds, boolean recursive, int sortType, QueryFilter filter) {
         // 存放用户及其对应设备
-        HashMap<Integer, List<Long>> userAndDevice;
+        Map<Integer, List<Long>> userAndDevice;
         // 读取用户及其对应设备imei,这些设备将被过期时间进行过滤
         if (recursive) {
             userAndDevice = IgniteSearch.getInstance().getChildrenDevicesOfUserB(queryUser, false);
@@ -318,503 +320,101 @@ public class HbaseSearch implements IHbaseSearch {
             userAndDevice = new HashMap<>();
             for (int user : userBIds) userAndDevice.put(user, IgniteSearch.getInstance().getDirectDevices(user, queryUser, false));
         }
-        // 计算全部设备数
-        int totalDevice = 0;
-        for (List<Long> value: userAndDevice.values()) {
-            totalDevice += value.size();
-        }
-        ArrayList<String> usedTable = new ArrayList<>();
-        // TODO 根据Filter计算需要访问的表
 
-        if (usedTable.size() <= 2 && totalDevice < 100) {
-
-        }
-        // 根据imei与创建时间与E创建行键rouKeys
-        List<Pair<String, String>> rowKeys = new ArrayList<>();
-        Date startTime = allowTimeRange.getKey();
-        Date endTime = allowTimeRange.getValue();
-
-        for(Long element: allowIMEIs) {
-            String startRowKey = utilsObj.createRowKey(element, startTime, 0);
-            String endRowKey = utilsObj.createRowKey(element, endTime, 9);
-            Pair<String, String> pair = new Pair<>(startRowKey, endRowKey);
-            rowKeys.add(pair);
+        // 计算需要在哪些表中进行查询
+        List<String> usedTable;
+        if (filter.getAllowTimeRange() == null) {
+            usedTable = Arrays.asList(Settings.TABLES);
+        }else{
+            usedTable = Utils.getUseTable(filter.getAllowTimeRange().getKey(), filter.getAllowTimeRange().getValue());
         }
 
-        // 警告表查询结果
-        List<IAlarm> queryResult = new ArrayList<>();
-
-        Calendar calendar = Calendar.getInstance();
-        Date nowDate = calendar.getTime();
-
-        long milliSecond = nowDate.getTime() - Settings.BASETIME;
-        int period = (int)(milliSecond / (1000 * 60 * 60 * 24 * 4));
-        Date date48before = new Date(Settings.BASETIME + period * 1000L * 60 * 60 * 24 * 4 - 48 * 1000L * 60 * 60 * 24);
-
-        if(endTime.after(date48before)) {
-            Date mmddstartTime = startTime.before(date48before) ? date48before : startTime;
-            String endTableName = Utils.getTableName(endTime);
-
-            while(!Utils.getTableName(mmddstartTime).equals(endTableName)) {
-                for(Pair<String, String> pair: rowKeys){
-                    try{
-                        Iterator<Result> results = utilsObj.scanTable(Utils.getTableName(mmddstartTime),pair.getKey(),pair.getValue(), connection);
-                        milliSecond = mmddstartTime.getTime() - Settings.BASETIME;
-                        period = (int)(milliSecond / (1000 * 60 * 60 * 24 * 4));
-                        utilsObj.addToList(results,startTime,endTime,queryResult,Settings.BASETIME + period * 1000L * 60 * 60 * 24 * 4);
-                        mmddstartTime = new Date(mmddstartTime.getTime()+ 1000L * 60 * 60 * 24 * 4);
-                    }catch (IOException | ParseException e){
-                        e.printStackTrace();
+        AlarmScanner result = new AlarmScanner();
+        // 划分查询，每个查询按时间进行排列
+        LinkedList<Query> queries = new LinkedList<>();
+        if (sortType == HbaseSearch.SORT_BY_CREATE_TIME || sortType == HbaseSearch.NO_SORT) {
+            for (int i = 0; i < usedTable.size(); i++){
+                // 确定这个查询所对应的起止时间
+                String startRelativeSecond;
+                String endRelativeSecond;
+                if (i == 0) {
+                    startRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getKey());
+                }else {
+                    startRelativeSecond = "00000";
+                }
+                if (i == usedTable.size() - 1) {
+                    endRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getValue());
+                }else {
+                    endRelativeSecond = "fffff";
+                }
+                // 新增查询
+                Query query = new Query();
+                query.order = SORT_BY_CREATE_TIME;
+                query.tableName = usedTable.get(i);
+                query.startRelativeSecond = startRelativeSecond;
+                query.endRelativeSecond = endRelativeSecond;
+                List<Pair<Integer, Long>> imeis = new ArrayList<>();
+                for (Map.Entry<Integer, List<Long>> user : userAndDevice.entrySet()) {
+                    // 记录上次读取的imei位置
+                    int lastPostion = 0;
+                    // 记录是否读取完这个user的所有imei
+                    boolean doneUser = false;
+                    while (!doneUser) {
+                        doneUser = true;
+                        while (lastPostion < user.getValue().size()) {
+                            imeis.add(new Pair<>(user.getKey(), user.getValue().get(lastPostion)));
+                            lastPostion++;
+                            // 如果现在已经读取了一批MAX_DEVICE的imei，则先构建新子查询
+                            if (lastPostion % Settings.MAX_DEVICES_PER_QUERY == 0) {
+                                doneUser = false;
+                                break;
+                            }
+                        }
+                        // 如果一个表中查询的设备数大于100， 则构建一个新查询
+                        if (imeis.size() > Settings.MAX_DEVICES_PER_QUERY) {
+                            query.imeis = imeis;
+                            queries.add(query);
+                            query = new Query();
+                            query.order = SORT_BY_CREATE_TIME;
+                            query.tableName = usedTable.get(i);
+                            query.startRelativeSecond = startRelativeSecond;
+                            query.endRelativeSecond = endRelativeSecond;
+                            imeis = new ArrayList<>();
+                        }
                     }
                 }
+                query.imeis = imeis;
+                queries.add(query);
+                result.queries = queries;
             }
+        }else if (sortType == HbaseSearch.SORT_BY_IMEI) {
+            // TODO solve imei sort
+            return null;
+        }else if (sortType == HbaseSearch.SORT_BY_USER_ID) {
+            // TODO solve user_id sort
+            return null;
+        }else {
+            throw new IllegalArgumentException("sort type should be defined in IHbaseSearch");
         }
-        if(startTime.before(date48before)){
-            for(Pair<String, String> pair: rowKeys){
-                try{
-                    Iterator<Result> results = utilsObj.scanTable("alarm_history",pair.getKey(),pair.getValue(), connection);
-                    utilsObj.addToList(results,startTime,endTime,queryResult,Settings.BASETIME + period * 1000L * 60 * 60 * 24 * 4);
-                }catch (IOException | ParseException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-
-        // 对查询结果queryResult,再使用allowUserIds和allowAlarmType进行过滤
-        // List<IAlarm> queryResult = new ArrayList<>();
-        Set<Integer> allowUserIdsSet = new HashSet<>(allowUserIds);
-        Set<String> allowAlarmTypeSet = new HashSet<>(allowAlarmType);
-        for(IAlarm element: queryResult){
-            if(!allowUserIdsSet.contains(Integer.parseInt(element.getId())) ||
-                    !allowAlarmTypeSet.contains(element.getType())){
-                queryResult.remove(element);
-            }
-
-        }
-
-        /*
-         * sortType
-         * ==1 IMEI
-         * ==2 user_id
-         * ==3 createTime
-         * ==4 alarmType
-         */
-        if(sortType ==1 || sortType ==2 ||sortType ==3 ||sortType ==4){
-            Collections.sort(queryResult, new Comparator<IAlarm>() {
-                @Override
-                public int compare(IAlarm A, IAlarm B) {
-                    switch (sortType){
-                        case 1:
-                            if(A.getImei() < B.getImei())
-                                return 1;
-                            else
-                                return 0;
-                        case 2:
-                            if(Long.valueOf(A.getId()) < Long.valueOf(B.getId()))
-                                return 1;
-                            else
-                                return 0;
-                        case 3:
-                            if(A.getCreateTime().before(B.getCreateTime()))
-                                return 1;
-                            else
-                                return 0;
-                        case 4:
-                            if(A.getType().compareTo(B.getType())<=0)
-                                return 1;
-                            else
-                                return 0;
-                        default:
-                            return 0;
-                    }
-                }
-            });
-        }
-        return queryResult;
+        result.queries = queries;
+        return result;
     }
 
     @Override
-    public List<IAlarm> queryAlarmByImei(List<Long> imeis, int sortType, QueryFilter filter) {
-        AlarmSearchUtils utilsObj = new AlarmSearchUtils();
-        HashMap<Long, Pair<String, String>> rowkeyForQuery = utilsObj.createRowkeyForQueryByImei(imeis);
-
-        // 警告表查询结果
-        Calendar calendar = Calendar.getInstance();
-        Date nowDate = calendar.getTime();
-
-        long milliSecond = nowDate.getTime() - Settings.BASETIME;
-        int period = (int)(milliSecond / (1000 * 60 * 60 * 24 * 4));
-
-        List<IAlarm> queryResult = new ArrayList<>();
-
-        // 四种过滤类型
-
-        // 先使用allowIMEIs和allowTimeRange进行过滤
-        List<Long> allowIMEIs = filter.getAllowIMEIs();
-        Pair<Date, Date> allowTimeRange = filter.getAllowTimeRange();
-
-        // 再使用allowUserIds和allowAlarmType进行过滤
-        List<Integer> allowUserIds = filter.getAllowUserIds();
-        List<String> allowAlarmType = filter.getAllowAlarmType();
-
-        try{
-            HBaseAdmin admin = new HBaseAdmin(config);
-            HTableDescriptor[] allTable = admin.listTables();
-
-            for(HTableDescriptor oneTableDescriptor: allTable){
-                String oneTableName = oneTableDescriptor.getNameAsString();
-                for(Long imei: imeis){
-                    try{
-                        Pair<String, String> pair = rowkeyForQuery.get(imei);
-                        Iterator<Result> results = utilsObj.scanTable(oneTableName,pair.getKey(),pair.getValue(), connection);
-                        utilsObj.addToList(results, queryResult,Settings.BASETIME + period * 1000L * 60 * 60 * 24 * 4);
-                    }catch (IOException | ParseException e){
-                        e.printStackTrace();
-                    }
-                }
-
-            }
-        }catch (IOException e){
-            e.printStackTrace();
-        }
-
-
-        // 对查询结果queryResult,再使用allowUserIds和allowAlarmType进行过滤
-        // List<IAlarm> queryResult = new ArrayList<>();
-        Set<Integer> allowUserIdsSet = new HashSet<>(allowUserIds);
-        Set<String> allowAlarmTypeSet = new HashSet<>(allowAlarmType);
-        for(IAlarm element: queryResult){
-            if(!allowUserIdsSet.contains(element.getId()) || !allowAlarmTypeSet.contains(element.getType())){
-                queryResult.remove(element);
-            }
-
-        }
-        /**
-         * sortType
-         * ==1 IMEI
-         * ==2 user_id
-         * ==3 createTime
-         * ==4 alarmType
-         */
-        if(sortType ==1 || sortType ==2 ||sortType ==3 ||sortType ==4){
-            Collections.sort(queryResult, new Comparator<IAlarm>() {
-                @Override
-                public int compare(IAlarm A, IAlarm B) {
-                    switch (sortType){
-                        case 1:
-                            if(A.getImei() < B.getImei())
-                                return 1;
-                            else
-                                return 0;
-                        case 2:
-                            if(Long.valueOf(A.getId()) < Long.valueOf(B.getId()))
-                                return 1;
-                            else
-                                return 0;
-                        case 3:
-                            if(A.getCreateTime().before(B.getCreateTime()))
-                                return 1;
-                            else
-                                return 0;
-                        case 4:
-                            if(A.getType().compareTo(B.getType())<=0)
-                                return 1;
-                            else
-                                return 0;
-                        default:
-                            return 0;
-                    }
-                }
-            });
-        }
-
-
-        return queryResult;
-
+    public AlarmScanner queryAlarmByImei(HashMap<Integer, List<Long>> userAndDevices, int sortType, QueryFilter filter) {
+        AlarmScanner result = new AlarmScanner();
+        // TODO
+        return result;
     }
 
     @Override
     public void asyncQueryAlarmByUser(int qid, List<Integer> userBIds, boolean recursive, int sortType, QueryFilter filter) {
-        IgniteSearch  igniteSearchObj = IgniteSearch.getInstance();
-
-        // 用户id为user_id的所有子用户
-        // HashMap<Integer, ArrayList<Integer>> childrenOfUserB = new HashMap<Integer, ArrayList<Integer>>();
-        HashMap<Integer, List<Long>> directDevicesOfUserB = new HashMap<Integer, List<Long>>();
-        HashMap<Integer, ArrayList<Long>> imeiOfDevicesOfUserB = new HashMap<Integer, ArrayList<Long>>();
-
-        // 创建使用AlarmSearchUtil的对象,方便操作
-        AlarmSearchUtils utilsObj = new AlarmSearchUtils();
-//        if(igniteSearchObj.connect()){
-//            for (Integer userBId : userBIds) {
-//                if (directDevicesOfUserB.containsKey(userBId)) {
-//                    directDevicesOfUserB.get(userBId).addAll(utilsObj.getdirectDevicesOfUserB(userBId));
-//                }else {
-//                    directDevicesOfUserB.put(userBId, new ArrayList<>(utilsObj.getdirectDevicesOfUserB(userBId)));
-//                }
-//                imeiOfDevicesOfUserB.putAll(utilsObj.getImeiOfDevicesOfUserB(userBId));
-//            }
-//        }
-        // 通过imeiOfDevicesOfUserB 查询用户的所有警告表
-
-        // 四种过滤类型
-
-        // 先使用allowIMEIs和allowTimeRange进行过滤
-        List<Long> allowIMEIs = filter.getAllowIMEIs();
-        Pair<Date, Date> allowTimeRange = filter.getAllowTimeRange();
-
-        // 再使用allowUserIds和allowAlarmType进行过滤
-        List<Integer> allowUserIds = filter.getAllowUserIds();
-        List<String> allowAlarmType = filter.getAllowAlarmType();
-
-        // 根据imei与创建时间与E创建行键rouKeys
-        List<Pair<String, String>> rowKeys = new ArrayList<>();
-        Date startTime = allowTimeRange.getKey();
-        Date endTime = allowTimeRange.getValue();
-
-        for(Long element: allowIMEIs) {
-            String startRowKey = utilsObj.createRowKey(element, startTime, 0);
-            String endRowKey = utilsObj.createRowKey(element, endTime, 9);
-            Pair<String, String> pair = new Pair<>(startRowKey, endRowKey);
-            rowKeys.add(pair);
-        }
-
-        // 警告表查询结果
-        List<IAlarm> queryResult = new ArrayList<>();
-
-        Calendar calendar = Calendar.getInstance();
-        Date nowDate = calendar.getTime();
-
-        long milliSecond = nowDate.getTime() - Settings.BASETIME;
-        int period = (int)(milliSecond / (1000 * 60 * 60 * 24 * 4));
-        Date date48before = new Date(Settings.BASETIME + period * 1000L * 60 * 60 * 24 * 4 - 48 * 1000L * 60 * 60 * 24);
-
-        if(endTime.after(date48before)) {
-            Date mmddstartTime = startTime.before(date48before) ? date48before : startTime;
-            String endTableName = Utils.getTableName(endTime);
-
-            while(!Utils.getTableName(mmddstartTime).equals(endTableName)) {
-                for(Pair<String, String> pair: rowKeys){
-                    try{
-                        Iterator<Result> results = utilsObj.scanTable(Utils.getTableName(mmddstartTime),pair.getKey(),pair.getValue(), connection);
-                        milliSecond = mmddstartTime.getTime() - Settings.BASETIME;
-                        period = (int)(milliSecond / (1000 * 60 * 60 * 24 * 4));
-                        utilsObj.addToList(results,startTime,endTime,queryResult,Settings.BASETIME + period * 1000L * 60 * 60 * 24 * 4);
-                        mmddstartTime = new Date(mmddstartTime.getTime()+ 1000L * 60 * 60 * 24 * 4);
-                    }catch (IOException | ParseException e){
-                        e.printStackTrace();
-                    }
-                }
-            }
-        }
-        if(startTime.before(date48before)){
-            for(Pair<String, String> pair: rowKeys){
-                try{
-                    Iterator<Result> results = utilsObj.scanTable("alarm_history",pair.getKey(),pair.getValue(), connection);
-                    utilsObj.addToList(results,startTime,endTime,queryResult,Settings.BASETIME + period * 1000L * 60 * 60 * 24 * 4);
-                }catch (IOException | ParseException e){
-                    e.printStackTrace();
-                }
-            }
-        }
-
-        // 对查询结果queryResult,再使用allowUserIds和allowAlarmType进行过滤
-        // List<IAlarm> queryResult = new ArrayList<>();
-        Set<Integer> allowUserIdsSet = new HashSet<>(allowUserIds);
-        Set<String> allowAlarmTypeSet = new HashSet<>(allowAlarmType);
-        for(IAlarm element: queryResult){
-            if(!allowUserIdsSet.contains(Integer.parseInt(element.getId()))
-                    || !allowAlarmTypeSet.contains(element.getType())){
-                queryResult.remove(element);
-            }
-
-        }
-
-        /*
-         * sortType
-         * ==1 IMEI
-         * ==2 user_id
-         * ==3 createTime
-         * ==4 alarmType
-         */
-        if(sortType ==1 || sortType ==2 ||sortType ==3 ||sortType ==4){
-            Collections.sort(queryResult, new Comparator<IAlarm>() {
-                @Override
-                public int compare(IAlarm A, IAlarm B) {
-                    switch (sortType){
-                        case 1:
-                            if(A.getImei() < B.getImei())
-                                return 1;
-                            else
-                                return 0;
-                        case 2:
-                            if(Long.valueOf(A.getId()) < Long.valueOf(B.getId()))
-                                return 1;
-                            else
-                                return 0;
-                        case 3:
-                            if(A.getCreateTime().before(B.getCreateTime()))
-                                return 1;
-                            else
-                                return 0;
-                        case 4:
-                            if(A.getType().compareTo(B.getType())<=0)
-                                return 1;
-                            else
-                                return 0;
-                        default:
-                            return 0;
-                    }
-                }
-            });
-        }
-        // 将查询结果queryResult 地址可更改
-        File f=new File(String.format("Query%d.txt", qid));
-        try{
-            BufferedWriter bw=new BufferedWriter(new FileWriter(f));
-            for(int i=0;i<queryResult.size();i++){
-                StringBuffer oneLine = new StringBuffer();
-                oneLine.append(queryResult.get(i).getId()).append(" ");
-                oneLine.append(queryResult.get(i).getImei()).append(" ");
-                oneLine.append(queryResult.get(i).getStatus()).append(" ");
-                oneLine.append(queryResult.get(i).getType()).append(" ");
-                oneLine.append(queryResult.get(i).getLongitude()).append(" ");
-                oneLine.append(queryResult.get(i).getLatitude()).append(" ");
-                oneLine.append(queryResult.get(i).getVelocity()).append(" ");
-                oneLine.append(queryResult.get(i).getAddress()).append(" ");
-                oneLine.append(queryResult.get(i).getCreateTime()).append(" ");
-                oneLine.append(queryResult.get(i).getPushTime()).append(" ");
-                oneLine.append(queryResult.get(i).isViewed()).append(" ");
-                oneLine.append(queryResult.get(i).getEncId());
-                bw.write(oneLine.toString());
-                bw.newLine();
-            }
-            bw.close();
-        }catch (IOException e){
-            e.printStackTrace();
-        }
+        // TODO
     }
 
     @Override
     public void asyncQueryAlarmByImei(int qid, List<Long> imeis, int sortType, QueryFilter filter) {
-        AlarmSearchUtils utilsObj = new AlarmSearchUtils();
-        HashMap<Long, Pair<String, String>> rowkeyForQuery = utilsObj.createRowkeyForQueryByImei(imeis);
-
-        // 警告表查询结果
-        Calendar calendar = Calendar.getInstance();
-        Date nowDate = calendar.getTime();
-
-        long milliSecond = nowDate.getTime() - Settings.BASETIME;
-        int period = (int)(milliSecond / (1000 * 60 * 60 * 24 * 4));
-
-        List<IAlarm> queryResult = new ArrayList<>();
-
-        // 四种过滤类型
-
-        // 先使用allowIMEIs和allowTimeRange进行过滤
-        List<Long> allowIMEIs = filter.getAllowIMEIs();
-        Pair<Date, Date> allowTimeRange = filter.getAllowTimeRange();
-
-        // 再使用allowUserIds和allowAlarmType进行过滤
-        List<Integer> allowUserIds = filter.getAllowUserIds();
-        List<String> allowAlarmType = filter.getAllowAlarmType();
-
-        try{
-            HBaseAdmin admin = new HBaseAdmin(config);
-            HTableDescriptor[] allTable = admin.listTables();
-
-            for(HTableDescriptor oneTableDescriptor: allTable){
-                String oneTableName = oneTableDescriptor.getNameAsString();
-                for(Long imei: imeis){
-                    try{
-                        Pair<String, String> pair = rowkeyForQuery.get(imei);
-                        Iterator<Result> results = utilsObj.scanTable(oneTableName,pair.getKey(),pair.getValue(), connection);
-                        utilsObj.addToList(results, queryResult,Settings.BASETIME + period * 1000L * 60 * 60 * 24 * 4);
-                    }catch (IOException | ParseException e){
-                        e.printStackTrace();
-                    }
-                }
-
-            }
-        }catch (IOException e){
-            e.printStackTrace();
-        }
-
-
-        // 对查询结果queryResult,再使用allowUserIds和allowAlarmType进行过滤
-        // List<IAlarm> queryResult = new ArrayList<>();
-        Set<Integer> allowUserIdsSet = new HashSet<>(allowUserIds);
-        Set<String> allowAlarmTypeSet = new HashSet<>(allowAlarmType);
-        for(IAlarm element: queryResult){
-            if(!allowUserIdsSet.contains(Integer.parseInt(element.getId()))
-                    || !allowAlarmTypeSet.contains(element.getType())){
-                queryResult.remove(element);
-            }
-
-        }
-        /**
-         * sortType
-         * ==1 IMEI
-         * ==2 user_id
-         * ==3 createTime
-         * ==4 alarmType
-         */
-        if(sortType ==1 || sortType ==2 ||sortType ==3 ||sortType ==4){
-            Collections.sort(queryResult, new Comparator<IAlarm>() {
-                @Override
-                public int compare(IAlarm A, IAlarm B) {
-                    switch (sortType){
-                        case 1:
-                            if(A.getImei() < B.getImei())
-                                return 1;
-                            else
-                                return 0;
-                        case 2:
-                            if(Long.valueOf(A.getId()) < Long.valueOf(B.getId()))
-                                return 1;
-                            else
-                                return 0;
-                        case 3:
-                            if(A.getCreateTime().before(B.getCreateTime()))
-                                return 1;
-                            else
-                                return 0;
-                        case 4:
-                            if(A.getType().compareTo(B.getType())<=0)
-                                return 1;
-                            else
-                                return 0;
-                        default:
-                            return 0;
-                    }
-                }
-            });
-        }
-
-        // 将查询结果queryResult 地址可更改
-        File f=new File(String.format("Query%d.txt", qid));
-        try{
-            BufferedWriter bw=new BufferedWriter(new FileWriter(f));
-            for(int i=0;i<queryResult.size();i++){
-                StringBuffer oneLine = new StringBuffer();
-                oneLine.append(queryResult.get(i).getId()).append(" ");
-                oneLine.append(queryResult.get(i).getImei()).append(" ");
-                oneLine.append(queryResult.get(i).getStatus()).append(" ");
-                oneLine.append(queryResult.get(i).getType()).append(" ");
-                oneLine.append(queryResult.get(i).getLongitude()).append(" ");
-                oneLine.append(queryResult.get(i).getLatitude()).append(" ");
-                oneLine.append(queryResult.get(i).getVelocity()).append(" ");
-                oneLine.append(queryResult.get(i).getAddress()).append(" ");
-                oneLine.append(queryResult.get(i).getCreateTime()).append(" ");
-                oneLine.append(queryResult.get(i).getPushTime()).append(" ");
-                oneLine.append(queryResult.get(i).isViewed()).append(" ");
-                oneLine.append(queryResult.get(i).getEncId());
-                bw.write(oneLine.toString());
-                bw.newLine();
-            }
-            bw.close();
-        }catch (IOException e){
-            e.printStackTrace();
-        }
+        // TODO
     }
 
     @Override

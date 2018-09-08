@@ -680,8 +680,7 @@ public class IgniteSearch implements IIgniteSearch {
         if (connection == null) connect();
         List<Long> result = new ArrayList<>();
         Date now = new Date();
-        try {
-            PreparedStatement pstmt = connection.prepareStatement("SELECT imei, expire_list FROM Device WHERE user_b_id = ?;");
+        try (PreparedStatement pstmt = connection.prepareStatement("SELECT imei, expire_list FROM Device WHERE user_b_id = ?;")){
             pstmt.setInt(1, userBId);
             ResultSet rs=pstmt.executeQuery();
             while(rs.next()){
@@ -718,8 +717,7 @@ public class IgniteSearch implements IIgniteSearch {
     public List<Integer> getChildren(int userBId) {
         if (connection == null) connect();
         List<Integer> children = new ArrayList<>();
-        try {
-            PreparedStatement pst = connection.prepareStatement("SELECT children_ids from user_b where user__id = ?;");
+        try (PreparedStatement pst = connection.prepareStatement("SELECT children_ids from user_b where user_id = ?;")){
             pst.setInt(1, userBId);
             ResultSet resultSet = pst.executeQuery();
             while (resultSet.next()) {

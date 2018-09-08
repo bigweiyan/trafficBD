@@ -9,6 +9,7 @@ import com.hitbd.proj.model.Pair;
 import org.apache.hadoop.conf.Configuration;
 
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -95,12 +96,12 @@ public interface IHbaseSearch {
     /**
      * 5.1-5.3a
      * 按照指定设备查询告警
-     * @param imeis 待查询的设备
+     * @param userAndDevices 待查询的设备
      * @param sortType 排序类型
      * @param filter 筛选类型
      * @return
      */
-    AlarmScanner queryAlarmByImei(List<Long> imeis, int sortType, QueryFilter filter);
+    AlarmScanner queryAlarmByImei(HashMap<Integer, List<Long>> userAndDevices, int sortType, QueryFilter filter);
 
     /**
      * 5.1-5.3b
