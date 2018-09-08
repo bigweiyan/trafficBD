@@ -52,6 +52,7 @@ public class HbaseUpload {
 
     public static void uploadFile(File file, Connection connection, HashMap<String, List<Put>> putMap, FileWriter logWriter)
             throws IOException, ParseException {
+        int timeRange = (int) ((Settings.END_TIME - Settings.START_TIME) / 1000);
         long totalLength = file.length();
         long lineEstimate = totalLength / 230;
         long lineRead = 0;
@@ -66,7 +67,7 @@ public class HbaseUpload {
         while (records.hasNext()){
             CSVRecord record = records.next();
             // 获取Put列表
-            Date createDate = sdf.parse(record.get(2));
+            Date createDate = new Date(Settings.BASETIME + random.nextInt(timeRange) * 1000L);
             String tableName = Utils.getTableName(createDate);
             List<Put> putList;
             if (putMap.containsKey(tableName)) {
@@ -82,7 +83,7 @@ public class HbaseUpload {
             for (int j = 0; j < 17 - imei.length(); j++) {
                 sb.append(0);
             }
-            sb.append(imei).append(Utils.getRelativeSecond(createDate)).append(random.nextInt(10));
+            sb.append(imei).append(Utils.getRelativeSecond(createDate)).append(random.nextInt(Settings.ROW_KEY_E_FACTOR));
             String rowKey = sb.toString();
 
             // 获取Record

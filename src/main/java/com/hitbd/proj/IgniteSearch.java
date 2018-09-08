@@ -22,6 +22,8 @@ public class IgniteSearch implements IIgniteSearch {
     static Ignite ignite;
     static IgniteCache<Long, Integer> alarmCCache;
     static IgniteCache<Long, Integer> viewedCCache;
+    Connection connection;
+    static IgniteSearch search = null;
 //	static {
 //        Ignition.setClientMode(true);
 //        ignite = Ignition.start();
@@ -36,8 +38,8 @@ public class IgniteSearch implements IIgniteSearch {
 //        cfg.setIndexedTypes(Long.class, Integer.class); // 必须设置索引类否则只能以key-value方式查询
 //        viewedCCache = ignite.getOrCreateCache(cfg);// 根据配置创建缓存
 //	}
-	Connection connection;
-	static IgniteSearch search = null;
+
+    private IgniteSearch(){};
 
 	public static IgniteSearch getInstance() {
 	    if (search == null) {
@@ -669,20 +671,35 @@ public class IgniteSearch implements IIgniteSearch {
     /**
      * 补充代码1
      * 根据用户id查找直接设备
-     * @param userBId
+     * @param userBId 被查询用户
+     * @param relativeId 查询用户（必须是userBID的父用户）
+     * @param useExpire 是否使用过期时间对设备进行过滤
      * @return 直属设备列表
-     * @throws NotExistException
      */
-    public List<Long> getDirectDevices(int userBId) {
+    public List<Long> getDirectDevices(int userBId, int relativeId, boolean useExpire) {
         if (connection == null) connect();
         List<Long> result = new ArrayList<>();
-        try {
-            PreparedStatement pstmt = connection.prepareStatement("SELECT imei FROM Device WHERE user_b_id = ?;");
+        Date now = new Date();
+        try (PreparedStatement pstmt = connection.prepareStatement("SELECT imei, expire_list FROM Device WHERE user_b_id = ?;")){
             pstmt.setInt(1, userBId);
             ResultSet rs=pstmt.executeQuery();
             while(rs.next()){
-                long Imei = rs.getLong("imei");
-                result.add(Imei);
+                long imei = rs.getLong("imei");
+                if (useExpire) {
+                    String expireListText = rs.getString("expire_list");
+                    List<Pair<Integer, Date>> expireList = Serialization.getExpireList(expireListText);
+                    for (Pair<Integer, Date> pair : expireList) {
+                        if (pair.getKey() == relativeId) {
+                            Date date = pair.getValue();
+                            if (date.after(now)) {
+                                result.add(imei);
+                            }
+                            break;
+                        }
+                    }
+                }else {
+                    result.add(imei);
+                }
             }
         }
         catch(SQLException e) {
@@ -700,8 +717,7 @@ public class IgniteSearch implements IIgniteSearch {
     public List<Integer> getChildren(int userBId) {
         if (connection == null) connect();
         List<Integer> children = new ArrayList<>();
-        try {
-            PreparedStatement pst = connection.prepareStatement("SELECT children_ids from user_b where user__id = ?;");
+        try (PreparedStatement pst = connection.prepareStatement("SELECT children_ids from user_b where user_id = ?;")){
             pst.setInt(1, userBId);
             ResultSet resultSet = pst.executeQuery();
             while (resultSet.next()) {
@@ -714,17 +730,18 @@ public class IgniteSearch implements IIgniteSearch {
         return children;
     }
 
-    public HashMap<Integer, List<Long>> getChildrenDevicesOfUserB(Integer userBId){
-        return getChildrenDevicesOfUserB(userBId, null);
+    public HashMap<Integer, List<Long>> getChildrenDevicesOfUserB(int userBId){
+        return getChildrenDevicesOfUserB(userBId, true);
     }
 
     /**
-     * 补充代码
+     * 补充代码3
      * 获取用户的所有可访问设备
-     * @param userBId
+     * @param userBId 查询用户
+	 * @param useExpire 如果为true，则过滤掉过期设备
      * @return
      */
-    public HashMap<Integer, List<Long>> getChildrenDevicesOfUserB(Integer userBId, @Nullable Set<Integer> userFilter){
+    public HashMap<Integer, List<Long>> getChildrenDevicesOfUserB(int userBId, boolean useExpire){
         HashMap<Integer, List<Long>> userImeiMap = new HashMap<>();
         Queue<Integer> queue = new LinkedList<>();
         queue.offer(userBId);
@@ -735,9 +752,7 @@ public class IgniteSearch implements IIgniteSearch {
                 queue.offer(element);
             }
 
-            //如果设置了Filter并且filter中没有允许该用户，则不进行访问
-            if (userFilter != null && !userFilter.contains(user)) continue;
-            List<Long> directDevices = getDirectDevices(user);
+            List<Long> directDevices = getDirectDevices(user, userBId, useExpire);
             userImeiMap.put(user, directDevices);
         }
         return userImeiMap;

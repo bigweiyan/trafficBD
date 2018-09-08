@@ -19,7 +19,8 @@ public class AlarmImpl implements IAlarm {
     private Date pushTime;
     private boolean viewed;
     private String encId;
-    
+    private String rowKey;
+
     public AlarmImpl() { }
 
     public String getId() {
@@ -119,14 +120,11 @@ public class AlarmImpl implements IAlarm {
     }
 
     public String getRowKey() {
-        StringBuilder sb = new StringBuilder();
-        String imeistr = String.valueOf(this.imei);
-        for (int j = 0; j < 17 - imeistr.length(); j++) {
-            sb.append(0);
-        }
-        // TODO 正确性测试及性能优化（去除对象的创建）
-        sb.append(imeistr).append(Utils.getRelativeSecond(this.createTime)).append((new IgniteSearch().getAlarmCount(this.imei)+1)%10);
-        return sb.toString();
+        return this.rowKey;
+    }
+
+    public void setRowKey(String rowKey) {
+        this.rowKey = rowKey;
     }
 
     public String getTableName() {

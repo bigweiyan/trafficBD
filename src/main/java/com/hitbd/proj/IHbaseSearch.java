@@ -3,12 +3,14 @@ package com.hitbd.proj;
 import com.hitbd.proj.Exception.ForeignKeyException;
 import com.hitbd.proj.Exception.NotExistException;
 import com.hitbd.proj.Exception.TimeException;
+import com.hitbd.proj.logic.AlarmScanner;
 import com.hitbd.proj.model.IAlarm;
 import com.hitbd.proj.model.Pair;
 import org.apache.hadoop.conf.Configuration;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -90,17 +92,17 @@ public interface IHbaseSearch {
      * @param filter 筛选类型
      * @return
      */
-    List<IAlarm> queryAlarmByUser(List<Integer> userBIds, boolean recursive, int sortType, QueryFilter filter);
+    AlarmScanner queryAlarmByUser(int queryUser, List<Integer> userBIds, boolean recursive, int sortType, QueryFilter filter);
 
     /**
      * 5.1-5.3a
      * 按照指定设备查询告警
-     * @param imeis 待查询的设备
+     * @param userAndDevices 待查询的设备
      * @param sortType 排序类型
      * @param filter 筛选类型
      * @return
      */
-    List<IAlarm> queryAlarmByImei(List<Long> imeis, int sortType, QueryFilter filter);
+    AlarmScanner queryAlarmByImei(HashMap<Integer, List<Long>> userAndDevices, int sortType, QueryFilter filter);
 
     /**
      * 5.1-5.3b
