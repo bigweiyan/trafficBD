@@ -6,6 +6,24 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.Formatter;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
+
 import java.util.*;
 
 import com.hitbd.proj.logic.AlarmScanner;
@@ -15,12 +33,22 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.TableName;
-import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.client.Connection;
+import org.apache.hadoop.hbase.client.ConnectionFactory;
+import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.Get;
+import org.apache.hadoop.hbase.client.HBaseAdmin;
+import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.client.ResultScanner;
+import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.hitbd.proj.Exception.ForeignKeyException;
 import com.hitbd.proj.Exception.NotExistException;
 import com.hitbd.proj.Exception.TimeException;
+import com.hitbd.proj.logic.hbase.AlarmSearchUtils;
 import com.hitbd.proj.model.AlarmImpl;
 import com.hitbd.proj.model.IAlarm;
 import com.hitbd.proj.model.Pair;
@@ -30,6 +58,8 @@ public class HbaseSearch implements IHbaseSearch {
 
     private static Connection connection;
     private static Configuration config;
+    
+    public HbaseSearch() {}
 
     @Override
     public boolean connect() {
@@ -90,14 +120,15 @@ public class HbaseSearch implements IHbaseSearch {
             String end = sb.toString();
 
             while(!Utils.getTableName(mmddstartTime).equals(endTableName)) {
-                Iterator<Result> results = scanTable(Utils.getTableName(mmddstartTime),start,end);
+                ResultScanner results = scanTable(Utils.getTableName(mmddstartTime),start,end);
                 milliSecond = mmddstartTime.getTime() - Settings.BASETIME;
                 period = (int)(milliSecond / (1000 * 60 * 60 * 24 * 4));
                 addToList(results,startTime,endTime,ret,Settings.BASETIME + period * 1000L * 60 * 60 * 24 * 4);
                 mmddstartTime = new Date(mmddstartTime.getTime()+ 1000L * 60 * 60 * 24 * 4);
+                results.close();
             }
 
-            Iterator<Result> results = scanTable(endTableName,start,end);
+            ResultScanner results = scanTable(endTableName,start,end);
             milliSecond = endTime.getTime() - Settings.BASETIME;
             period = (int)(milliSecond / (1000 * 60 * 60 * 24 * 4));
             addToList(results,startTime,endTime,ret,Settings.BASETIME + period * 1000L * 60 * 60 * 24 * 4);
@@ -105,7 +136,6 @@ public class HbaseSearch implements IHbaseSearch {
         }
 
         if(startTime.before(date48before)) {
-            //Utils.getTableName(startTime).equals(Utils.getTableName(endTime))
             Date historyendTime = endTime.before(date48before) ? endTime : date48before;
 
             //history表中获取 scan范围计算
@@ -127,87 +157,95 @@ public class HbaseSearch implements IHbaseSearch {
             String end = sb.toString();
 
 
-            Iterator<Result> results = scanTable("alarm_history",start,end);
-            while(results.hasNext()) {
-                Result r = results.next();
+            ResultScanner results = scanTable("alarm_history",start,end);
+            for(Result r:results) {
                 IAlarm alarm = new AlarmImpl();
                 String rowKey = Bytes.toString(r.getRow());
+                alarm.setRowKey(rowKey);
                 alarm.setImei(Long.valueOf(rowKey.substring(0, 17)));
                 alarm.setCreateTime(new Date(Long.valueOf(rowKey.substring(17,25),16)*1000));
                 alarm.setStatus(Bytes.toString(r.getValue("r".getBytes(), "stat".getBytes())));
                 alarm.setType(Bytes.toString(r.getValue("r".getBytes(), "type".getBytes())));
                 alarm.setViewed(!Bytes.toString(r.getValue("r".getBytes(), "viewed".getBytes())).equals("0"));
                 String record = Bytes.toString(r.getValue("r".getBytes(), "record".getBytes()));
-                String[] recordArr = record.split(",");
-                alarm.setAddress(recordArr[0]);
-                alarm.setEncId(recordArr[1]);
-                alarm.setId(recordArr[2]);
-                alarm.setLatitude(Float.valueOf(recordArr[3]));
-                alarm.setLongitude(Float.valueOf(recordArr[4]));
-                SimpleDateFormat dateformatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
                 try {
-                    alarm.setPushTime(dateformatter.parse(recordArr[5]));
+                    CSVParser csvparser = CSVParser.parse(record, CSVFormat.DEFAULT);
+                    List<CSVRecord> csvrecord = csvparser.getRecords();
+                    alarm.setAddress(csvrecord.get(0).get(0));
+                    alarm.setEncId(csvrecord.get(0).get(1));
+                    alarm.setId(csvrecord.get(0).get(2));
+                    alarm.setLatitude(Float.valueOf(csvrecord.get(0).get(3)));
+                    alarm.setLongitude(Float.valueOf(csvrecord.get(0).get(4)));
+                    SimpleDateFormat dateformatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                    alarm.setPushTime(dateformatter.parse(csvrecord.get(0).get(5)));
+                    alarm.setVelocity(Float.valueOf(csvrecord.get(0).get(6)));
+                    ret.add(alarm);
+                } catch (IOException e1) {
+                    // TODO Auto-generated catch block
+                    e1.printStackTrace();
                 } catch (ParseException e) {
+                    // TODO Auto-generated catch block
                     e.printStackTrace();
-                }  //parseException
-                alarm.setVelocity(Float.valueOf(recordArr[6]));
-                ret.add(alarm);
+                }
             }
-
+            results.close();
         }
 
         return ret;
     }
 
-    public Iterator<Result> scanTable(String tablename,String start,String end) {
+    public ResultScanner scanTable(String tablename,String start,String end) {
         Table table;
         try {
             table = connection.getTable(TableName.valueOf(tablename));
             Scan scan = new Scan(start.getBytes(),end.getBytes());
             scan.addFamily("r".getBytes());
             ResultScanner scanner = table.getScanner(scan);
-            Result ret = scanner.next();
-            System.out.println(new String(ret.getValue("r".getBytes(), "type".getBytes())));
-            scanner.close();
             table.close();
-            return null;
+            return scanner;
         } catch (IOException e) {
             e.printStackTrace();
         }  //IOException
         return null;
     }
 
-    public void addToList(Iterator<Result> results, Date startTime, Date endTime, List<IAlarm> ret,long basicTime) {
-        while(results.hasNext()) {
-            Result r = results.next();
+    public void addToList(ResultScanner results, Date startTime, Date endTime, List<IAlarm> ret,long basicTime) {
+        for(Result r:results) {
             String rowKey = Bytes.toString(r.getRow());
 
             Date createDate = new Date(Long.valueOf(rowKey.substring(17,22),16)*1000+basicTime);
 
             if(createDate.after(startTime)&&createDate.before(endTime)) {
                 IAlarm alarm = new AlarmImpl();
+                alarm.setRowKey(rowKey);
                 alarm.setImei(Long.valueOf(rowKey.substring(0, 17)));
                 alarm.setCreateTime(createDate);
                 alarm.setStatus(Bytes.toString(r.getValue("r".getBytes(), "stat".getBytes())));
                 alarm.setType(Bytes.toString(r.getValue("r".getBytes(), "type".getBytes())));
                 alarm.setViewed(!Bytes.toString(r.getValue("r".getBytes(), "viewed".getBytes())).equals("0"));
                 String record = Bytes.toString(r.getValue("r".getBytes(), "record".getBytes()));
-                String[] recordArr = record.split(",");
-                alarm.setAddress(recordArr[0]);
-                alarm.setEncId(recordArr[1]);
-                alarm.setId(recordArr[2]);
-                alarm.setLatitude(Float.valueOf(recordArr[3]));
-                alarm.setLongitude(Float.valueOf(recordArr[4]));
-                SimpleDateFormat dateformatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
                 try {
-                    alarm.setPushTime(dateformatter.parse(recordArr[5]));
+                    CSVParser csvparser = CSVParser.parse(record, CSVFormat.DEFAULT);
+                    List<CSVRecord> csvrecord = csvparser.getRecords();
+                    alarm.setAddress(csvrecord.get(0).get(0));
+                    alarm.setEncId(csvrecord.get(0).get(1));
+                    alarm.setId(csvrecord.get(0).get(2));
+                    alarm.setLatitude(Float.valueOf(csvrecord.get(0).get(3)));
+                    alarm.setLongitude(Float.valueOf(csvrecord.get(0).get(4)));
+                    SimpleDateFormat dateformatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                    alarm.setPushTime(dateformatter.parse(csvrecord.get(0).get(5)));
+                    alarm.setVelocity(Float.valueOf(csvrecord.get(0).get(6)));
+                    ret.add(alarm);
+                } catch (IOException e1) {
+                    // TODO Auto-generated catch block
+                    e1.printStackTrace();
                 } catch (ParseException e) {
+                    // TODO Auto-generated catch block
                     e.printStackTrace();
-                }  //parseException
-                alarm.setVelocity(Float.valueOf(recordArr[6]));
-                ret.add(alarm);
+                }
             }
         }
+        results.close();
     }
 
     @Override
@@ -215,13 +253,21 @@ public class HbaseSearch implements IHbaseSearch {
         for(IAlarm alarm:alarms) {
             //异常抛出
             String tablename = alarm.getTableName();
-            String rowkey = alarm.getRowKey();
+            
+            StringBuilder sb = new StringBuilder();
+            String imeistr = String.valueOf(alarm.getImei());
+            for (int j = 0; j < 17 - imeistr.length(); j++) {
+                sb.append(0);
+            }
+            sb.append(imeistr).append(Utils.getRelativeSecond(alarm.getCreateTime())).append((IgniteSearch.getInstance().getAlarmCount(alarm.getImei())+1)%10);
+            String rowkey = sb.toString();
+            
             Table table;
             try {
                 table = connection.getTable(TableName.valueOf(tablename));
                 Put put = new Put(Bytes.toBytes(rowkey));
                 SimpleDateFormat dateformatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-                StringBuilder sb = new StringBuilder();
+                sb = new StringBuilder();
                 sb.append('\"').append(alarm.getAddress()).append("\",").append(alarm.getEncId()).append(',').append(alarm.getId()).append(',');
                 sb.append(alarm.getLatitude()).append(',').append(alarm.getLongitude()).append(',').append(dateformatter.format(alarm.getPushTime())).append(',').append(alarm.getVelocity());
                 put.addColumn("r".getBytes(), "record".getBytes(), sb.toString().getBytes());
@@ -251,13 +297,15 @@ public class HbaseSearch implements IHbaseSearch {
                 Result result = table.get(get);
                 byte[] value = result.getValue("r".getBytes(), "record".getBytes());
                 String record = Bytes.toString(value);
-                String[] tmp = record.split(",");
+                CSVParser csvparser = CSVParser.parse(record, CSVFormat.DEFAULT);
+                List<CSVRecord> csvrecord = csvparser.getRecords();
                 SimpleDateFormat dateformatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-                tmp[5] = dateformatter.format(pushTime);
-                String newRecord = StringUtils.join(tmp,",");
-
+                StringBuilder sb = new StringBuilder();
+                sb.append('\"').append(csvrecord.get(0).get(0)).append("\",").append(csvrecord.get(0).get(1)).append(',').append(csvrecord.get(0).get(2)).append(',');
+                sb.append(csvrecord.get(0).get(3)).append(',').append(csvrecord.get(0).get(4)).append(',').append(dateformatter.format(pushTime)).append(',').append(csvrecord.get(0).get(6));
+                
                 Put put = new Put(Bytes.toBytes(rowkey));
-                put.addColumn("r".getBytes(), "record".getBytes(), newRecord.getBytes());
+                put.addColumn("r".getBytes(), "record".getBytes(), sb.toString().getBytes());
                 table.put(put);
                 table.close();
             } catch (IOException e) {
