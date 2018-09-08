@@ -58,6 +58,8 @@ public interface IAlarm {
    * @return
    */
   String getRowKey();
+  
+  void setRowKey(String rowKey);
 
   /**
    * A 获取该记录所存在的表名
