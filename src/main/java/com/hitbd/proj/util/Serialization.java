@@ -2,9 +2,10 @@ package com.hitbd.proj.util;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 import com.hitbd.proj.Settings;
-import sun.reflect.annotation.ExceptionProxy;
+import com.hitbd.proj.model.Pair;
 
 public class Serialization {
 	/**
@@ -120,6 +121,22 @@ public class Serialization {
 			chick = (int) (chick + temp);
 		}
 		return expirelist.substring(0, expirelist.length() - 1);
+	}
+
+	public static List<Pair<Integer, Date>> getExpireList(String expireList) {
+		if (expireList == null || expireList.isEmpty()) {
+			return new ArrayList<>();
+		}
+		String[] list = expireList.split(",");
+		if (list.length % 2 != 0) {
+			throw new IllegalArgumentException("the argument should be even");
+		}
+		List<Pair<Integer, Date>> expireDate = new ArrayList<>();
+		for (int i = 0; i < list.length; i+=2) {
+			expireDate.add(new Pair<>(Integer.parseInt(list[i]),
+					new Date(Settings.BASETIME + 1000L * Integer.parseInt(list[i + 1]) * 3600 * 24)));
+		}
+		return expireDate;
 	}
 
 }

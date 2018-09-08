@@ -1,6 +1,8 @@
 package com.hitbd.proj.model;
 
 import java.util.Date;
+
+import com.hitbd.proj.IgniteSearch;
 import com.hitbd.proj.util.Utils;
 
 public class AlarmImpl implements IAlarm {
