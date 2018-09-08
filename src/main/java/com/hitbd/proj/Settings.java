@@ -9,4 +9,9 @@ public class Settings {
     public static String logDir = "./";
     public static Date MAXTIME = new Date(199,1,1);
     public static int ROW_KEY_E_FACTOR = 9;
+    public static String TABLES[] = {"0531", "0604", "0608",
+        "0612", "0616", "0620", "0624", "0628",
+        "0702", "0706", "0710", "0714", "0718",
+        "0722", "0726", "0730", "0803", "0807",
+        "0811"};
 }
