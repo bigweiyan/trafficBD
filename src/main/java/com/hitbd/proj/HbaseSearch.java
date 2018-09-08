@@ -1,65 +1,27 @@
 package com.hitbd.proj;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.Formatter;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVParser;
-import org.apache.commons.csv.CSVRecord;
-
-import java.util.*;
-
+import com.hitbd.proj.Exception.ForeignKeyException;
+import com.hitbd.proj.Exception.NotExistException;
+import com.hitbd.proj.Exception.TimeException;
 import com.hitbd.proj.logic.AlarmScanner;
 import com.hitbd.proj.logic.Query;
 import com.hitbd.proj.model.AlarmImpl;
 import com.hitbd.proj.model.IAlarm;
 import com.hitbd.proj.model.Pair;
 import com.hitbd.proj.util.Utils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.TableName;
-import org.apache.hadoop.hbase.client.Connection;
-import org.apache.hadoop.hbase.client.ConnectionFactory;
-import org.apache.hadoop.hbase.client.Delete;
-import org.apache.hadoop.hbase.client.Get;
-import org.apache.hadoop.hbase.client.HBaseAdmin;
-import org.apache.hadoop.hbase.client.Put;
-import org.apache.hadoop.hbase.client.Result;
-import org.apache.hadoop.hbase.client.ResultScanner;
-import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.client.Table;
+import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import com.hitbd.proj.Exception.ForeignKeyException;
-import com.hitbd.proj.Exception.NotExistException;
-import com.hitbd.proj.Exception.TimeException;
-import com.hitbd.proj.logic.hbase.AlarmSearchUtils;
-import com.hitbd.proj.model.AlarmImpl;
-import com.hitbd.proj.model.IAlarm;
-import com.hitbd.proj.model.Pair;
-import com.hitbd.proj.util.Utils;
 
 public class HbaseSearch implements IHbaseSearch {
 
@@ -192,12 +154,8 @@ public class HbaseSearch implements IHbaseSearch {
                     alarm.setPushTime(dateformatter.parse(csvrecord.get(0).get(5)));
                     alarm.setVelocity(Float.valueOf(csvrecord.get(0).get(6)));
                     ret.add(alarm);
-                } catch (IOException e1) {
-                    // TODO Auto-generated catch block
+                } catch (IOException | ParseException e1) {
                     e1.printStackTrace();
-                } catch (ParseException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
                 }
             }
             results.close();
@@ -206,10 +164,10 @@ public class HbaseSearch implements IHbaseSearch {
         return ret;
     }
 
-    public ResultScanner scanTable(String tablename,String start,String end) {
+    public ResultScanner scanTable(String tableName,String start,String end) {
         Table table;
         try {
-            table = connection.getTable(TableName.valueOf(tablename));
+            table = connection.getTable(TableName.valueOf(tableName));
             Scan scan = new Scan(start.getBytes(),end.getBytes());
             scan.addFamily("r".getBytes());
             ResultScanner scanner = table.getScanner(scan);
@@ -248,12 +206,8 @@ public class HbaseSearch implements IHbaseSearch {
                     alarm.setPushTime(dateformatter.parse(csvrecord.get(0).get(5)));
                     alarm.setVelocity(Float.valueOf(csvrecord.get(0).get(6)));
                     ret.add(alarm);
-                } catch (IOException e1) {
-                    // TODO Auto-generated catch block
+                } catch (IOException | ParseException e1) {
                     e1.printStackTrace();
-                } catch (ParseException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
                 }
             }
         }
@@ -264,7 +218,7 @@ public class HbaseSearch implements IHbaseSearch {
     public void insertAlarm(List<IAlarm> alarms) throws TimeException, ForeignKeyException {
         for(IAlarm alarm:alarms) {
             //异常抛出
-            String tablename = alarm.getTableName();
+            String tableName = alarm.getTableName();
 
             StringBuilder sb = new StringBuilder();
             String imeistr = String.valueOf(alarm.getImei());
@@ -276,7 +230,7 @@ public class HbaseSearch implements IHbaseSearch {
 
             Table table;
             try {
-                table = connection.getTable(TableName.valueOf(tablename));
+                table = connection.getTable(TableName.valueOf(tableName));
                 Put put = new Put(Bytes.toBytes(rowkey));
                 SimpleDateFormat dateformatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
                 sb = new StringBuilder();
@@ -298,12 +252,12 @@ public class HbaseSearch implements IHbaseSearch {
     public void setPushTime(List<Pair<String, String>> rowKeys, Date pushTime) throws NotExistException {
         for(Pair<String,String> rowKey:rowKeys) {
             //异常抛出
-            String tablename = rowKey.getKey();
+            String tableName = rowKey.getKey();
             String rowkey = rowKey.getValue();
 
             Table table;
             try {
-                table = connection.getTable(TableName.valueOf(tablename));
+                table = connection.getTable(TableName.valueOf(tableName));
 
                 Get get = new Get(Bytes.toBytes(rowkey));
                 Result result = table.get(get);
