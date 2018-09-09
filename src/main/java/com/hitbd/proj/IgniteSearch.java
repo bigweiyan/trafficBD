@@ -51,9 +51,8 @@ public class IgniteSearch implements IIgniteSearch {
 	@Override
 	public boolean connect() {
 		try {
-			if(connection.isClosed()) {
+			if(connection == null || connection.isClosed()) {
 				connection = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1/");
-				return true;
 			}
 		} catch (SQLException e) {
 			e.printStackTrace();
@@ -65,7 +64,7 @@ public class IgniteSearch implements IIgniteSearch {
 	@Override
 	public boolean connect(String hostname, int port) {
 		try {
-			if(connection.isClosed()) {
+			if(connection == null || connection.isClosed()) {
 			connection = DriverManager.getConnection("jdbc:ignite:thin://" + hostname + ":" + port + "/");
 			}
 		} catch (SQLException e) {
@@ -206,7 +205,7 @@ public class IgniteSearch implements IIgniteSearch {
 	@Override
 	public int createUserC() {
 		int newid = -1;
-		try (PreparedStatement pstmt = connection.prepareStatement("SELECT user_id FROM UserC ");){
+		try (PreparedStatement pstmt = connection.prepareStatement("SELECT user_id FROM UserC ")){
 			ResultSet rs = pstmt.executeQuery();
 			rs.last();
 			newid = rs.getInt("user_id") + 1;
