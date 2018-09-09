@@ -27,6 +27,7 @@ import com.hitbd.proj.logic.Query;
 import com.hitbd.proj.model.AlarmImpl;
 import com.hitbd.proj.model.IAlarm;
 import com.hitbd.proj.model.Pair;
+import com.hitbd.proj.util.Serialization;
 import com.hitbd.proj.util.Utils;
 
 import org.apache.commons.csv.CSVFormat;
@@ -479,7 +480,7 @@ public class HbaseSearch implements IHbaseSearch {
 			Date endtime = new Date();
 			ialarmlist = getAlarms(imeilist.get(i), imeilist.get(i), new Date(Settings.BASETIME), endtime);
 			String temp = ialarmlist.get(i).getStatus();
-			if (map.containsKey(temp) == true)
+			if (map.containsKey(temp))
 				map.replace(temp, map.get(temp), map.get(temp) + 1);
 			else
 				map.put(temp, 1);
@@ -490,7 +491,7 @@ public class HbaseSearch implements IHbaseSearch {
 	@Override
 	public Map<String, Integer> groupCountByUserIdViewed(ArrayList<Integer> parentBIds, boolean recursive) {
 		Map<String, Integer> map = new HashMap<String, Integer>();
-		if (recursive == false) {
+		if (!recursive) {
 			String sql = "select imei,user_b_id from device where user_b_id in (" + Serialization.listToStr(parentBIds)
 					+ ")";
 			Map<Long, Integer> imeimap = new HashMap<Long, Integer>();
@@ -528,7 +529,7 @@ public class HbaseSearch implements IHbaseSearch {
 								- IgniteSearch.getInstance().getViewedCount(imei);
 					}
 				}
-				String parentBId1 = new String(), parentBId2 = new String();
+				String parentBId1, parentBId2 ;
 				parentBId1 = Integer.valueOf(parentid).toString() + "1";
 				parentBId2 = Integer.valueOf(parentid).toString() + "0";
 				map.put(parentBId1, count1);
@@ -542,7 +543,7 @@ public class HbaseSearch implements IHbaseSearch {
 	@Override
 	public Map<Integer, Integer> groupCountByUserId(ArrayList<Integer> parentBIds, boolean recursive, int topK) {
 		Map<Integer, Integer> map = new HashMap<Integer, Integer>();
-		if (recursive == false) {
+		if (!recursive) {
 			String sql = "select imei,user_b_id from device where user_b_id in (" + Serialization.listToStr(parentBIds)
 					+ ")";
 			Map<Long, Integer> imeimap = new HashMap<Long, Integer>();
