@@ -25,19 +25,26 @@ public class HbaseTest {
         userBIds.add(2469);
         QueryFilter queryFilter = new QueryFilter();
         queryFilter.setAllowTimeRange(new Pair<>(new Date(Settings.START_TIME), new Date(Settings.START_TIME + 1000)));
+        Date date = new Date();
         AlarmScanner scanner = HbaseSearch.getInstance().queryAlarmByUser(2469, userBIds, true, HbaseSearch.NO_SORT, queryFilter);
-        int i = 0;
-        while (!scanner.queries.isEmpty()) {
-            System.out.println("query: " + i);
-            i++;
-            Query q = scanner.queries.poll();
-            System.out.println("table name: " + q.tableName);
-            System.out.println("start time: " + q.startRelativeSecond);
-            System.out.println("end time:" + q.endRelativeSecond);
-            for (Pair<Integer, Long> pair : q.imeis) {
-                System.out.println("user: " + pair.getKey() + " imei: " + pair.getValue());
-            }
-            System.out.println("===============================");
+        System.out.println("Use Time:" + (new Date().getTime() - date.getTime()) + "ms");
+//        int i = 0;
+//        while (!scanner.queries.isEmpty()) {
+//            System.out.println("query: " + i);
+//            i++;
+//            Query q = scanner.queries.poll();
+//            System.out.println("table name: " + q.tableName);
+//            System.out.println("start time: " + q.startRelativeSecond);
+//            System.out.println("end time:" + q.endRelativeSecond);
+//            for (Pair<Integer, Long> pair : q.imeis) {
+//                System.out.println("user: " + pair.getKey() + " imei: " + pair.getValue());
+//            }
+//            System.out.println("===============================");
+//        }
+        date = new Date();
+        while (!scanner.isFinished()) {
+            scanner.next();
         }
+        System.out.println("Use Time:" + (new Date().getTime() - date.getTime()) + "ms");
     }
 }
