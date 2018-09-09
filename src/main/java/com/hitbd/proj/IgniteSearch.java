@@ -51,7 +51,10 @@ public class IgniteSearch implements IIgniteSearch {
 	@Override
 	public boolean connect() {
 		try {
-			connection = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1/");
+			if(connection.isClosed()) {
+				connection = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1/");
+				return true;
+			}
 		} catch (SQLException e) {
 			e.printStackTrace();
 			return false;
@@ -62,7 +65,9 @@ public class IgniteSearch implements IIgniteSearch {
 	@Override
 	public boolean connect(String hostname, int port) {
 		try {
+			if(connection.isClosed()) {
 			connection = DriverManager.getConnection("jdbc:ignite:thin://" + hostname + ":" + port + "/");
+			}
 		} catch (SQLException e) {
 			e.printStackTrace();
 			return false;
@@ -100,9 +105,7 @@ public class IgniteSearch implements IIgniteSearch {
 
 	@Override
 	public IUserB getUserB(int userBId) throws NotExistException {
-		try {
-			String sql1 = "SELECT user_id FROM UserB WHERE user_id = ?";
-			PreparedStatement pstmt = connection.prepareStatement(sql1);
+		try(PreparedStatement pstmt = connection.prepareStatement("SELECT user_id FROM UserB WHERE user_id = ?")) {
 			pstmt.setInt(1, userBId);
 			ResultSet rs = pstmt.executeQuery();
 			if (rs.isBeforeFirst()) {
@@ -121,9 +124,7 @@ public class IgniteSearch implements IIgniteSearch {
 
 	@Override
 	public IDevice getDevice(int imei) throws NotExistException {
-		try {
-			String sql1 = "SELECT imei FROM Device WHERE imei = ?";
-			PreparedStatement pstmt = connection.prepareStatement(sql1);
+		try(PreparedStatement pstmt = connection.prepareStatement("SELECT imei FROM Device WHERE imei = ?")) {
 			pstmt.setLong(1, imei);
 			ResultSet rs = pstmt.executeQuery();
 			if (rs.isBeforeFirst()) {
@@ -148,9 +149,7 @@ public class IgniteSearch implements IIgniteSearch {
 
 	@Override
 	public IUserC getUserC(int userCId) throws NotExistException {
-		try {
-			String sql1 = "SELECT user_id FROM UserC WHERE imei = ?";
-			PreparedStatement pstmt = connection.prepareStatement(sql1);
+		try(PreparedStatement pstmt = connection.prepareStatement("SELECT user_id FROM UserC WHERE imei = ?")) {
 			pstmt.setInt(1, userCId);
 			ResultSet rs = pstmt.executeQuery();
 			if (rs.isBeforeFirst()) {
@@ -170,13 +169,10 @@ public class IgniteSearch implements IIgniteSearch {
 
 	@Override
 	public int createUserB(int parentId) {
-		try {
-			String sql1 = "SELECT user_id FROM UserB WHERE user_id = ?";
-			PreparedStatement pstmt = connection.prepareStatement(sql1);
+		try(PreparedStatement pstmt = connection.prepareStatement("SELECT user_id FROM UserB WHERE user_id = ?");
+				PreparedStatement pstmt2 = connection.prepareStatement("SELECT user_id FROM UserB ")) {
 			pstmt.setInt(1, parentId);
 			ResultSet rs = pstmt.executeQuery();
-			String sql2 = "SELECT user_id FROM UserB ";
-			PreparedStatement pstmt2 = connection.prepareStatement(sql2);
 			pstmt.setInt(1, parentId);
 			ResultSet rs2 = pstmt2.executeQuery();
 			rs2.last();
@@ -203,15 +199,14 @@ public class IgniteSearch implements IIgniteSearch {
 		pstmt.setInt(2, usr.getParentId());
 		pstmt.setString(3, "");
 		int result = pstmt.executeUpdate();
+		pstmt.close();
 		return result;
 	}
 
 	@Override
 	public int createUserC() {
 		int newid = -1;
-		try {
-			String sql = "SELECT user_id FROM UserC ";
-			PreparedStatement pstmt = connection.prepareStatement(sql);
+		try (PreparedStatement pstmt = connection.prepareStatement("SELECT user_id FROM UserC ");){
 			ResultSet rs = pstmt.executeQuery();
 			rs.last();
 			newid = rs.getInt("user_id") + 1;
@@ -231,19 +226,17 @@ public class IgniteSearch implements IIgniteSearch {
 		pstmt.setString(3, usr.getAuthedDevicesText());
 		pstmt.setString(4, usr.getAuthUserIdsText());
 		int result = pstmt.executeUpdate();
+		pstmt.close();
 		return result;
 	}
 
 	@Override
 	public void createDevice(long imei, int userBId) throws DuplicatedPKException, ForeignKeyException {
-		try {
-			String sqlid = "SELECT user_id FROM UserB WHERE user_id = ?";
-			PreparedStatement pstmt = connection.prepareStatement(sqlid);
+		try (PreparedStatement pstmt = connection.prepareStatement("SELECT user_id FROM UserB WHERE user_id = ?");
+				PreparedStatement pstmtimei = connection.prepareStatement("SELECT imei FROM Device WHERE imei = ?")){
 			pstmt.setInt(1, userBId);
 			ResultSet rs = pstmt.executeQuery();
 			if (rs.isBeforeFirst()) {
-				String sqlimei = "SELECT imei FROM Device WHERE imei = ?";
-				PreparedStatement pstmtimei = connection.prepareStatement(sqlimei);
 				pstmtimei.setLong(1, imei);
 				ResultSet rsimei = pstmtimei.executeQuery();
 				if (!rsimei.isBeforeFirst()) {
@@ -266,32 +259,35 @@ public class IgniteSearch implements IIgniteSearch {
 	@Override
 	public void setNewParent(int childBId, int parentBId) throws ForeignKeyException, NotExistException {
 		try {
-			String sql1 = "select parent_id from user_b where user_id=?";
-			PreparedStatement pstmt1 = connection.prepareStatement(sql1);
-			pstmt1.setInt(1, childBId);
-			ResultSet rs1 = pstmt1.executeQuery();
+			String sql = "select parent_id from user_b where user_id=?";
+			PreparedStatement pstmt = connection.prepareStatement(sql);
+			pstmt.setInt(1, childBId);
+			ResultSet rs1 = pstmt.executeQuery();
 			int parent = rs1.getInt("parent_id");
 			if (parent == -1) {
-				String sql2 = "select user_id from user_b where user_id=?";
-				PreparedStatement pstmt2 = connection.prepareStatement(sql2);
-				pstmt2.setInt(1, parentBId);
-				ResultSet rs2 = pstmt2.executeQuery();
+				sql = "select user_id from user_b where user_id=?";
+				pstmt = connection.prepareStatement(sql);
+				pstmt.setInt(1, parentBId);
+				ResultSet rs2 = pstmt.executeQuery();
 				String parentChildren = rs2.getString("children_ids");
 				if (rs2.isBeforeFirst()) {
-					String sql4 = "update user_b set parent_id=? where user_id=?";
-					PreparedStatement pstmt4 = connection.prepareStatement(sql4);
-					pstmt4.setInt(1, parentBId);
-					pstmt4.setInt(2, childBId);
-					pstmt4.executeUpdate();
-					String sql3 = "update user_b set children_ids=? where user_id=?";
-					PreparedStatement pstmt3 = connection.prepareStatement(sql3);
-					pstmt3.setString(1, parentChildren + "," + childBId);
-					pstmt3.setInt(2, parentBId);
-					pstmt3.executeUpdate();
+					sql = "update user_b set parent_id=? where user_id=?";
+					pstmt = connection.prepareStatement(sql);
+					pstmt.setInt(1, parentBId);
+					pstmt.setInt(2, childBId);
+					pstmt.executeUpdate();
+					sql = "update user_b set children_ids=? where user_id=?";
+					pstmt = connection.prepareStatement(sql);
+					pstmt.setString(1, parentChildren + "," + childBId);
+					pstmt.setInt(2, parentBId);
+					pstmt.executeUpdate();
+					pstmt.close();
 				} else {
+					pstmt.close();
 					throw new NotExistException();
 				}
 			} else {
+				pstmt.close();
 				throw new ForeignKeyException();
 			}
 		} catch (SQLException e) {
