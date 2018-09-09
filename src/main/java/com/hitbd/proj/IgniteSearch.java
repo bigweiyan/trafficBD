@@ -24,20 +24,20 @@ public class IgniteSearch implements IIgniteSearch {
     static IgniteCache<Long, Integer> viewedCCache;
     Connection connection;
     static IgniteSearch search = null;
-//	static {
-//        Ignition.setClientMode(true);
-//        ignite = Ignition.start();
-//        CacheConfiguration<Long, Integer> cfg = new CacheConfiguration<Long, Integer>();
-//        cfg.setName("alarm_c");
-//        cfg.setCacheMode(CacheMode.PARTITIONED);// 存储方式 PARTITIONED适合分布式存储
-//        cfg.setIndexedTypes(Long.class, Integer.class); // 必须设置索引类否则只能以key-value方式查询
-//        alarmCCache = ignite.getOrCreateCache(cfg);// 根据配置创建缓存
-//        cfg = new CacheConfiguration<Long, Integer>();
-//        cfg.setName("viewed_c");
-//        cfg.setCacheMode(CacheMode.PARTITIONED);// 存储方式 PARTITIONED适合分布式存储
-//        cfg.setIndexedTypes(Long.class, Integer.class); // 必须设置索引类否则只能以key-value方式查询
-//        viewedCCache = ignite.getOrCreateCache(cfg);// 根据配置创建缓存
-//	}
+	static {
+        Ignition.setClientMode(true);
+        ignite = Ignition.start();
+        CacheConfiguration<Long, Integer> cfg = new CacheConfiguration<Long, Integer>();
+        cfg.setName("alarm_c");
+        cfg.setCacheMode(CacheMode.PARTITIONED);// 存储方式 PARTITIONED适合分布式存储
+        cfg.setIndexedTypes(Long.class, Integer.class); // 必须设置索引类否则只能以key-value方式查询
+        alarmCCache = ignite.getOrCreateCache(cfg);// 根据配置创建缓存
+        cfg = new CacheConfiguration<Long, Integer>();
+        cfg.setName("viewed_c");
+        cfg.setCacheMode(CacheMode.PARTITIONED);// 存储方式 PARTITIONED适合分布式存储
+        cfg.setIndexedTypes(Long.class, Integer.class); // 必须设置索引类否则只能以key-value方式查询
+        viewedCCache = ignite.getOrCreateCache(cfg);// 根据配置创建缓存
+	}
 
     private IgniteSearch(){};
 
@@ -680,8 +680,7 @@ public class IgniteSearch implements IIgniteSearch {
         if (connection == null) connect();
         List<Long> result = new ArrayList<>();
         Date now = new Date();
-        try {
-            PreparedStatement pstmt = connection.prepareStatement("SELECT imei, expire_list FROM Device WHERE user_b_id = ?;");
+        try (PreparedStatement pstmt = connection.prepareStatement("SELECT imei, expire_list FROM Device WHERE user_b_id = ?;")){
             pstmt.setInt(1, userBId);
             ResultSet rs=pstmt.executeQuery();
             while(rs.next()){
@@ -718,8 +717,7 @@ public class IgniteSearch implements IIgniteSearch {
     public List<Integer> getChildren(int userBId) {
         if (connection == null) connect();
         List<Integer> children = new ArrayList<>();
-        try {
-            PreparedStatement pst = connection.prepareStatement("SELECT children_ids from user_b where user__id = ?;");
+        try (PreparedStatement pst = connection.prepareStatement("SELECT children_ids from user_b where user_id = ?;")){
             pst.setInt(1, userBId);
             ResultSet resultSet = pst.executeQuery();
             while (resultSet.next()) {

@@ -20,7 +20,7 @@ public class AlarmImpl implements IAlarm {
     private boolean viewed;
     private String encId;
     private String rowKey;
-    
+
     public AlarmImpl() { }
 
     public String getId() {
@@ -122,7 +122,7 @@ public class AlarmImpl implements IAlarm {
     public String getRowKey() {
         return this.rowKey;
     }
-    
+
     public void setRowKey(String rowKey) {
         this.rowKey = rowKey;
     }

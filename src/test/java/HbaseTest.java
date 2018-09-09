@@ -2,7 +2,10 @@ import com.hitbd.proj.Exception.ForeignKeyException;
 import com.hitbd.proj.Exception.NotExistException;
 import com.hitbd.proj.Exception.TimeException;
 import com.hitbd.proj.HbaseSearch;
+import com.hitbd.proj.QueryFilter;
 import com.hitbd.proj.Settings;
+import com.hitbd.proj.logic.AlarmScanner;
+import com.hitbd.proj.logic.Query;
 import com.hitbd.proj.model.AlarmImpl;
 import com.hitbd.proj.model.Pair;
 import org.apache.hadoop.conf.Configuration;
@@ -17,22 +20,24 @@ import java.util.*;
 public class HbaseTest {
     @Ignore
     @Test
-    public void testScan() throws IOException {
-//        Configuration configuration = HBaseConfiguration.create();
-//        configuration.set("hbase.master", "192.168.1.134");
-//        configuration.set("hbase.rootdir", "hdfs://host:9000/hbase");
-//        configuration.set("hbase.cluster.distributed", "false");
-//        Connection connection = ConnectionFactory.createConnection(configuration);
-//        Table table = connection.getTable(TableName.valueOf("alarm_0730"));
-//        Scan scan = new Scan("00862368010125258364d80".getBytes(), "00862368010125258364d89".getBytes());
-//        scan.setBatch(100);
-//        ResultScanner scanner = table.getScanner(scan);
-//        for (Result result = scanner.next(); result != null; result = scanner.next())
-//            System.out.println("Found row : " + result);
-//        scanner.close();
-//        Get get = new Get("00862368010125258364d89".getBytes());
-//        Result result = table.get(get);
-//        System.out.println("get!");
-//        System.out.println(new String(result.getValue("r".getBytes(), "type".getBytes())));
+    public void testQuery() {
+        ArrayList<Integer> userBIds = new ArrayList<>();
+        userBIds.add(2469);
+        QueryFilter queryFilter = new QueryFilter();
+        queryFilter.setAllowTimeRange(new Pair<>(new Date(Settings.START_TIME), new Date(Settings.START_TIME + 1000)));
+        AlarmScanner scanner = HbaseSearch.getInstance().queryAlarmByUser(2469, userBIds, true, HbaseSearch.NO_SORT, queryFilter);
+        int i = 0;
+        while (!scanner.queries.isEmpty()) {
+            System.out.println("query: " + i);
+            i++;
+            Query q = scanner.queries.poll();
+            System.out.println("table name: " + q.tableName);
+            System.out.println("start time: " + q.startRelativeSecond);
+            System.out.println("end time:" + q.endRelativeSecond);
+            for (Pair<Integer, Long> pair : q.imeis) {
+                System.out.println("user: " + pair.getKey() + " imei: " + pair.getValue());
+            }
+            System.out.println("===============================");
+        }
     }
 }

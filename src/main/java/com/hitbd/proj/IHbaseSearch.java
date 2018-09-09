@@ -8,7 +8,9 @@ import com.hitbd.proj.model.IAlarm;
 import com.hitbd.proj.model.Pair;
 import org.apache.hadoop.conf.Configuration;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -95,12 +97,12 @@ public interface IHbaseSearch {
     /**
      * 5.1-5.3a
      * 按照指定设备查询告警
-     * @param imeis 待查询的设备
+     * @param userAndDevices 待查询的设备
      * @param sortType 排序类型
      * @param filter 筛选类型
      * @return
      */
-    AlarmScanner queryAlarmByImei(List<Long> imeis, int sortType, QueryFilter filter);
+    AlarmScanner queryAlarmByImei(HashMap<Integer, List<Long>> userAndDevices, int sortType, QueryFilter filter);
 
     /**
      * 5.1-5.3b
@@ -146,7 +148,7 @@ public interface IHbaseSearch {
      * @param recursive 是否递归查询所有用户
      * @return
      */
-    Map<String, Integer> groupCountByUserIdViewed(List<Integer> parentBIds, boolean recursive);
+    Map<String, Integer> groupCountByUserIdViewed(ArrayList<Integer> parentBIds, boolean recursive);
 
     /**
      * 5.5 按照用户Count查询，只要求前K个结果
@@ -155,7 +157,7 @@ public interface IHbaseSearch {
      * @param topK
      * @return
      */
-    Map<String, Integer> groupCountByUserId(List<Integer> parentBIds, boolean recursive, int topK);
+    Map<Integer, Integer> groupCountByUserId(ArrayList<Integer> parentBIds, boolean recursive, int topK);
 
     /**
      * A5.3
