@@ -1,24 +1,5 @@
 package com.hitbd.proj;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.*;
-
-import com.hitbd.proj.logic.hbase.AlarmSearchUtils;
-import org.apache.commons.lang.StringUtils;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.HBaseConfiguration;
-import org.apache.hadoop.hbase.HTableDescriptor;
-import org.apache.hadoop.hbase.TableName;
-import org.apache.hadoop.hbase.client.*;
-import org.apache.hadoop.hbase.util.Bytes;
 import com.hitbd.proj.Exception.ForeignKeyException;
 import com.hitbd.proj.Exception.NotExistException;
 import com.hitbd.proj.Exception.TimeException;
@@ -29,7 +10,6 @@ import com.hitbd.proj.model.IAlarm;
 import com.hitbd.proj.model.Pair;
 import com.hitbd.proj.util.Serialization;
 import com.hitbd.proj.util.Utils;
-
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -40,6 +20,8 @@ import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import java.io.IOException;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -47,7 +29,6 @@ import java.util.*;
 public class HbaseSearch implements IHbaseSearch {
 
     private static Connection connection;
-    private static Configuration config;
     private static HbaseSearch search;
 
     private HbaseSearch(){};
@@ -58,10 +39,11 @@ public class HbaseSearch implements IHbaseSearch {
 
     @Override
     public boolean connect() {
-        if (connection==null||connection.isClosed()){
+        if (connection == null || connection.isClosed()) {
             try {
-                config = HBaseConfiguration.create();
-                connection = ConnectionFactory.createConnection(config);
+                if (Settings.HBASE_CONFIG == null)
+                    Settings.HBASE_CONFIG = HBaseConfiguration.create();
+                connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
             } catch (IOException e) {
                 e.printStackTrace();
                 return false;
@@ -72,10 +54,10 @@ public class HbaseSearch implements IHbaseSearch {
 
     @Override
     public boolean connect(Configuration config) {
-        if (connection==null||connection.isClosed()){
+        if (connection == null || connection.isClosed()){
             try {
-                HbaseSearch.config = config;
-                connection = ConnectionFactory.createConnection(config);
+                Settings.HBASE_CONFIG = config;
+                connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
             } catch (IOException e) {
                 e.printStackTrace();
                 return false;
@@ -418,7 +400,7 @@ public class HbaseSearch implements IHbaseSearch {
                 }
                 query.imeis = imeis;
                 queries.add(query);
-                result.queries = queries;
+                result.setQueries(queries);
             }
         }else if (sortType == HbaseSearch.SORT_BY_IMEI) {
             // TODO solve imei sort
@@ -429,7 +411,7 @@ public class HbaseSearch implements IHbaseSearch {
         }else {
             throw new IllegalArgumentException("sort type should be defined in IHbaseSearch");
         }
-        result.queries = queries;
+        result.setQueries(queries);
         return result;
     }
 
@@ -459,9 +441,10 @@ public class HbaseSearch implements IHbaseSearch {
 	public Map<String, Integer> groupCountByImeiStatus(int parentBId, boolean recursive) {
 		Map<String, Integer> map = new HashMap<String, Integer>();
 		ArrayList<Long> imeilist = new ArrayList<Long>();
-		if (recursive == false) {
+		if (!recursive) {
 			String sql = "select imei from device where user_id = " + String.valueOf(parentBId);
-			PreparedStatement pstmt = connection.prepareStatement(sql);
+			IgniteSearch.getInstance().connect();
+			PreparedStatement pstmt =IgniteSearch.getInstance().connection.prepareStatement(sql);
 			ResultSet rs = pstmt.executeQuery();
 			while (rs.next()) {
 				imeilist.add(rs.getLong("imei"));
@@ -495,7 +478,8 @@ public class HbaseSearch implements IHbaseSearch {
 			String sql = "select imei,user_b_id from device where user_b_id in (" + Serialization.listToStr(parentBIds)
 					+ ")";
 			Map<Long, Integer> imeimap = new HashMap<Long, Integer>();
-			PreparedStatement pstmt = connection.prepareStatement(sql);
+			IgniteSearch.getInstance().connect();
+			PreparedStatement pstmt =IgniteSearch.getInstance().connection.prepareStatement(sql);
 			ResultSet rs = pstmt.executeQuery();
 			while (rs.next()) {
 				imeimap.put(rs.getLong("imei"), rs.getInt("user_b_id"));
@@ -510,7 +494,7 @@ public class HbaseSearch implements IHbaseSearch {
 								- IgniteSearch.getInstance().getViewedCount(imei);
 					}
 				}
-				String parentBId1 = new String(), parentBId2 = new String();
+				String parentBId1, parentBId2 ;
 				parentBId1 = parentBIds.get(i).toString() + "1";
 				parentBId2 = parentBIds.get(i).toString() + "0";
 				map.put(parentBId1, count1);
@@ -547,7 +531,8 @@ public class HbaseSearch implements IHbaseSearch {
 			String sql = "select imei,user_b_id from device where user_b_id in (" + Serialization.listToStr(parentBIds)
 					+ ")";
 			Map<Long, Integer> imeimap = new HashMap<Long, Integer>();
-			PreparedStatement pstmt = connection.prepareStatement(sql);
+			IgniteSearch.getInstance().connect();
+			PreparedStatement pstmt =IgniteSearch.getInstance().connection.prepareStatement(sql);
 			ResultSet rs = pstmt.executeQuery();
 			while (rs.next()) {
 				imeimap.put(rs.getLong("imei"), rs.getInt("user_b_id"));

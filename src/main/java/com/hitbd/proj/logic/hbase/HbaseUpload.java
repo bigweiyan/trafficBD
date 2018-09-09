@@ -1,5 +1,6 @@
 package com.hitbd.proj.logic.hbase;
 
+import com.hitbd.proj.IgniteSearch;
 import com.hitbd.proj.Settings;
 import com.hitbd.proj.util.Utils;
 import org.apache.commons.csv.CSVFormat;
@@ -20,6 +21,8 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 
 public class HbaseUpload {
+    private static HashMap<Long, Integer> alarmC;
+    private static HashMap<Long, Integer> viewedC;
     public static void main(String args[]) {
         if (args.length < 3) {
             System.out.println("usage: ImportAlarm filename hbaseConfFile");
@@ -28,6 +31,8 @@ public class HbaseUpload {
         Configuration config = HBaseConfiguration.create();
         config.addResource(args[2]);
         HashMap<String, List<Put>> putMap = new HashMap<>();
+        alarmC = new HashMap<>();
+        viewedC = new HashMap<>();
         try (Connection connection = ConnectionFactory.createConnection(config);
              FileWriter writer = new FileWriter(new File(Settings.logDir, "import" + args[1] + ".log"))){
             System.out.println("Connect Success");
@@ -48,6 +53,13 @@ public class HbaseUpload {
         }catch (Exception e2) {
             e2.printStackTrace();
         }
+
+        for (Map.Entry<Long, Integer> count: alarmC.entrySet()) {
+            IgniteSearch.getInstance().setAlarmCount(count.getKey(), count.getValue());
+        }
+        for (Map.Entry<Long, Integer> count: alarmC.entrySet()) {
+            IgniteSearch.getInstance().setAlarmCount(count.getKey(), count.getValue());
+        }
     }
 
     public static void uploadFile(File file, Connection connection, HashMap<String, List<Put>> putMap, FileWriter logWriter)
@@ -67,7 +79,7 @@ public class HbaseUpload {
         while (records.hasNext()){
             CSVRecord record = records.next();
             // 获取Put列表
-            Date createDate = new Date(Settings.BASETIME + random.nextInt(timeRange) * 1000L);
+            Date createDate = new Date(Settings.START_TIME + random.nextInt(timeRange) * 1000L);
             String tableName = Utils.getTableName(createDate);
             List<Put> putList;
             if (putMap.containsKey(tableName)) {
@@ -91,6 +103,22 @@ public class HbaseUpload {
             sb.append('\"').append(record.get(0)).append("\",").append(record.get(3)).append(',').append(record.get(4)).append(',');
             sb.append(record.get(6)).append(',').append(record.get(7)).append(',').append(record.get(8)).append(',').append(record.get(10));
             String rowRecord = sb.toString();
+
+            // 更新AlarmC和ViewedC
+            Long imeiLong = Long.parseLong(imei);
+            if (alarmC.containsKey(imeiLong)) {
+                alarmC.put(imeiLong, alarmC.get(imeiLong) + 1);
+            }else {
+                alarmC.put(imeiLong, 1);
+            }
+
+            if (!record.get(9).equals("0")) {
+                if (viewedC.containsKey(imeiLong)) {
+                    viewedC.put(imeiLong, viewedC.get(imeiLong) + 1);
+                }else {
+                    viewedC.put(imeiLong, 1);
+                }
+            }
 
             // 放入批处理中
             Put put = new Put(Bytes.toBytes(rowKey));

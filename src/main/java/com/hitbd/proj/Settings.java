@@ -1,5 +1,7 @@
 package com.hitbd.proj;
 
+import org.apache.hadoop.conf.Configuration;
+
 import java.util.Date;
 
 public class Settings {
@@ -18,4 +20,6 @@ public class Settings {
     public static long END_TIME = 1534262399000L; // 2018-08-14 23:59:59
     public static int MAX_DEVICES_PER_QUERY = 100;
     public static int MAX_ALARMS_PER_QUERY = 10000;
+    public static Configuration HBASE_CONFIG = null;
+    public static int MAX_THREAD = 5;
 }
