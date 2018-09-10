@@ -3,7 +3,10 @@ package com.hitbd.proj.logic;
 import com.hitbd.proj.Settings;
 import com.hitbd.proj.model.IAlarm;
 import com.hitbd.proj.model.Pair;
+import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.client.*;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
@@ -99,9 +102,41 @@ public class AlarmScanner {
         @Override
         public void run() {
             List<Pair<Integer, IAlarm>> result = new ArrayList<>();
-            // TODO 查询的代码写在这儿
-            for (Pair<Integer, Long> pair:query.imeis) {
-                System.out.println(this.getName() + ": " + pair.getValue());
+            Table table;
+            try (Connection connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);){
+                table = connection.getTable(TableName.valueOf(query.tableName));
+                String start, end;
+                int resultCount = 0;
+                for (Pair<Integer, Long> pair: query.imeis) {
+                    StringBuilder sb = new StringBuilder();
+                    String imei = pair.getValue().toString();
+                    for (int j = 0; j < 17 - imei.length(); j++) {
+                        sb.append(0);
+                    }
+                    sb.append(imei).append(query.startRelativeSecond).append("0");
+                    start = sb.toString();
+
+                    sb.setLength(0);
+                    for (int j = 0; j < 17 - imei.length(); j++) {
+                        sb.append(0);
+                    }
+                    sb.append(imei).append(query.endRelativeSecond).append("9");
+                    end = sb.toString();
+                    Scan scan = new Scan(start.getBytes(),end.getBytes());
+                    scan.addFamily("r".getBytes());
+                    scan.setBatch(100);
+                    ResultScanner scanner = table.getScanner(scan);
+                    Result[] results = scanner.next(100);
+                    while (results != null && results.length != 0) {
+                        resultCount += results.length;
+                        results = scanner.next(100);
+                    }
+                }
+                table.close();
+                // DEBUG output result size
+                System.out.println(this.getName() + " get " + resultCount);
+            } catch (IOException e) {
+                e.printStackTrace();
             }
             AlarmScanner.this.putAlarm(result);
         }

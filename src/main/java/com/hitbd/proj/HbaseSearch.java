@@ -337,6 +337,13 @@ public class HbaseSearch implements IHbaseSearch {
             for (int user : userBIds) userAndDevice.put(user, IgniteSearch.getInstance().getDirectDevices(user, queryUser, false));
         }
 
+        // DEBUG output imeis
+        int totalImei = 0;
+        for (Map.Entry<Integer, List<Long>> imei : userAndDevice.entrySet()) {
+            totalImei += imei.getValue().size();
+        }
+        System.out.println("create imei:" + totalImei);
+
         // 计算需要在哪些表中进行查询
         List<String> usedTable;
         if (filter.getAllowTimeRange() == null) {
@@ -576,7 +583,6 @@ public class HbaseSearch implements IHbaseSearch {
         }catch (SQLException e){
 		    e.printStackTrace();
         }
-
 		return null;
 	}
 

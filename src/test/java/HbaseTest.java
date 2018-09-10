@@ -20,14 +20,17 @@ import java.util.*;
 public class HbaseTest {
     @Ignore
     @Test
-    public void testQuery() {
+    public void testQuery() throws IOException{
+        Configuration configuration = HBaseConfiguration.create();
+        configuration.addResource("/usr/hbase-1.3.2.1/conf/hbase-site.xml");
+        Settings.HBASE_CONFIG = configuration;
         ArrayList<Integer> userBIds = new ArrayList<>();
         userBIds.add(2469);
         QueryFilter queryFilter = new QueryFilter();
-        queryFilter.setAllowTimeRange(new Pair<>(new Date(Settings.START_TIME), new Date(Settings.START_TIME + 1000)));
+        queryFilter.setAllowTimeRange(new Pair<>(new Date(1533225600000L), new Date(1533484800000L)));
         Date date = new Date();
         AlarmScanner scanner = HbaseSearch.getInstance().queryAlarmByUser(2469, userBIds, true, HbaseSearch.NO_SORT, queryFilter);
-        System.out.println("Use Time:" + (new Date().getTime() - date.getTime()) + "ms");
+        System.out.println("Ignite Use Time:" + (new Date().getTime() - date.getTime()) + "ms; create query " + scanner.queries.size());
 //        int i = 0;
 //        while (!scanner.queries.isEmpty()) {
 //            System.out.println("query: " + i);
@@ -45,6 +48,6 @@ public class HbaseTest {
         while (!scanner.isFinished()) {
             scanner.next();
         }
-        System.out.println("Use Time:" + (new Date().getTime() - date.getTime()) + "ms");
+        System.out.println("Hbase Use Time:" + (new Date().getTime() - date.getTime()) + "ms");
     }
 }
