@@ -342,7 +342,7 @@ public class HbaseSearch implements IHbaseSearch {
         for (Map.Entry<Integer, List<Long>> imei : userAndDevice.entrySet()) {
             totalImei += imei.getValue().size();
         }
-        System.out.println("create imei:" + totalImei);
+        System.out.print("Ignite find imei: " + totalImei);
 
         // 计算需要在哪些表中进行查询
         List<String> usedTable;

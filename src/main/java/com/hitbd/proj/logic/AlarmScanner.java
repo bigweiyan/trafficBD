@@ -18,6 +18,7 @@ public class AlarmScanner {
     private int currentThreads;
     private boolean ready;
     private boolean finished;
+    private int totalAlarm = 0;
 
     public AlarmScanner() {
         currentThreads = 0;
@@ -94,6 +95,14 @@ public class AlarmScanner {
         return finished;
     }
 
+    public int getTotalAlarm() {
+        return totalAlarm;
+    }
+
+    public synchronized void addTotalAlarm(int alarm){
+        totalAlarm += alarm;
+    }
+
     class ScanThread extends Thread{
         private Query query;
         public ScanThread(Query query){
@@ -127,14 +136,16 @@ public class AlarmScanner {
                     scan.setBatch(100);
                     ResultScanner scanner = table.getScanner(scan);
                     Result[] results = scanner.next(100);
-                    while (results != null && results.length != 0) {
+                    while (results.length != 0) {   // hbase method never return null
                         resultCount += results.length;
                         results = scanner.next(100);
                     }
+                    scanner.close();
                 }
                 table.close();
+
                 // DEBUG output result size
-                System.out.println(this.getName() + " get " + resultCount);
+                AlarmScanner.this.addTotalAlarm(resultCount);
             } catch (IOException e) {
                 e.printStackTrace();
             }
