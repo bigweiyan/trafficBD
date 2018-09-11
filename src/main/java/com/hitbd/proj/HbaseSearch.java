@@ -411,11 +411,115 @@ public class HbaseSearch implements IHbaseSearch {
                 result.setQueries(queries);
             }
         }else if (sortType == HbaseSearch.SORT_BY_IMEI) {
-            // TODO solve imei sort
-            return null;
+            //对imei进行排序
+            List<Pair<Integer,Long>> sortByImei = new ArrayList<>();
+            for (Map.Entry<Integer, List<Long>> user : userAndDevice.entrySet()) {
+                for(Long imei:user.getValue()) {
+                    sortByImei.add(new Pair<>(user.getKey(),imei));
+                }
+            }
+            Collections.sort(sortByImei, new Comparator<Pair<Integer,Long>>() {
+                public int compare(Pair<Integer,Long> pair1,Pair<Integer,Long> pair2) {
+                    long tmp =  pair1.getValue().longValue()-pair2.getValue().longValue();
+                    if(tmp>0)
+                        return 1;
+                    else
+                        return -1;
+                }
+            });
+            //对每个imei在每个表中新建子查询
+            for(Pair<Integer,Long> imei:sortByImei) {
+                for (int i = 0; i < usedTable.size(); i++) {
+                 // 确定这个查询所对应的起止时间
+                    String startRelativeSecond;
+                    String endRelativeSecond;
+                    if (i == 0) {
+                        startRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getKey());
+                    }else {
+                        startRelativeSecond = "00000";
+                    }
+                    if (i == usedTable.size() - 1) {
+                        endRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getValue());
+                    }else {
+                        endRelativeSecond = "fffff";
+                    }
+                    // 新增查询
+                    Query query = new Query();
+                    query.order = SORT_BY_IMEI;
+                    query.tableName = usedTable.get(i);
+                    query.startRelativeSecond = startRelativeSecond;
+                    query.endRelativeSecond = endRelativeSecond;
+                    List<Pair<Integer, Long>> imeis = new ArrayList<>();
+                    imeis.add(imei);
+                    query.imeis = imeis;
+                    queries.add(query);
+                    result.setQueries(queries);
+                }
+            }
         }else if (sortType == HbaseSearch.SORT_BY_USER_ID) {
             // TODO solve user_id sort
-            return null;
+            //对userid进行排序
+            List<Map.Entry<Integer, List<Long>>> sortByUserId = new ArrayList<>(userAndDevice.entrySet());
+            Collections.sort(sortByUserId,new Comparator<Map.Entry<Integer, List<Long>>>() {
+                public int compare(Map.Entry<Integer,List<Long>> o1,Map.Entry<Integer,List<Long>> o2) {
+                    return o1.getKey()-o2.getKey();
+                }
+            });
+            //对每个user的所有imei在每个表中构建子查询
+            for(Map.Entry<Integer, List<Long>> user :sortByUserId) {
+                Query query = new Query();
+                List<Pair<Integer, Long>> imeis = new ArrayList<>();
+                for (int i = 0; i < usedTable.size(); i++) {
+                    // 确定这个查询所对应的起止时间
+                    String startRelativeSecond;
+                    String endRelativeSecond;
+                    if (i == 0) {
+                        startRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getKey());
+                    }else {
+                        startRelativeSecond = "00000";
+                    }
+                    if (i == usedTable.size() - 1) {
+                        endRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getValue());
+                    }else {
+                        endRelativeSecond = "fffff";
+                    }
+                    // 新增查询
+                    query.order = SORT_BY_USER_ID;
+                    query.tableName = usedTable.get(i);
+                    query.startRelativeSecond = startRelativeSecond;
+                    query.endRelativeSecond = endRelativeSecond;
+                    // 记录上次读取的imei位置
+                    int lastPostion = 0;
+                    // 记录是否读取完这个user的所有imei
+                    boolean doneUser = false;
+                    while (!doneUser) {
+                        doneUser = true;
+                        while (lastPostion < user.getValue().size()) {
+                            imeis.add(new Pair<>(user.getKey(), user.getValue().get(lastPostion)));
+                            lastPostion++;
+                            // 如果现在已经读取了一批MAX_DEVICE的imei，则先构建新子查询
+                            if (lastPostion % Settings.MAX_DEVICES_PER_QUERY == 0) {
+                                doneUser = false;
+                                break;
+                            }
+                        }
+                        // 如果一个表中查询的设备数大于100， 则构建一个新查询
+                        if (imeis.size() > Settings.MAX_DEVICES_PER_QUERY) {
+                            query.imeis = imeis;
+                            queries.add(query);
+                            query = new Query();
+                            query.order = SORT_BY_USER_ID;
+                            query.tableName = usedTable.get(i);
+                            query.startRelativeSecond = startRelativeSecond;
+                            query.endRelativeSecond = endRelativeSecond;
+                            imeis = new ArrayList<>();
+                        }
+                    }
+                }
+                query.imeis = imeis;
+                queries.add(query);
+                result.setQueries(queries);
+            }
         }else {
             throw new IllegalArgumentException("sort type should be defined in IHbaseSearch");
         }
@@ -426,7 +530,184 @@ public class HbaseSearch implements IHbaseSearch {
     @Override
     public AlarmScanner queryAlarmByImei(HashMap<Integer, List<Long>> userAndDevices, int sortType, QueryFilter filter) {
         AlarmScanner result = new AlarmScanner();
-        // TODO
+        // 计算需要在哪些表中进行查询
+        List<String> usedTable;
+        if (filter.getAllowTimeRange() == null) {
+            usedTable = Arrays.asList(Settings.TABLES);
+        }else{
+            usedTable = Utils.getUseTable(filter.getAllowTimeRange().getKey(), filter.getAllowTimeRange().getValue());
+        }
+     // 划分查询，每个查询按时间进行排列
+        LinkedList<Query> queries = new LinkedList<>();
+        if (sortType == HbaseSearch.SORT_BY_CREATE_TIME || sortType == HbaseSearch.NO_SORT) {
+            for (int i = 0; i < usedTable.size(); i++){
+                // 确定这个查询所对应的起止时间
+                String startRelativeSecond;
+                String endRelativeSecond;
+                if (i == 0) {
+                    startRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getKey());
+                }else {
+                    startRelativeSecond = "00000";
+                }
+                if (i == usedTable.size() - 1) {
+                    endRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getValue());
+                }else {
+                    endRelativeSecond = "fffff";
+                }
+                // 新增查询
+                Query query = new Query();
+                query.order = SORT_BY_CREATE_TIME;
+                query.tableName = usedTable.get(i);
+                query.startRelativeSecond = startRelativeSecond;
+                query.endRelativeSecond = endRelativeSecond;
+                List<Pair<Integer, Long>> imeis = new ArrayList<>();
+                for (Map.Entry<Integer, List<Long>> user : userAndDevices.entrySet()) {
+                    // 记录上次读取的imei位置
+                    int lastPostion = 0;
+                    // 记录是否读取完这个user的所有imei
+                    boolean doneUser = false;
+                    while (!doneUser) {
+                        doneUser = true;
+                        while (lastPostion < user.getValue().size()) {
+                            imeis.add(new Pair<>(user.getKey(), user.getValue().get(lastPostion)));
+                            lastPostion++;
+                            // 如果现在已经读取了一批MAX_DEVICE的imei，则先构建新子查询
+                            if (lastPostion % Settings.MAX_DEVICES_PER_QUERY == 0) {
+                                doneUser = false;
+                                break;
+                            }
+                        }
+                        // 如果一个表中查询的设备数大于100， 则构建一个新查询
+                        if (imeis.size() > Settings.MAX_DEVICES_PER_QUERY) {
+                            query.imeis = imeis;
+                            queries.add(query);
+                            query = new Query();
+                            query.order = SORT_BY_CREATE_TIME;
+                            query.tableName = usedTable.get(i);
+                            query.startRelativeSecond = startRelativeSecond;
+                            query.endRelativeSecond = endRelativeSecond;
+                            imeis = new ArrayList<>();
+                        }
+                    }
+                }
+                query.imeis = imeis;
+                queries.add(query);
+                result.setQueries(queries);
+            }
+        }else if (sortType == HbaseSearch.SORT_BY_IMEI) {
+            //对imei进行排序
+            List<Pair<Integer,Long>> sortByImei = new ArrayList<>();
+            for (Map.Entry<Integer, List<Long>> user : userAndDevices.entrySet()) {
+                for(Long imei:user.getValue()) {
+                    sortByImei.add(new Pair<>(user.getKey(),imei));
+                }
+            }
+            Collections.sort(sortByImei, new Comparator<Pair<Integer,Long>>() {
+                public int compare(Pair<Integer,Long> pair1,Pair<Integer,Long> pair2) {
+                    long tmp =  pair1.getValue().longValue()-pair2.getValue().longValue();
+                    if(tmp>0)
+                        return 1;
+                    else
+                        return -1;
+                }
+            });
+            //对每个imei在每个表中新建子查询
+            for(Pair<Integer,Long> imei:sortByImei) {
+                for (int i = 0; i < usedTable.size(); i++) {
+                 // 确定这个查询所对应的起止时间
+                    String startRelativeSecond;
+                    String endRelativeSecond;
+                    if (i == 0) {
+                        startRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getKey());
+                    }else {
+                        startRelativeSecond = "00000";
+                    }
+                    if (i == usedTable.size() - 1) {
+                        endRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getValue());
+                    }else {
+                        endRelativeSecond = "fffff";
+                    }
+                    // 新增查询
+                    Query query = new Query();
+                    query.order = SORT_BY_IMEI;
+                    query.tableName = usedTable.get(i);
+                    query.startRelativeSecond = startRelativeSecond;
+                    query.endRelativeSecond = endRelativeSecond;
+                    List<Pair<Integer, Long>> imeis = new ArrayList<>();
+                    imeis.add(imei);
+                    query.imeis = imeis;
+                    queries.add(query);
+                    result.setQueries(queries);
+                }
+            }
+        }else if (sortType == HbaseSearch.SORT_BY_USER_ID) {
+            // TODO solve user_id sort
+            //对userid进行排序
+            List<Map.Entry<Integer, List<Long>>> sortByUserId = new ArrayList<>(userAndDevices.entrySet());
+            Collections.sort(sortByUserId,new Comparator<Map.Entry<Integer, List<Long>>>() {
+                public int compare(Map.Entry<Integer,List<Long>> o1,Map.Entry<Integer,List<Long>> o2) {
+                    return o1.getKey()-o2.getKey();
+                }
+            });
+            //对每个user的所有imei在每个表中构建子查询
+            for(Map.Entry<Integer, List<Long>> user :sortByUserId) {
+                Query query = new Query();
+                List<Pair<Integer, Long>> imeis = new ArrayList<>();
+                for (int i = 0; i < usedTable.size(); i++) {
+                    // 确定这个查询所对应的起止时间
+                    String startRelativeSecond;
+                    String endRelativeSecond;
+                    if (i == 0) {
+                        startRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getKey());
+                    }else {
+                        startRelativeSecond = "00000";
+                    }
+                    if (i == usedTable.size() - 1) {
+                        endRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getValue());
+                    }else {
+                        endRelativeSecond = "fffff";
+                    }
+                    // 新增查询
+                    query.order = SORT_BY_USER_ID;
+                    query.tableName = usedTable.get(i);
+                    query.startRelativeSecond = startRelativeSecond;
+                    query.endRelativeSecond = endRelativeSecond;
+                    // 记录上次读取的imei位置
+                    int lastPostion = 0;
+                    // 记录是否读取完这个user的所有imei
+                    boolean doneUser = false;
+                    while (!doneUser) {
+                        doneUser = true;
+                        while (lastPostion < user.getValue().size()) {
+                            imeis.add(new Pair<>(user.getKey(), user.getValue().get(lastPostion)));
+                            lastPostion++;
+                            // 如果现在已经读取了一批MAX_DEVICE的imei，则先构建新子查询
+                            if (lastPostion % Settings.MAX_DEVICES_PER_QUERY == 0) {
+                                doneUser = false;
+                                break;
+                            }
+                        }
+                        // 如果一个表中查询的设备数大于100， 则构建一个新查询
+                        if (imeis.size() > Settings.MAX_DEVICES_PER_QUERY) {
+                            query.imeis = imeis;
+                            queries.add(query);
+                            query = new Query();
+                            query.order = SORT_BY_USER_ID;
+                            query.tableName = usedTable.get(i);
+                            query.startRelativeSecond = startRelativeSecond;
+                            query.endRelativeSecond = endRelativeSecond;
+                            imeis = new ArrayList<>();
+                        }
+                    }
+                }
+                query.imeis = imeis;
+                queries.add(query);
+                result.setQueries(queries);
+            }
+        }else {
+            throw new IllegalArgumentException("sort type should be defined in IHbaseSearch");
+        }
+        result.setQueries(queries);
         return result;
     }
 
