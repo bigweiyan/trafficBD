@@ -23,7 +23,7 @@ public class AlarmScanner {
 
     public AlarmScanner() {
         try {
-            Connection connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
+            connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
         }catch (IOException e){
             e.printStackTrace();
         }
@@ -98,7 +98,7 @@ public class AlarmScanner {
     }
 
     public boolean isFinished() {
-        if (!connection.isClosed()) {
+        if (finished && !connection.isClosed()) {
             try {
                 connection.close();
             }catch (IOException e){
