@@ -25,13 +25,12 @@ public class AlarmScanner {
         // DEBUG
         if (Settings.HBASE_CONFIG == null) {
             System.out.println("HBASE_CONFIG not set; ignite only");
-        }
-
-
-        try {
-            connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
-        }catch (IOException e){
-            e.printStackTrace();
+        }else {
+            try {
+                connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
         currentThreads = 0;
         alarms = new ArrayList<>();
