@@ -22,6 +22,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import java.io.IOException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -336,6 +337,13 @@ public class HbaseSearch implements IHbaseSearch {
             for (int user : userBIds) userAndDevice.put(user, IgniteSearch.getInstance().getDirectDevices(user, queryUser, false));
         }
 
+        // DEBUG output imeis
+        int totalImei = 0;
+        for (Map.Entry<Integer, List<Long>> imei : userAndDevice.entrySet()) {
+            totalImei += imei.getValue().size();
+        }
+        System.out.print("Ignite find imei: " + totalImei);
+
         // 计算需要在哪些表中进行查询
         List<String> usedTable;
         if (filter.getAllowTimeRange() == null) {
@@ -403,11 +411,115 @@ public class HbaseSearch implements IHbaseSearch {
                 result.setQueries(queries);
             }
         }else if (sortType == HbaseSearch.SORT_BY_IMEI) {
-            // TODO solve imei sort
-            return null;
+            //对imei进行排序
+            List<Pair<Integer,Long>> sortByImei = new ArrayList<>();
+            for (Map.Entry<Integer, List<Long>> user : userAndDevice.entrySet()) {
+                for(Long imei:user.getValue()) {
+                    sortByImei.add(new Pair<>(user.getKey(),imei));
+                }
+            }
+            Collections.sort(sortByImei, new Comparator<Pair<Integer,Long>>() {
+                public int compare(Pair<Integer,Long> pair1,Pair<Integer,Long> pair2) {
+                    long tmp =  pair1.getValue().longValue()-pair2.getValue().longValue();
+                    if(tmp>0)
+                        return 1;
+                    else
+                        return -1;
+                }
+            });
+            //对每个imei在每个表中新建子查询
+            for(Pair<Integer,Long> imei:sortByImei) {
+                for (int i = 0; i < usedTable.size(); i++) {
+                 // 确定这个查询所对应的起止时间
+                    String startRelativeSecond;
+                    String endRelativeSecond;
+                    if (i == 0) {
+                        startRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getKey());
+                    }else {
+                        startRelativeSecond = "00000";
+                    }
+                    if (i == usedTable.size() - 1) {
+                        endRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getValue());
+                    }else {
+                        endRelativeSecond = "fffff";
+                    }
+                    // 新增查询
+                    Query query = new Query();
+                    query.order = SORT_BY_IMEI;
+                    query.tableName = usedTable.get(i);
+                    query.startRelativeSecond = startRelativeSecond;
+                    query.endRelativeSecond = endRelativeSecond;
+                    List<Pair<Integer, Long>> imeis = new ArrayList<>();
+                    imeis.add(imei);
+                    query.imeis = imeis;
+                    queries.add(query);
+                    result.setQueries(queries);
+                }
+            }
         }else if (sortType == HbaseSearch.SORT_BY_USER_ID) {
             // TODO solve user_id sort
-            return null;
+            //对userid进行排序
+            List<Map.Entry<Integer, List<Long>>> sortByUserId = new ArrayList<>(userAndDevice.entrySet());
+            Collections.sort(sortByUserId,new Comparator<Map.Entry<Integer, List<Long>>>() {
+                public int compare(Map.Entry<Integer,List<Long>> o1,Map.Entry<Integer,List<Long>> o2) {
+                    return o1.getKey()-o2.getKey();
+                }
+            });
+            //对每个user的所有imei在每个表中构建子查询
+            for(Map.Entry<Integer, List<Long>> user :sortByUserId) {
+                Query query = new Query();
+                List<Pair<Integer, Long>> imeis = new ArrayList<>();
+                for (int i = 0; i < usedTable.size(); i++) {
+                    // 确定这个查询所对应的起止时间
+                    String startRelativeSecond;
+                    String endRelativeSecond;
+                    if (i == 0) {
+                        startRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getKey());
+                    }else {
+                        startRelativeSecond = "00000";
+                    }
+                    if (i == usedTable.size() - 1) {
+                        endRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getValue());
+                    }else {
+                        endRelativeSecond = "fffff";
+                    }
+                    // 新增查询
+                    query.order = SORT_BY_USER_ID;
+                    query.tableName = usedTable.get(i);
+                    query.startRelativeSecond = startRelativeSecond;
+                    query.endRelativeSecond = endRelativeSecond;
+                    // 记录上次读取的imei位置
+                    int lastPostion = 0;
+                    // 记录是否读取完这个user的所有imei
+                    boolean doneUser = false;
+                    while (!doneUser) {
+                        doneUser = true;
+                        while (lastPostion < user.getValue().size()) {
+                            imeis.add(new Pair<>(user.getKey(), user.getValue().get(lastPostion)));
+                            lastPostion++;
+                            // 如果现在已经读取了一批MAX_DEVICE的imei，则先构建新子查询
+                            if (lastPostion % Settings.MAX_DEVICES_PER_QUERY == 0) {
+                                doneUser = false;
+                                break;
+                            }
+                        }
+                        // 如果一个表中查询的设备数大于100， 则构建一个新查询
+                        if (imeis.size() > Settings.MAX_DEVICES_PER_QUERY) {
+                            query.imeis = imeis;
+                            queries.add(query);
+                            query = new Query();
+                            query.order = SORT_BY_USER_ID;
+                            query.tableName = usedTable.get(i);
+                            query.startRelativeSecond = startRelativeSecond;
+                            query.endRelativeSecond = endRelativeSecond;
+                            imeis = new ArrayList<>();
+                        }
+                    }
+                }
+                query.imeis = imeis;
+                queries.add(query);
+                result.setQueries(queries);
+            }
         }else {
             throw new IllegalArgumentException("sort type should be defined in IHbaseSearch");
         }
@@ -418,7 +530,184 @@ public class HbaseSearch implements IHbaseSearch {
     @Override
     public AlarmScanner queryAlarmByImei(HashMap<Integer, List<Long>> userAndDevices, int sortType, QueryFilter filter) {
         AlarmScanner result = new AlarmScanner();
-        // TODO
+        // 计算需要在哪些表中进行查询
+        List<String> usedTable;
+        if (filter.getAllowTimeRange() == null) {
+            usedTable = Arrays.asList(Settings.TABLES);
+        }else{
+            usedTable = Utils.getUseTable(filter.getAllowTimeRange().getKey(), filter.getAllowTimeRange().getValue());
+        }
+     // 划分查询，每个查询按时间进行排列
+        LinkedList<Query> queries = new LinkedList<>();
+        if (sortType == HbaseSearch.SORT_BY_CREATE_TIME || sortType == HbaseSearch.NO_SORT) {
+            for (int i = 0; i < usedTable.size(); i++){
+                // 确定这个查询所对应的起止时间
+                String startRelativeSecond;
+                String endRelativeSecond;
+                if (i == 0) {
+                    startRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getKey());
+                }else {
+                    startRelativeSecond = "00000";
+                }
+                if (i == usedTable.size() - 1) {
+                    endRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getValue());
+                }else {
+                    endRelativeSecond = "fffff";
+                }
+                // 新增查询
+                Query query = new Query();
+                query.order = SORT_BY_CREATE_TIME;
+                query.tableName = usedTable.get(i);
+                query.startRelativeSecond = startRelativeSecond;
+                query.endRelativeSecond = endRelativeSecond;
+                List<Pair<Integer, Long>> imeis = new ArrayList<>();
+                for (Map.Entry<Integer, List<Long>> user : userAndDevices.entrySet()) {
+                    // 记录上次读取的imei位置
+                    int lastPostion = 0;
+                    // 记录是否读取完这个user的所有imei
+                    boolean doneUser = false;
+                    while (!doneUser) {
+                        doneUser = true;
+                        while (lastPostion < user.getValue().size()) {
+                            imeis.add(new Pair<>(user.getKey(), user.getValue().get(lastPostion)));
+                            lastPostion++;
+                            // 如果现在已经读取了一批MAX_DEVICE的imei，则先构建新子查询
+                            if (lastPostion % Settings.MAX_DEVICES_PER_QUERY == 0) {
+                                doneUser = false;
+                                break;
+                            }
+                        }
+                        // 如果一个表中查询的设备数大于100， 则构建一个新查询
+                        if (imeis.size() > Settings.MAX_DEVICES_PER_QUERY) {
+                            query.imeis = imeis;
+                            queries.add(query);
+                            query = new Query();
+                            query.order = SORT_BY_CREATE_TIME;
+                            query.tableName = usedTable.get(i);
+                            query.startRelativeSecond = startRelativeSecond;
+                            query.endRelativeSecond = endRelativeSecond;
+                            imeis = new ArrayList<>();
+                        }
+                    }
+                }
+                query.imeis = imeis;
+                queries.add(query);
+                result.setQueries(queries);
+            }
+        }else if (sortType == HbaseSearch.SORT_BY_IMEI) {
+            //对imei进行排序
+            List<Pair<Integer,Long>> sortByImei = new ArrayList<>();
+            for (Map.Entry<Integer, List<Long>> user : userAndDevices.entrySet()) {
+                for(Long imei:user.getValue()) {
+                    sortByImei.add(new Pair<>(user.getKey(),imei));
+                }
+            }
+            Collections.sort(sortByImei, new Comparator<Pair<Integer,Long>>() {
+                public int compare(Pair<Integer,Long> pair1,Pair<Integer,Long> pair2) {
+                    long tmp =  pair1.getValue().longValue()-pair2.getValue().longValue();
+                    if(tmp>0)
+                        return 1;
+                    else
+                        return -1;
+                }
+            });
+            //对每个imei在每个表中新建子查询
+            for(Pair<Integer,Long> imei:sortByImei) {
+                for (int i = 0; i < usedTable.size(); i++) {
+                 // 确定这个查询所对应的起止时间
+                    String startRelativeSecond;
+                    String endRelativeSecond;
+                    if (i == 0) {
+                        startRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getKey());
+                    }else {
+                        startRelativeSecond = "00000";
+                    }
+                    if (i == usedTable.size() - 1) {
+                        endRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getValue());
+                    }else {
+                        endRelativeSecond = "fffff";
+                    }
+                    // 新增查询
+                    Query query = new Query();
+                    query.order = SORT_BY_IMEI;
+                    query.tableName = usedTable.get(i);
+                    query.startRelativeSecond = startRelativeSecond;
+                    query.endRelativeSecond = endRelativeSecond;
+                    List<Pair<Integer, Long>> imeis = new ArrayList<>();
+                    imeis.add(imei);
+                    query.imeis = imeis;
+                    queries.add(query);
+                    result.setQueries(queries);
+                }
+            }
+        }else if (sortType == HbaseSearch.SORT_BY_USER_ID) {
+            // TODO solve user_id sort
+            //对userid进行排序
+            List<Map.Entry<Integer, List<Long>>> sortByUserId = new ArrayList<>(userAndDevices.entrySet());
+            Collections.sort(sortByUserId,new Comparator<Map.Entry<Integer, List<Long>>>() {
+                public int compare(Map.Entry<Integer,List<Long>> o1,Map.Entry<Integer,List<Long>> o2) {
+                    return o1.getKey()-o2.getKey();
+                }
+            });
+            //对每个user的所有imei在每个表中构建子查询
+            for(Map.Entry<Integer, List<Long>> user :sortByUserId) {
+                Query query = new Query();
+                List<Pair<Integer, Long>> imeis = new ArrayList<>();
+                for (int i = 0; i < usedTable.size(); i++) {
+                    // 确定这个查询所对应的起止时间
+                    String startRelativeSecond;
+                    String endRelativeSecond;
+                    if (i == 0) {
+                        startRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getKey());
+                    }else {
+                        startRelativeSecond = "00000";
+                    }
+                    if (i == usedTable.size() - 1) {
+                        endRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getValue());
+                    }else {
+                        endRelativeSecond = "fffff";
+                    }
+                    // 新增查询
+                    query.order = SORT_BY_USER_ID;
+                    query.tableName = usedTable.get(i);
+                    query.startRelativeSecond = startRelativeSecond;
+                    query.endRelativeSecond = endRelativeSecond;
+                    // 记录上次读取的imei位置
+                    int lastPostion = 0;
+                    // 记录是否读取完这个user的所有imei
+                    boolean doneUser = false;
+                    while (!doneUser) {
+                        doneUser = true;
+                        while (lastPostion < user.getValue().size()) {
+                            imeis.add(new Pair<>(user.getKey(), user.getValue().get(lastPostion)));
+                            lastPostion++;
+                            // 如果现在已经读取了一批MAX_DEVICE的imei，则先构建新子查询
+                            if (lastPostion % Settings.MAX_DEVICES_PER_QUERY == 0) {
+                                doneUser = false;
+                                break;
+                            }
+                        }
+                        // 如果一个表中查询的设备数大于100， 则构建一个新查询
+                        if (imeis.size() > Settings.MAX_DEVICES_PER_QUERY) {
+                            query.imeis = imeis;
+                            queries.add(query);
+                            query = new Query();
+                            query.order = SORT_BY_USER_ID;
+                            query.tableName = usedTable.get(i);
+                            query.startRelativeSecond = startRelativeSecond;
+                            query.endRelativeSecond = endRelativeSecond;
+                            imeis = new ArrayList<>();
+                        }
+                    }
+                }
+                query.imeis = imeis;
+                queries.add(query);
+                result.setQueries(queries);
+            }
+        }else {
+            throw new IllegalArgumentException("sort type should be defined in IHbaseSearch");
+        }
+        result.setQueries(queries);
         return result;
     }
 
@@ -441,127 +730,140 @@ public class HbaseSearch implements IHbaseSearch {
 	public Map<String, Integer> groupCountByImeiStatus(int parentBId, boolean recursive) {
 		Map<String, Integer> map = new HashMap<String, Integer>();
 		ArrayList<Long> imeilist = new ArrayList<Long>();
-		if (!recursive) {
-			String sql = "select imei from device where user_id = " + String.valueOf(parentBId);
-			IgniteSearch.getInstance().connect();
-			PreparedStatement pstmt =IgniteSearch.getInstance().connection.prepareStatement(sql);
-			ResultSet rs = pstmt.executeQuery();
-			while (rs.next()) {
-				imeilist.add(rs.getLong("imei"));
-			}
-		} else {
-			Map<Integer, List<Long>> idandimei = IgniteSearch.getInstance().getChildrenDevicesOfUserB(parentBId);
-			for (Integer id : idandimei.keySet()) {
-				List<Long> temp = idandimei.get(id);
-				for (Long i : temp) {
-					imeilist.add(i);
-				}
-			}
-		}
-		for (int i = 0; i < imeilist.size(); i++) {
-			List<IAlarm> ialarmlist = new ArrayList<IAlarm>();
-			Date endtime = new Date();
-			ialarmlist = getAlarms(imeilist.get(i), imeilist.get(i), new Date(Settings.BASETIME), endtime);
-			String temp = ialarmlist.get(i).getStatus();
-			if (map.containsKey(temp))
-				map.replace(temp, map.get(temp), map.get(temp) + 1);
-			else
-				map.put(temp, 1);
-		}
+		try {
+            if (!recursive) {
+                String sql = "select imei from device where user_id = " + String.valueOf(parentBId);
+                IgniteSearch.getInstance().connect();
+                PreparedStatement pstmt =IgniteSearch.getInstance().connection.prepareStatement(sql);
+                ResultSet rs = pstmt.executeQuery();
+                while (rs.next()) {
+                    imeilist.add(rs.getLong("imei"));
+                }
+            } else {
+                Map<Integer, List<Long>> idandimei = IgniteSearch.getInstance().getChildrenDevicesOfUserB(parentBId);
+                for (Integer id : idandimei.keySet()) {
+                    List<Long> temp = idandimei.get(id);
+                    for (Long i : temp) {
+                        imeilist.add(i);
+                    }
+                }
+            }
+            for (int i = 0; i < imeilist.size(); i++) {
+                List<IAlarm> ialarmlist = new ArrayList<IAlarm>();
+                Date endtime = new Date();
+                ialarmlist = getAlarms(imeilist.get(i), imeilist.get(i), new Date(Settings.BASETIME), endtime);
+                String temp = ialarmlist.get(i).getStatus();
+                if (map.containsKey(temp))
+                    map.replace(temp, map.get(temp), map.get(temp) + 1);
+                else
+                    map.put(temp, 1);
+            }
+        }catch (SQLException e){
+		    e.printStackTrace();
+        }
+
 		return map;
 	}
 
 	@Override
 	public Map<String, Integer> groupCountByUserIdViewed(ArrayList<Integer> parentBIds, boolean recursive) {
 		Map<String, Integer> map = new HashMap<String, Integer>();
-		if (!recursive) {
-			String sql = "select imei,user_b_id from device where user_b_id in (" + Serialization.listToStr(parentBIds)
-					+ ")";
-			Map<Long, Integer> imeimap = new HashMap<Long, Integer>();
-			IgniteSearch.getInstance().connect();
-			PreparedStatement pstmt =IgniteSearch.getInstance().connection.prepareStatement(sql);
-			ResultSet rs = pstmt.executeQuery();
-			while (rs.next()) {
-				imeimap.put(rs.getLong("imei"), rs.getInt("user_b_id"));
-			}
+		try {
+            if (!recursive) {
+                String sql = "select imei,user_b_id from device where user_b_id in (" + Serialization.listToStr(parentBIds)
+                        + ")";
+                Map<Long, Integer> imeimap = new HashMap<Long, Integer>();
+                IgniteSearch.getInstance().connect();
+                PreparedStatement pstmt =IgniteSearch.getInstance().connection.prepareStatement(sql);
+                ResultSet rs = pstmt.executeQuery();
+                while (rs.next()) {
+                    imeimap.put(rs.getLong("imei"), rs.getInt("user_b_id"));
+                }
 
-			for (int i = 0; i < parentBIds.size(); i++) {
-				int count1 = 0, count2 = 0;
-				for (Long imei : imeimap.keySet()) {
-					if (imeimap.get(imei).equals(parentBIds.get(i))) {
-						count1 = count1 + IgniteSearch.getInstance().getViewedCount(imei);
-						count2 = count2 + IgniteSearch.getInstance().getAlarmCount(imei)
-								- IgniteSearch.getInstance().getViewedCount(imei);
-					}
-				}
-				String parentBId1, parentBId2 ;
-				parentBId1 = parentBIds.get(i).toString() + "1";
-				parentBId2 = parentBIds.get(i).toString() + "0";
-				map.put(parentBId1, count1);
-				map.put(parentBId2, count2);
-			}
-			return map;
-		} else {
-			for (int parentid : parentBIds) {
-				int count1 = 0, count2 = 0;
-				Map<Integer, List<Long>> idandimei = IgniteSearch.getInstance().getChildrenDevicesOfUserB(parentid);
-				for (Integer id : idandimei.keySet()) {
-					List<Long> temp = idandimei.get(id);
-					for (Long imei : temp) {
-						count1 = count1 + IgniteSearch.getInstance().getViewedCount(imei);
-						count2 = count2 + IgniteSearch.getInstance().getAlarmCount(imei)
-								- IgniteSearch.getInstance().getViewedCount(imei);
-					}
-				}
-				String parentBId1, parentBId2 ;
-				parentBId1 = Integer.valueOf(parentid).toString() + "1";
-				parentBId2 = Integer.valueOf(parentid).toString() + "0";
-				map.put(parentBId1, count1);
-				map.put(parentBId2, count2);
-			}
-			return map;
-		}
+                for (int i = 0; i < parentBIds.size(); i++) {
+                    int count1 = 0, count2 = 0;
+                    for (Long imei : imeimap.keySet()) {
+                        if (imeimap.get(imei).equals(parentBIds.get(i))) {
+                            count1 = count1 + IgniteSearch.getInstance().getViewedCount(imei);
+                            count2 = count2 + IgniteSearch.getInstance().getAlarmCount(imei)
+                                    - IgniteSearch.getInstance().getViewedCount(imei);
+                        }
+                    }
+                    String parentBId1, parentBId2 ;
+                    parentBId1 = parentBIds.get(i).toString() + "1";
+                    parentBId2 = parentBIds.get(i).toString() + "0";
+                    map.put(parentBId1, count1);
+                    map.put(parentBId2, count2);
+                }
+                return map;
+            } else {
+                for (int parentid : parentBIds) {
+                    int count1 = 0, count2 = 0;
+                    Map<Integer, List<Long>> idandimei = IgniteSearch.getInstance().getChildrenDevicesOfUserB(parentid);
+                    for (Integer id : idandimei.keySet()) {
+                        List<Long> temp = idandimei.get(id);
+                        for (Long imei : temp) {
+                            count1 = count1 + IgniteSearch.getInstance().getViewedCount(imei);
+                            count2 = count2 + IgniteSearch.getInstance().getAlarmCount(imei)
+                                    - IgniteSearch.getInstance().getViewedCount(imei);
+                        }
+                    }
+                    String parentBId1, parentBId2 ;
+                    parentBId1 = Integer.valueOf(parentid).toString() + "1";
+                    parentBId2 = Integer.valueOf(parentid).toString() + "0";
+                    map.put(parentBId1, count1);
+                    map.put(parentBId2, count2);
+                }
+                return map;
+            }
+        }catch (SQLException e){
+		    e.printStackTrace();
+        }
 		return null;
 	}
 
 	@Override
 	public Map<Integer, Integer> groupCountByUserId(ArrayList<Integer> parentBIds, boolean recursive, int topK) {
 		Map<Integer, Integer> map = new HashMap<Integer, Integer>();
-		if (!recursive) {
-			String sql = "select imei,user_b_id from device where user_b_id in (" + Serialization.listToStr(parentBIds)
-					+ ")";
-			Map<Long, Integer> imeimap = new HashMap<Long, Integer>();
-			IgniteSearch.getInstance().connect();
-			PreparedStatement pstmt =IgniteSearch.getInstance().connection.prepareStatement(sql);
-			ResultSet rs = pstmt.executeQuery();
-			while (rs.next()) {
-				imeimap.put(rs.getLong("imei"), rs.getInt("user_b_id"));
-			}
+		try {
+            if (!recursive) {
+                String sql = "select imei,user_b_id from device where user_b_id in (" + Serialization.listToStr(parentBIds)
+                        + ")";
+                Map<Long, Integer> imeimap = new HashMap<Long, Integer>();
+                IgniteSearch.getInstance().connect();
+                PreparedStatement pstmt =IgniteSearch.getInstance().connection.prepareStatement(sql);
+                ResultSet rs = pstmt.executeQuery();
+                while (rs.next()) {
+                    imeimap.put(rs.getLong("imei"), rs.getInt("user_b_id"));
+                }
 
-			for (int i = 0; i < parentBIds.size(); i++) {
-				int count = 0;
-				for (Long imei : imeimap.keySet()) {
-					if (imeimap.get(imei).equals(parentBIds.get(i))) {
-						count = count + IgniteSearch.getInstance().getAlarmCount(imei);
-					}
-				}
-				map.put(parentBIds.get(i), count);
-			}
-			return map;
-		} else {
-			for (int parentid : parentBIds) {
-				int count = 0;
-				Map<Integer, List<Long>> idandimei = IgniteSearch.getInstance().getChildrenDevicesOfUserB(parentid);
-				for (Integer id : idandimei.keySet()) {
-					List<Long> temp = idandimei.get(id);
-					for (Long imei : temp) {
-						count = count + IgniteSearch.getInstance().getAlarmCount(imei);
-					}
-				}
-				map.put(parentid, count);
-			}
-			return map;
-		}
+                for (int i = 0; i < parentBIds.size(); i++) {
+                    int count = 0;
+                    for (Long imei : imeimap.keySet()) {
+                        if (imeimap.get(imei).equals(parentBIds.get(i))) {
+                            count = count + IgniteSearch.getInstance().getAlarmCount(imei);
+                        }
+                    }
+                    map.put(parentBIds.get(i), count);
+                }
+                return map;
+            } else {
+                for (int parentid : parentBIds) {
+                    int count = 0;
+                    Map<Integer, List<Long>> idandimei = IgniteSearch.getInstance().getChildrenDevicesOfUserB(parentid);
+                    for (Integer id : idandimei.keySet()) {
+                        List<Long> temp = idandimei.get(id);
+                        for (Long imei : temp) {
+                            count = count + IgniteSearch.getInstance().getAlarmCount(imei);
+                        }
+                    }
+                    map.put(parentid, count);
+                }
+                return map;
+            }
+        }catch (SQLException e){
+		    e.printStackTrace();
+        }
 		return null;
 	}
 

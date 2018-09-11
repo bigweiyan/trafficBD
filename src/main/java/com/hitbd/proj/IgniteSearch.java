@@ -24,20 +24,20 @@ public class IgniteSearch implements IIgniteSearch {
     static IgniteCache<Long, Integer> viewedCCache;
     Connection connection;
     static IgniteSearch search = null;
-	static {
-        Ignition.setClientMode(true);
-        ignite = Ignition.start();
-        CacheConfiguration<Long, Integer> cfg = new CacheConfiguration<Long, Integer>();
-        cfg.setName("alarm_c");
-        cfg.setCacheMode(CacheMode.PARTITIONED);// 存储方式 PARTITIONED适合分布式存储
-        cfg.setIndexedTypes(Long.class, Integer.class); // 必须设置索引类否则只能以key-value方式查询
-        alarmCCache = ignite.getOrCreateCache(cfg);// 根据配置创建缓存
-        cfg = new CacheConfiguration<Long, Integer>();
-        cfg.setName("viewed_c");
-        cfg.setCacheMode(CacheMode.PARTITIONED);// 存储方式 PARTITIONED适合分布式存储
-        cfg.setIndexedTypes(Long.class, Integer.class); // 必须设置索引类否则只能以key-value方式查询
-        viewedCCache = ignite.getOrCreateCache(cfg);// 根据配置创建缓存
-	}
+//	static {
+//        Ignition.setClientMode(true);
+//        ignite = Ignition.start();
+//        CacheConfiguration<Long, Integer> cfg = new CacheConfiguration<Long, Integer>();
+//        cfg.setName("alarm_c");
+//        cfg.setCacheMode(CacheMode.PARTITIONED);// 存储方式 PARTITIONED适合分布式存储
+//        cfg.setIndexedTypes(Long.class, Integer.class); // 必须设置索引类否则只能以key-value方式查询
+//        alarmCCache = ignite.getOrCreateCache(cfg);// 根据配置创建缓存
+//        cfg = new CacheConfiguration<Long, Integer>();
+//        cfg.setName("viewed_c");
+//        cfg.setCacheMode(CacheMode.PARTITIONED);// 存储方式 PARTITIONED适合分布式存储
+//        cfg.setIndexedTypes(Long.class, Integer.class); // 必须设置索引类否则只能以key-value方式查询
+//        viewedCCache = ignite.getOrCreateCache(cfg);// 根据配置创建缓存
+//	}
 
     private IgniteSearch(){};
 
@@ -51,9 +51,8 @@ public class IgniteSearch implements IIgniteSearch {
 	@Override
 	public boolean connect() {
 		try {
-			if(connection.isClosed()) {
+			if(connection == null || connection.isClosed()) {
 				connection = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1/");
-				return true;
 			}
 		} catch (SQLException e) {
 			e.printStackTrace();
@@ -65,7 +64,7 @@ public class IgniteSearch implements IIgniteSearch {
 	@Override
 	public boolean connect(String hostname, int port) {
 		try {
-			if(connection.isClosed()) {
+			if(connection == null || connection.isClosed()) {
 			connection = DriverManager.getConnection("jdbc:ignite:thin://" + hostname + ":" + port + "/");
 			}
 		} catch (SQLException e) {
@@ -206,7 +205,7 @@ public class IgniteSearch implements IIgniteSearch {
 	@Override
 	public int createUserC() {
 		int newid = -1;
-		try (PreparedStatement pstmt = connection.prepareStatement("SELECT user_id FROM UserC ");){
+		try (PreparedStatement pstmt = connection.prepareStatement("SELECT user_id FROM UserC ")){
 			ResultSet rs = pstmt.executeQuery();
 			rs.last();
 			newid = rs.getInt("user_id") + 1;
