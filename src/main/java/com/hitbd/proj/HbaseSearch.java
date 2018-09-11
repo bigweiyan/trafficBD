@@ -8,6 +8,7 @@ import com.hitbd.proj.logic.Query;
 import com.hitbd.proj.model.AlarmImpl;
 import com.hitbd.proj.model.IAlarm;
 import com.hitbd.proj.model.Pair;
+import com.hitbd.proj.util.Serialization;
 import com.hitbd.proj.util.Utils;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
@@ -19,6 +20,9 @@ import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import java.io.IOException;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -332,6 +336,13 @@ public class HbaseSearch implements IHbaseSearch {
             userAndDevice = new HashMap<>();
             for (int user : userBIds) userAndDevice.put(user, IgniteSearch.getInstance().getDirectDevices(user, queryUser, false));
         }
+
+        // DEBUG output imeis
+        int totalImei = 0;
+        for (Map.Entry<Integer, List<Long>> imei : userAndDevice.entrySet()) {
+            totalImei += imei.getValue().size();
+        }
+        System.out.print("Ignite find imei: " + totalImei);
 
         // 计算需要在哪些表中进行查询
         List<String> usedTable;
@@ -718,125 +729,141 @@ public class HbaseSearch implements IHbaseSearch {
 	@Override
 	public Map<String, Integer> groupCountByImeiStatus(int parentBId, boolean recursive) {
 		Map<String, Integer> map = new HashMap<String, Integer>();
-//		ArrayList<Long> imeilist = new ArrayList<Long>();
-//		if (recursive == false) {
-//			String sql = "select imei from device where user_id = " + String.valueOf(parentBId);
-//			PreparedStatement pstmt = connection.prepareStatement(sql);
-//			ResultSet rs = pstmt.executeQuery();
-//			while (rs.next()) {
-//				imeilist.add(rs.getLong("imei"));
-//			}
-//		} else {
-//			Map<Integer, List<Long>> idandimei = IgniteSearch.getInstance().getChildrenDevicesOfUserB(parentBId);
-//			for (Integer id : idandimei.keySet()) {
-//				List<Long> temp = idandimei.get(id);
-//				for (Long i : temp) {
-//					imeilist.add(i);
-//				}
-//			}
-//		}
-//		for (int i = 0; i < imeilist.size(); i++) {
-//			List<IAlarm> ialarmlist = new ArrayList<IAlarm>();
-//			Date endtime = new Date();
-//			ialarmlist = getAlarms(imeilist.get(i), imeilist.get(i), new Date(Settings.BASETIME), endtime);
-//			String temp = ialarmlist.get(i).getStatus();
-//			if (map.containsKey(temp) == true)
-//				map.replace(temp, map.get(temp), map.get(temp) + 1);
-//			else
-//				map.put(temp, 1);
-//		}
+		ArrayList<Long> imeilist = new ArrayList<Long>();
+		try {
+            if (!recursive) {
+                String sql = "select imei from device where user_id = " + String.valueOf(parentBId);
+                IgniteSearch.getInstance().connect();
+                PreparedStatement pstmt =IgniteSearch.getInstance().connection.prepareStatement(sql);
+                ResultSet rs = pstmt.executeQuery();
+                while (rs.next()) {
+                    imeilist.add(rs.getLong("imei"));
+                }
+            } else {
+                Map<Integer, List<Long>> idandimei = IgniteSearch.getInstance().getChildrenDevicesOfUserB(parentBId);
+                for (Integer id : idandimei.keySet()) {
+                    List<Long> temp = idandimei.get(id);
+                    for (Long i : temp) {
+                        imeilist.add(i);
+                    }
+                }
+            }
+            for (int i = 0; i < imeilist.size(); i++) {
+                List<IAlarm> ialarmlist = new ArrayList<IAlarm>();
+                Date endtime = new Date();
+                ialarmlist = getAlarms(imeilist.get(i), imeilist.get(i), new Date(Settings.BASETIME), endtime);
+                String temp = ialarmlist.get(i).getStatus();
+                if (map.containsKey(temp))
+                    map.replace(temp, map.get(temp), map.get(temp) + 1);
+                else
+                    map.put(temp, 1);
+            }
+        }catch (SQLException e){
+		    e.printStackTrace();
+        }
+
 		return map;
 	}
 
 	@Override
 	public Map<String, Integer> groupCountByUserIdViewed(ArrayList<Integer> parentBIds, boolean recursive) {
-//		Map<String, Integer> map = new HashMap<String, Integer>();
-//		if (recursive == false) {
-//			String sql = "select imei,user_b_id from device where user_b_id in (" + Serialization.listToStr(parentBIds)
-//					+ ")";
-//			Map<Long, Integer> imeimap = new HashMap<Long, Integer>();
-//			PreparedStatement pstmt = connection.prepareStatement(sql);
-//			ResultSet rs = pstmt.executeQuery();
-//			while (rs.next()) {
-//				imeimap.put(rs.getLong("imei"), rs.getInt("user_b_id"));
-//			}
-//
-//			for (int i = 0; i < parentBIds.size(); i++) {
-//				int count1 = 0, count2 = 0;
-//				for (Long imei : imeimap.keySet()) {
-//					if (imeimap.get(imei).equals(parentBIds.get(i))) {
-//						count1 = count1 + IgniteSearch.getInstance().getViewedCount(imei);
-//						count2 = count2 + IgniteSearch.getInstance().getAlarmCount(imei)
-//								- IgniteSearch.getInstance().getViewedCount(imei);
-//					}
-//				}
-//				String parentBId1 = new String(), parentBId2 = new String();
-//				parentBId1 = parentBIds.get(i).toString() + "1";
-//				parentBId2 = parentBIds.get(i).toString() + "0";
-//				map.put(parentBId1, count1);
-//				map.put(parentBId2, count2);
-//			}
-//			return map;
-//		} else {
-//			for (int parentid : parentBIds) {
-//				int count1 = 0, count2 = 0;
-//				Map<Integer, List<Long>> idandimei = IgniteSearch.getInstance().getChildrenDevicesOfUserB(parentid);
-//				for (Integer id : idandimei.keySet()) {
-//					List<Long> temp = idandimei.get(id);
-//					for (Long imei : temp) {
-//						count1 = count1 + IgniteSearch.getInstance().getViewedCount(imei);
-//						count2 = count2 + IgniteSearch.getInstance().getAlarmCount(imei)
-//								- IgniteSearch.getInstance().getViewedCount(imei);
-//					}
-//				}
-//				String parentBId1 = new String(), parentBId2 = new String();
-//				parentBId1 = Integer.valueOf(parentid).toString() + "1";
-//				parentBId2 = Integer.valueOf(parentid).toString() + "0";
-//				map.put(parentBId1, count1);
-//				map.put(parentBId2, count2);
-//			}
-//			return map;
-//		}
+		Map<String, Integer> map = new HashMap<String, Integer>();
+		try {
+            if (!recursive) {
+                String sql = "select imei,user_b_id from device where user_b_id in (" + Serialization.listToStr(parentBIds)
+                        + ")";
+                Map<Long, Integer> imeimap = new HashMap<Long, Integer>();
+                IgniteSearch.getInstance().connect();
+                PreparedStatement pstmt =IgniteSearch.getInstance().connection.prepareStatement(sql);
+                ResultSet rs = pstmt.executeQuery();
+                while (rs.next()) {
+                    imeimap.put(rs.getLong("imei"), rs.getInt("user_b_id"));
+                }
+
+                for (int i = 0; i < parentBIds.size(); i++) {
+                    int count1 = 0, count2 = 0;
+                    for (Long imei : imeimap.keySet()) {
+                        if (imeimap.get(imei).equals(parentBIds.get(i))) {
+                            count1 = count1 + IgniteSearch.getInstance().getViewedCount(imei);
+                            count2 = count2 + IgniteSearch.getInstance().getAlarmCount(imei)
+                                    - IgniteSearch.getInstance().getViewedCount(imei);
+                        }
+                    }
+                    String parentBId1, parentBId2 ;
+                    parentBId1 = parentBIds.get(i).toString() + "1";
+                    parentBId2 = parentBIds.get(i).toString() + "0";
+                    map.put(parentBId1, count1);
+                    map.put(parentBId2, count2);
+                }
+                return map;
+            } else {
+                for (int parentid : parentBIds) {
+                    int count1 = 0, count2 = 0;
+                    Map<Integer, List<Long>> idandimei = IgniteSearch.getInstance().getChildrenDevicesOfUserB(parentid);
+                    for (Integer id : idandimei.keySet()) {
+                        List<Long> temp = idandimei.get(id);
+                        for (Long imei : temp) {
+                            count1 = count1 + IgniteSearch.getInstance().getViewedCount(imei);
+                            count2 = count2 + IgniteSearch.getInstance().getAlarmCount(imei)
+                                    - IgniteSearch.getInstance().getViewedCount(imei);
+                        }
+                    }
+                    String parentBId1, parentBId2 ;
+                    parentBId1 = Integer.valueOf(parentid).toString() + "1";
+                    parentBId2 = Integer.valueOf(parentid).toString() + "0";
+                    map.put(parentBId1, count1);
+                    map.put(parentBId2, count2);
+                }
+                return map;
+            }
+        }catch (SQLException e){
+		    e.printStackTrace();
+        }
 		return null;
 	}
 
 	@Override
 	public Map<Integer, Integer> groupCountByUserId(ArrayList<Integer> parentBIds, boolean recursive, int topK) {
-//		Map<Integer, Integer> map = new HashMap<Integer, Integer>();
-//		if (recursive == false) {
-//			String sql = "select imei,user_b_id from device where user_b_id in (" + Serialization.listToStr(parentBIds)
-//					+ ")";
-//			Map<Long, Integer> imeimap = new HashMap<Long, Integer>();
-//			PreparedStatement pstmt = connection.prepareStatement(sql);
-//			ResultSet rs = pstmt.executeQuery();
-//			while (rs.next()) {
-//				imeimap.put(rs.getLong("imei"), rs.getInt("user_b_id"));
-//			}
-//
-//			for (int i = 0; i < parentBIds.size(); i++) {
-//				int count = 0;
-//				for (Long imei : imeimap.keySet()) {
-//					if (imeimap.get(imei).equals(parentBIds.get(i))) {
-//						count = count + IgniteSearch.getInstance().getAlarmCount(imei);
-//					}
-//				}
-//				map.put(parentBIds.get(i), count);
-//			}
-//			return map;
-//		} else {
-//			for (int parentid : parentBIds) {
-//				int count = 0;
-//				Map<Integer, List<Long>> idandimei = IgniteSearch.getInstance().getChildrenDevicesOfUserB(parentid);
-//				for (Integer id : idandimei.keySet()) {
-//					List<Long> temp = idandimei.get(id);
-//					for (Long imei : temp) {
-//						count = count + IgniteSearch.getInstance().getAlarmCount(imei);
-//					}
-//				}
-//				map.put(parentid, count);
-//			}
-//			return map;
-//		}
+		Map<Integer, Integer> map = new HashMap<Integer, Integer>();
+		try {
+            if (!recursive) {
+                String sql = "select imei,user_b_id from device where user_b_id in (" + Serialization.listToStr(parentBIds)
+                        + ")";
+                Map<Long, Integer> imeimap = new HashMap<Long, Integer>();
+                IgniteSearch.getInstance().connect();
+                PreparedStatement pstmt =IgniteSearch.getInstance().connection.prepareStatement(sql);
+                ResultSet rs = pstmt.executeQuery();
+                while (rs.next()) {
+                    imeimap.put(rs.getLong("imei"), rs.getInt("user_b_id"));
+                }
+
+                for (int i = 0; i < parentBIds.size(); i++) {
+                    int count = 0;
+                    for (Long imei : imeimap.keySet()) {
+                        if (imeimap.get(imei).equals(parentBIds.get(i))) {
+                            count = count + IgniteSearch.getInstance().getAlarmCount(imei);
+                        }
+                    }
+                    map.put(parentBIds.get(i), count);
+                }
+                return map;
+            } else {
+                for (int parentid : parentBIds) {
+                    int count = 0;
+                    Map<Integer, List<Long>> idandimei = IgniteSearch.getInstance().getChildrenDevicesOfUserB(parentid);
+                    for (Integer id : idandimei.keySet()) {
+                        List<Long> temp = idandimei.get(id);
+                        for (Long imei : temp) {
+                            count = count + IgniteSearch.getInstance().getAlarmCount(imei);
+                        }
+                    }
+                    map.put(parentid, count);
+                }
+                return map;
+            }
+        }catch (SQLException e){
+		    e.printStackTrace();
+        }
 		return null;
 	}
 
