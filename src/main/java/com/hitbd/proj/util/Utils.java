@@ -2,8 +2,8 @@ package com.hitbd.proj.util;
 
 import com.hitbd.proj.Settings;
 
-import java.text.Format;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.Formatter;
 
@@ -29,5 +29,43 @@ public class Utils {
 
         Formatter formatter = new Formatter();
         return formatter.format("%05x", relativeSec).toString();
+    }
+
+    public static int getRelativeDate(Date date) {
+        long milliSecond = date.getTime() - Settings.BASETIME;
+        int dayPass = (int) (milliSecond / (1000L * 3600* 24));
+        return dayPass;
+    }
+
+    public static ArrayList<String> getUseTable(Date queryStart, Date queryEnd) {
+        if (queryEnd != null && queryStart != null && queryEnd.before(queryStart)) return new ArrayList<>();
+        Date tableStart = new Date(Settings.START_TIME);
+        Date tableEnd = new Date(Settings.END_TIME);
+        int startPos = 0, endPos = Settings.TABLES.length;
+        if (queryStart != null && tableStart.before(queryStart)) {
+            String queryStartTable = Utils.getTableName(queryStart);
+            for (String tableName: Settings.TABLES) {
+                if (!queryStartTable.equals(tableName)) {
+                    startPos ++;
+                }else {
+                    break;
+                }
+            }
+        }
+        if (queryEnd != null && tableEnd.after(queryEnd)) {
+            String queryEndTable = Utils.getTableName(queryEnd);
+            for (int i = Settings.TABLES.length - 1; i >= 0; i--) {
+                if (!queryEndTable.equals(Settings.TABLES[i])) {
+                    endPos --;
+                }else {
+                    break;
+                }
+            }
+        }
+        ArrayList<String> result = new ArrayList<>();
+        for (; startPos < endPos; startPos++) {
+            result.add(Settings.TABLES[startPos]);
+        }
+        return result;
     }
 }
