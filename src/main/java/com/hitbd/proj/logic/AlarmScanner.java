@@ -22,6 +22,12 @@ public class AlarmScanner {
     private Connection connection;
 
     public AlarmScanner() {
+        // DEBUG
+        if (Settings.HBASE_CONFIG == null) {
+            System.out.println("HBASE_CONFIG not set; ignite only");
+        }
+
+
         try {
             connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
         }catch (IOException e){
