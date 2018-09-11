@@ -331,7 +331,7 @@ public class HbaseSearch implements IHbaseSearch {
         Map<Integer, List<Long>> userAndDevice;
         // 读取用户及其对应设备imei,这些设备将被过期时间进行过滤
         if (recursive) {
-            userAndDevice = IgniteSearch.getInstance().getChildrenDevicesOfUserB(queryUser, false);
+            userAndDevice = IgniteSearch.getInstance().getLevelOrderChildrenDevicesOfUserB(queryUser, false);
         } else {
             userAndDevice = new HashMap<>();
             for (int user : userBIds) userAndDevice.put(user, IgniteSearch.getInstance().getDirectDevices(user, queryUser, false));

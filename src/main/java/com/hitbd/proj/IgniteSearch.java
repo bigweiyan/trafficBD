@@ -760,42 +760,46 @@ public class IgniteSearch implements IIgniteSearch {
      * @return
      * @throws SQLException 
      */
-    public HashMap<Integer, List<Long>> getLevelOrderChildrenDevicesOfUserB(int userBId, boolean useExpire) throws SQLException{
+    public HashMap<Integer, List<Long>> getLevelOrderChildrenDevicesOfUserB(int userBId, boolean useExpire){
         HashMap<Integer, List<Long>> userImeiMap = new HashMap<>();
 		ArrayList<Integer> childqueue = new ArrayList<Integer>();
 		ArrayList<Long> imeis = new ArrayList<Long>();
 		PreparedStatement pstmt = null;
 		childqueue.add(userBId);
-		while (!childqueue.isEmpty()) {
-			// query new value
-			String sql = "select user_b_id,imei from Device where user_b_id in (" + Serialization.listToStr(childqueue) + ")";
-			pstmt = connection.prepareStatement(sql);
-			ResultSet imeiset = pstmt.executeQuery();
-			sql = "select children_ids from UserB where user_id in (" + Serialization.listToStr(childqueue) + ")";
-			pstmt = connection.prepareStatement(sql);
-			ResultSet childrenset = pstmt.executeQuery();
-			// refresh imeis and childqueue
-			imeis.clear();
-			childqueue.clear();
-			while (imeiset.next()) {
-				long imei = imeiset.getLong("imei");
-				int userid = imeiset.getInt("user_b_id");
-				if(userImeiMap.containsKey(userid)) {
-					userImeiMap.get(userid).add(imei);
-				}
-				else {
-					List<Long> list = new ArrayList<>();
-					userImeiMap.put(userid, list);
-				}
-			}
-			while (childrenset.next()) {
-				ArrayList<Integer> temp = Serialization.strToList(childrenset.getString("children_ids"));
-				for (int i = 0; i < temp.size(); i++) {
-					childqueue.add(temp.get(i));
-				}
-			}
-		}
-		pstmt.close();
+		try {
+            while (!childqueue.isEmpty()) {
+                // query new value
+                String sql = "select user_b_id,imei from Device where user_b_id in (" + Serialization.listToStr(childqueue) + ")";
+                pstmt = connection.prepareStatement(sql);
+                ResultSet imeiset = pstmt.executeQuery();
+                sql = "select children_ids from User_B where user_id in (" + Serialization.listToStr(childqueue) + ")";
+                pstmt = connection.prepareStatement(sql);
+                ResultSet childrenset = pstmt.executeQuery();
+                // refresh imeis and childqueue
+                imeis.clear();
+                childqueue.clear();
+                while (imeiset.next()) {
+                    long imei = imeiset.getLong("imei");
+                    int userid = imeiset.getInt("user_b_id");
+                    if (userImeiMap.containsKey(userid)) {
+                        userImeiMap.get(userid).add(imei);
+                    } else {
+                        List<Long> list = new ArrayList<>();
+                        list.add(imei);
+                        userImeiMap.put(userid, list);
+                    }
+                }
+                while (childrenset.next()) {
+                    ArrayList<Integer> temp = Serialization.strToList(childrenset.getString("children_ids"));
+                    for (int i = 0; i < temp.size(); i++) {
+                        childqueue.add(temp.get(i));
+                    }
+                }
+            }
+            pstmt.close();
+        }catch (SQLException e){
+		    e.printStackTrace();
+        }
         return userImeiMap;
     }
     
