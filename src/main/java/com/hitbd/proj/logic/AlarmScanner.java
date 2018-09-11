@@ -19,19 +19,22 @@ public class AlarmScanner {
     private boolean ready;
     private boolean finished;
     private int totalAlarm = 0;
+
+    public void setConnection(Connection connection) {
+        this.connection = connection;
+    }
+
     private Connection connection;
 
     public AlarmScanner() {
-        // DEBUG
-        if (Settings.HBASE_CONFIG == null) {
-            System.out.print(" [HBASE_CONFIG not set; ignite only]");
-        }else {
-            try {
-                connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
+        currentThreads = 0;
+        alarms = new ArrayList<>();
+        ready = false;
+        finished = false;
+    }
+
+    public AlarmScanner(Connection connection) {
+        this.connection = connection;
         currentThreads = 0;
         alarms = new ArrayList<>();
         ready = false;
@@ -103,13 +106,6 @@ public class AlarmScanner {
     }
 
     public boolean isFinished() {
-        if (finished && !connection.isClosed()) {
-            try {
-                connection.close();
-            }catch (IOException e){
-                e.printStackTrace();
-            }
-        }
         return finished;
     }
 
