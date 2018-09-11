@@ -19,8 +19,14 @@ public class AlarmScanner {
     private boolean ready;
     private boolean finished;
     private int totalAlarm = 0;
+    private Connection connection;
 
     public AlarmScanner() {
+        try {
+            Connection connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
+        }catch (IOException e){
+            e.printStackTrace();
+        }
         currentThreads = 0;
         alarms = new ArrayList<>();
         ready = false;
@@ -92,6 +98,13 @@ public class AlarmScanner {
     }
 
     public boolean isFinished() {
+        if (!connection.isClosed()) {
+            try {
+                connection.close();
+            }catch (IOException e){
+                e.printStackTrace();
+            }
+        }
         return finished;
     }
 
@@ -112,8 +125,8 @@ public class AlarmScanner {
         public void run() {
             List<Pair<Integer, IAlarm>> result = new ArrayList<>();
             Table table;
-            try (Connection connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);){
-                table = connection.getTable(TableName.valueOf(query.tableName));
+            try {
+                table = AlarmScanner.this.connection.getTable(TableName.valueOf(query.tableName));
                 String start, end;
                 int resultCount = 0;
                 for (Pair<Integer, Long> pair: query.imeis) {
@@ -136,7 +149,7 @@ public class AlarmScanner {
                     scan.setBatch(100);
                     ResultScanner scanner = table.getScanner(scan);
                     Result[] results = scanner.next(100);
-                    while (results.length != 0) {   // hbase method never return null
+                    while (results.length != 0) {   // this method never return null
                         resultCount += results.length;
                         results = scanner.next(100);
                     }
