@@ -19,14 +19,22 @@ public class AlarmScanner {
     private boolean ready;
     private boolean finished;
     private int totalAlarm = 0;
+
+    public void setConnection(Connection connection) {
+        this.connection = connection;
+    }
+
     private Connection connection;
 
     public AlarmScanner() {
-        try {
-            Connection connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
-        }catch (IOException e){
-            e.printStackTrace();
-        }
+        currentThreads = 0;
+        alarms = new ArrayList<>();
+        ready = false;
+        finished = false;
+    }
+
+    public AlarmScanner(Connection connection) {
+        this.connection = connection;
         currentThreads = 0;
         alarms = new ArrayList<>();
         ready = false;
@@ -98,13 +106,6 @@ public class AlarmScanner {
     }
 
     public boolean isFinished() {
-        if (!connection.isClosed()) {
-            try {
-                connection.close();
-            }catch (IOException e){
-                e.printStackTrace();
-            }
-        }
         return finished;
     }
 

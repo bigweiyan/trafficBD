@@ -29,6 +29,7 @@ public class IgniteTest {
     @Ignore
     @Test
     public void testScanner() {
+        IgniteSearch.getInstance().connect();
         ArrayList<Integer> userBIds = new ArrayList<>();
         userBIds.add(2469);
         QueryFilter queryFilter = new QueryFilter();
