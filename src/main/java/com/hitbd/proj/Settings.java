@@ -22,4 +22,5 @@ public class Settings {
     public static int MAX_ALARMS_PER_QUERY = 10000;
     public static Configuration HBASE_CONFIG = null;
     public static int MAX_THREAD = 5;
+    public static int MAX_CACHE_ALARM = 100;
 }
