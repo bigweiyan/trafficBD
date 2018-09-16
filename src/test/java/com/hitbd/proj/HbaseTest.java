@@ -34,11 +34,11 @@ public class HbaseTest {
         scanner.setConnection(connection);
         date = new Date();
         if (!scanner.isFinished()) {
-            scanner.next();
+            scanner.next(50);
             System.out.println("Hbase response Time:" + (new Date().getTime() - date.getTime()) + "ms; scan alarm: " + scanner.getTotalAlarm());
         }
         while (!scanner.isFinished()) {
-            scanner.next();
+            scanner.next(50);
         }
         System.out.println("Hbase total Time:" + (new Date().getTime() - date.getTime()) + "ms; scan alarm: " + scanner.getTotalAlarm());
     }
