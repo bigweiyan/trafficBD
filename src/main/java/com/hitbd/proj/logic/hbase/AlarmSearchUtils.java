@@ -1,20 +1,29 @@
 package com.hitbd.proj.logic.hbase;
 
-import com.hitbd.proj.Exception.NotExistException;
-import com.hitbd.proj.IgniteSearch;
-import com.hitbd.proj.model.AlarmImpl;
-import com.hitbd.proj.model.IAlarm;
-import com.hitbd.proj.model.Pair;
-import com.hitbd.proj.model.UserB;
-import com.hitbd.proj.util.Utils;
-import org.apache.hadoop.hbase.TableName;
-import org.apache.hadoop.hbase.client.*;
-import org.apache.hadoop.hbase.util.Bytes;
-
 import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
+import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.client.Connection;
+import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.client.ResultScanner;
+import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.client.Table;
+import org.apache.hadoop.hbase.util.Bytes;
+
+import com.hitbd.proj.model.AlarmImpl;
+import com.hitbd.proj.model.IAlarm;
+import com.hitbd.proj.model.Pair;
+import com.hitbd.proj.util.Utils;
 
 
 public class AlarmSearchUtils {
@@ -56,6 +65,50 @@ public class AlarmSearchUtils {
             imeisRowKey.put(element, pair);
         }
         return imeisRowKey;
+    }
+    
+    public static long calculateBasicTime(String tablename) {
+        Calendar calendar = Calendar.getInstance();
+        int year = calendar.get(Calendar.YEAR);
+        int month = Integer.valueOf(tablename.substring(6, 8));
+        int day = Integer.valueOf(tablename.substring(8, 10));
+        Date date = new Date(year,month,day);
+        if(date.after(calendar.getTime()))
+            return new Date(year-1,month,day).getTime();
+        else
+            return date.getTime();
+    }
+    
+    public static void addToList(ResultScanner results,List<Pair<Integer, IAlarm>> ret,Integer userBId,String tablename) {
+        
+        long basicTime = calculateBasicTime(tablename);
+        
+        SimpleDateFormat dateformatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        for(Result r:results) {
+            IAlarm alarm = new AlarmImpl();
+            String rowKey = Bytes.toString(r.getRow());
+            alarm.setRowKey(rowKey);
+            alarm.setImei(Long.valueOf(rowKey.substring(0, 17)));
+            alarm.setCreateTime(new Date(Long.valueOf(rowKey.substring(17,22),16)*1000+basicTime));
+            alarm.setStatus(Bytes.toString(r.getValue("r".getBytes(), "stat".getBytes())));
+            alarm.setType(Bytes.toString(r.getValue("r".getBytes(), "type".getBytes())));
+            alarm.setViewed(Bytes.toString(r.getValue("r".getBytes(), "viewed".getBytes())).equals("1"));
+            String record = Bytes.toString(r.getValue("r".getBytes(), "record".getBytes()));
+            try {
+                CSVParser csvparser = CSVParser.parse(record, CSVFormat.DEFAULT);
+                List<CSVRecord> csvrecord = csvparser.getRecords();
+                alarm.setAddress(csvrecord.get(0).get(0));
+                alarm.setEncId(csvrecord.get(0).get(1));
+                alarm.setId(csvrecord.get(0).get(2));
+                alarm.setLatitude(Float.valueOf(csvrecord.get(0).get(3)));
+                alarm.setLongitude(Float.valueOf(csvrecord.get(0).get(4)));
+                alarm.setPushTime(dateformatter.parse(csvrecord.get(0).get(5)));
+                alarm.setVelocity(Float.valueOf(csvrecord.get(0).get(6)));
+                ret.add(new Pair<>(userBId,alarm));
+            } catch (IOException | ParseException e1) {
+                e1.printStackTrace();
+            }
+            }
     }
 
     public Iterator<Result> scanTable(String tableName, String start, String end, Connection connection) throws IOException {

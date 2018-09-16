@@ -1,24 +1,32 @@
 package com.hitbd.proj.logic;
 
-import com.hitbd.proj.Settings;
-import com.hitbd.proj.model.IAlarm;
-import com.hitbd.proj.model.Pair;
-import org.apache.hadoop.hbase.TableName;
-import org.apache.hadoop.hbase.client.*;
-
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Queue;
+
+import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.client.Connection;
+import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.client.ResultScanner;
+import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.client.Table;
+
+import com.hitbd.proj.Settings;
+import com.hitbd.proj.logic.hbase.AlarmSearchUtils;
+import com.hitbd.proj.model.IAlarm;
+import com.hitbd.proj.model.Pair;
 
 public class AlarmScanner {
     // 未来可以优化为生产者-消费者模式
     public Queue<Query> queries;
     private List<Pair<Integer, IAlarm>> alarms;
-    private int currentThreads;
-    private boolean ready;
-    private boolean finished;
     private int totalAlarm = 0;
+    //private int temp = 0;
+    private boolean allowput = true;
+    private int currentThreadCount = 0;
+    private boolean finished = false;
 
     public void setConnection(Connection connection) {
         this.connection = connection;
@@ -27,143 +35,157 @@ public class AlarmScanner {
     private Connection connection;
 
     public AlarmScanner() {
-        currentThreads = 0;
-        alarms = new ArrayList<>();
-        ready = false;
-        finished = false;
+        alarms = Collections.synchronizedList(new ArrayList<>());
     }
 
     public AlarmScanner(Connection connection) {
         this.connection = connection;
-        currentThreads = 0;
-        alarms = new ArrayList<>();
-        ready = false;
-        finished = false;
+        alarms = Collections.synchronizedList(new ArrayList<>());
     }
 
     public void setQueries(Queue<Query> queries) {
         this.queries = queries;
-        if (queries == null || queries.isEmpty()) {
-            finished = true;
-        }
     }
-
-    public synchronized List<Pair<Integer, IAlarm>> next() {
-        if (finished) return null;
-        while (!ready){
-            // 线程为0，未准备好，表示是第一次执行next方法。此时进行第一次查询，创建查询线程
-            if (currentThreads == 0) {
-                int startThread = 0;
-                for (int i = 0; i < Settings.MAX_THREAD; i ++){
-                    Query q = queries.poll();
-                    if (q == null) {
-                        // 已经完成查询，下次调用方法会直接返回null
-                        finished = true;
-                        break;
-                    }
-                    startThread ++;
-                    new ScanThread(q).start();
-                }
-                currentThreads = startThread;
-            }else {
-                // 线程不为0，表示正在查询，需要等待
-                try {
-                    this.wait(40);
-                }catch (InterruptedException e){
-                    e.printStackTrace();
-                }
-            }
-        }
-        // 将结果保存在临时变量，并将类变量换一个新数组
-        List<Pair<Integer, IAlarm>> result = alarms;
-        alarms = new ArrayList<>();
-
-        // 如果此时空闲，可以开始为下次方法调用做准备
-        if (currentThreads == 0) {
-            int startThread = 0;
-            for (int i = 0; i < Settings.MAX_THREAD; i ++){
-                Query q = queries.poll();
-                if (q == null) {
-                    // 想开启新任务，却没有查询可以开启时，认为查询已经结束
-                    if (startThread == 0) finished = true;
-                    break;
-                }
-                ready = false;
-                startThread ++;
-                new ScanThread(q).start();
-            }
-            currentThreads = startThread;
-        }
-        return result;
+    
+    public synchronized void addCurrentThreadCount() {
+        currentThreadCount++;
     }
-
+    
+    public synchronized void minusCurrentThreadCount() {
+        currentThreadCount--;
+    }
+    
     synchronized void putAlarm(List<Pair<Integer, IAlarm>> newAlarms) {
-        currentThreads --;
         alarms.addAll(newAlarms);
-        // 这是最后一个工作中的线程，表示数据已经准备好
-        if (currentThreads == 0) ready = true;
         this.notify();
     }
+    
+    public synchronized List<Pair<Integer, IAlarm>> next(int count) {
+        int end = Settings.MAX_THREAD-currentThreadCount;
+        for(int i=0;i<end;i++) {
+            if(queries==null || queries.isEmpty())
+                break;
+            new ScanThread().start();
+        }
 
-    public boolean isFinished() {
-        return finished;
+        //while(temp < count) {
+        while(getAlarmCount() < count) {
+            if(scanFinished()) {
+                finished = true;
+                return alarms;
+            }
+            try {
+                this.wait();
+            } catch (InterruptedException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        }
+        synchronized(alarms) {
+            List<Pair<Integer, IAlarm>> ret = alarms.subList(0, count);
+            alarms = alarms.subList(count, alarms.size());
+            //List<Pair<Integer, IAlarm>> ret = new ArrayList<>();
+            //temp -= count;
+            return ret;
+        }
     }
-
+    
     public int getTotalAlarm() {
         return totalAlarm;
     }
 
     public synchronized void addTotalAlarm(int alarm){
         totalAlarm += alarm;
+        //temp += alarm;
+    }
+    
+    public synchronized Query getQuery() {
+        return queries.poll();
+    }
+    
+    public int getAlarmCount() {
+        return alarms.size();
+    }
+    
+    public boolean scanFinished() {
+        if(currentThreadCount==0 && (queries==null || queries.isEmpty()))
+            return true;
+        return false;
+    }
+
+    public boolean isFinished() {
+        return finished;
     }
 
     class ScanThread extends Thread{
         private Query query;
-        public ScanThread(Query query){
-            this.query = query;
-        }
+        //public ScanThread(Query query){
+        //    this.query = query;
+        //}
         @Override
         public void run() {
-            List<Pair<Integer, IAlarm>> result = new ArrayList<>();
-            Table table;
-            try {
-                table = AlarmScanner.this.connection.getTable(TableName.valueOf(query.tableName));
-                String start, end;
-                int resultCount = 0;
-                for (Pair<Integer, Long> pair: query.imeis) {
-                    StringBuilder sb = new StringBuilder();
-                    String imei = pair.getValue().toString();
-                    for (int j = 0; j < 17 - imei.length(); j++) {
-                        sb.append(0);
-                    }
-                    sb.append(imei).append(query.startRelativeSecond).append("0");
-                    start = sb.toString();
-
-                    sb.setLength(0);
-                    for (int j = 0; j < 17 - imei.length(); j++) {
-                        sb.append(0);
-                    }
-                    sb.append(imei).append(query.endRelativeSecond).append("9");
-                    end = sb.toString();
-                    Scan scan = new Scan(start.getBytes(),end.getBytes());
-                    scan.addFamily("r".getBytes());
-                    scan.setBatch(100);
-                    ResultScanner scanner = table.getScanner(scan);
-                    Result[] results = scanner.next(100);
-                    while (results.length != 0) {   // this method never return null
-                        resultCount += results.length;
-                        results = scanner.next(100);
-                    }
-                    scanner.close();
+            
+            AlarmScanner.this.addCurrentThreadCount();
+            
+            while(true) {
+                
+                if(AlarmScanner.this.getAlarmCount()>Settings.MAX_CACHE_ALARM) {
+                    AlarmScanner.this.minusCurrentThreadCount();
+                    return;
                 }
-                table.close();
+                
+                query = AlarmScanner.this.getQuery();
+                if(query==null) {
+                    AlarmScanner.this.minusCurrentThreadCount();
+                    synchronized (AlarmScanner.this) {
+                        AlarmScanner.this.notify();
+                    }
+                    return;
+                }
 
-                // DEBUG output result size
-                AlarmScanner.this.addTotalAlarm(resultCount);
-            } catch (IOException e) {
-                e.printStackTrace();
+                List<Pair<Integer, IAlarm>> result = new ArrayList<>();
+                Table table;
+                try {
+                    table = AlarmScanner.this.connection.getTable(TableName.valueOf(query.tableName));
+                    String start, end;
+                    int resultCount = 0;
+                    for (Pair<Integer, Long> pair: query.imeis) {
+                        StringBuilder sb = new StringBuilder();
+                        String imei = pair.getValue().toString();
+                        for (int j = 0; j < 17 - imei.length(); j++) {
+                            sb.append(0);
+                        }
+                        sb.append(imei).append(query.startRelativeSecond).append("0");
+                        start = sb.toString();
+
+                        sb.setLength(0);
+                        for (int j = 0; j < 17 - imei.length(); j++) {
+                            sb.append(0);
+                        }
+                        sb.append(imei).append(query.endRelativeSecond).append("9");
+                        end = sb.toString();
+                        Scan scan = new Scan(start.getBytes(),end.getBytes());
+                        scan.addFamily("r".getBytes());
+                        scan.setBatch(100);
+                        ResultScanner scanner = table.getScanner(scan);
+                        AlarmSearchUtils.addToList(scanner, result, pair.getKey(),query.tableName);
+                        Result[] results = scanner.next(100);
+                        while (results.length != 0) {   // this method never return null
+                            resultCount += results.length;
+                            results = scanner.next(100);
+                        }
+                        scanner.close();
+                    }
+                    table.close();
+
+                    // DEBUG output result size
+                    AlarmScanner.this.addTotalAlarm(resultCount);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                AlarmScanner.this.putAlarm(result);
+                
             }
-            AlarmScanner.this.putAlarm(result);
         }
     }
 
