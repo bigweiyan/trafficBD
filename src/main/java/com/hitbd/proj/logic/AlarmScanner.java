@@ -169,17 +169,12 @@ public class AlarmScanner {
                         scan.setBatch(100);
                         ResultScanner scanner = table.getScanner(scan);
                         AlarmSearchUtils.addToList(scanner, result, pair.getKey(),query.tableName);
-                        Result[] results = scanner.next(100);
-                        while (results.length != 0) {   // this method never return null
-                            resultCount += results.length;
-                            results = scanner.next(100);
-                        }
                         scanner.close();
                     }
                     table.close();
 
                     // DEBUG output result size
-                    AlarmScanner.this.addTotalAlarm(resultCount);
+                    AlarmScanner.this.addTotalAlarm(result.size());
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
