@@ -84,7 +84,13 @@ public class HbaseUpload {
         while (records.hasNext()){
             CSVRecord record = records.next();
             // 获取Put列表
-            Date createDate = sdf.parse(record.get(2));
+            Date createDate;
+            try {
+                createDate = sdf.parse(record.get(2));
+            }catch (ParseException e){
+                System.out.println("TimeFormat: " + record.toString());
+                continue;
+            }
             String tableName = Utils.getTableName(createDate);
             List<Put> putList;
             if (putMap.containsKey(tableName)) {
@@ -97,7 +103,19 @@ public class HbaseUpload {
             for (int i = 0; i < copies; i++) {
                 // 获取RowKey
                 String imei = record.get(5);
-                if (i > 0) imei = imeiPrefix[i] + imei.substring(2);
+                try {
+                    if (i > 0) imei = imeiPrefix[i] + imei.substring(2);
+                }catch (Exception e) {
+                    System.out.println("imei " + record.toString() + " at " + i + "th copy");
+                    continue;
+                }
+                long imeiLong;
+                try {
+                    imeiLong = Long.parseLong(imei);
+                }catch (NumberFormatException e) {
+                    System.out.println("imei" + record.toString() + " at " + i + "th copy");
+                    continue;
+                }
                 StringBuilder sb = new StringBuilder();
                 for (int j = 0; j < 17 - imei.length(); j++) {
                     sb.append(0);
@@ -112,7 +130,6 @@ public class HbaseUpload {
                 String rowRecord = sb.toString();
 
                 // 更新AlarmC和ViewedC
-                Long imeiLong = Long.parseLong(imei);
                 if (alarmC.containsKey(imeiLong)) {
                     alarmC.put(imeiLong, alarmC.get(imeiLong) + 1);
                 } else {
@@ -152,6 +169,7 @@ public class HbaseUpload {
                 if (percentage % 10 == 0) {
                     logWriter.write(percentage + "%\n");
                 }
+                logWriter.flush();
             }
         }
         // 上传最后未成批的部分
