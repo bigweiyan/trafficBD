@@ -352,7 +352,7 @@ public class HbaseSearch implements IHbaseSearch {
             usedTable = Utils.getUseTable(filter.getAllowTimeRange().getKey(), filter.getAllowTimeRange().getValue());
         }
 
-        AlarmScanner result = new AlarmScanner(sortType == SORT_BY_CREATE_TIME);
+        AlarmScanner result = new AlarmScanner(sortType);
         // 划分查询，每个查询按时间进行排列
         LinkedList<Query> queries = new LinkedList<>();
         if (sortType == HbaseSearch.SORT_BY_CREATE_TIME || sortType == HbaseSearch.NO_SORT) {
@@ -529,7 +529,7 @@ public class HbaseSearch implements IHbaseSearch {
 
     @Override
     public AlarmScanner queryAlarmByImei(HashMap<Integer, List<Long>> userAndDevices, int sortType, QueryFilter filter) {
-        AlarmScanner result = new AlarmScanner(sortType == SORT_BY_CREATE_TIME);
+        AlarmScanner result = new AlarmScanner(sortType);
         // 计算需要在哪些表中进行查询
         List<String> usedTable;
         if (filter.getAllowTimeRange() == null) {
