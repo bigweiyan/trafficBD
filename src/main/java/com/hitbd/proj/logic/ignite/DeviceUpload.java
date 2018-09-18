@@ -28,7 +28,7 @@ public class DeviceUpload {
     private static int[] userIdShift = {0, 1000000, 2000000, 3000000, 4000000};
     public static void main(String args[]){
         if (args.length < 2) {
-            System.out.println("usage: ImportDevice [filename/folder]");
+            System.out.println("usage: ImportDevice filename/folder [copies]");
             return;
         }
         if (args.length >=3) {

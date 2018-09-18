@@ -14,8 +14,8 @@ public class Main {
         if (args.length < 1) {
             System.out.println("Usage: trafficBD Action [Parameter]");
             System.out.println("Actions:");
-            System.out.println("ImportAlarm FileName/Folder HBaseConfFile   #import alarm file to hbase");
-            System.out.println("ImportDevice FileName/Folder  #import device file to ignite");
+            System.out.println("ImportAlarm FileName/Folder HBaseConfFile [copies]  #import alarm file to hbase");
+            System.out.println("ImportDevice FileName/Folder [copies] #import device file to ignite");
             System.out.println("CreateIgniteTable [hostname]  #create user_b, user_c and device table");
             return;
         }
@@ -33,8 +33,8 @@ public class Main {
             default:
                 System.out.println("Usage: trafficBD Action [Parameter]");
                 System.out.println("Actions:");
-                System.out.println("ImportAlarm FileName/Folder HBaseConfFile   #import alarm file to hbase");
-                System.out.println("ImportDevice FileName/Folder import   #alarm file to ignite");
+                System.out.println("ImportAlarm FileName/Folder HBaseConfFile [copies]  #import alarm file to hbase");
+                System.out.println("ImportDevice FileName/Folder [copies] #import device file to ignite");
                 System.out.println("CreateIgniteTable [hostname]  #create user_b, user_c and device table");
         }
     }
