@@ -32,7 +32,7 @@ public class AlarmScanner {
     private final PriorityBlockingQueue<Pair<Integer, IAlarm>> cacheAlarms;
     // 用于判断是否应该增加线程
     private AtomicInteger currentThreads = new AtomicInteger();
-    private ThreadPoolExecutor pool = (ThreadPoolExecutor) Executors.newFixedThreadPool(Settings.MAX_THREAD+1);
+    private ThreadPoolExecutor pool = (ThreadPoolExecutor) Executors.newFixedThreadPool(Settings.MAX_THREAD + 4);
     private Connection connection;
     // 调度线程。其上会进行加锁，当不能开始新查询时调度线程进入wait，当某个查询结束时工作线程进行notify
     private ManageThread manageThread;
@@ -45,6 +45,8 @@ public class AlarmScanner {
     private int resultPrepared = 0;
     // 已获取多少有序结果。每次取结果时更新此变量
     private int resultTaken = 0;
+
+    private int nextWaitId = 0;
 
 
     public AlarmScanner(int sortType) {
@@ -89,7 +91,7 @@ public class AlarmScanner {
         // 同步块保证一次只能有一个线程在addAll
         synchronized (cacheAlarms) {
             try {
-                while (cacheAlarms.size() > Settings.MAX_CACHE_ALARM) {
+                while (cacheAlarms.size() > Settings.MAX_CACHE_ALARM && tid != nextWaitId) {
                     cacheAlarms.wait();
                 }
             }catch (InterruptedException e) {
@@ -97,17 +99,16 @@ public class AlarmScanner {
             }
             cacheAlarms.addAll(alarms); // 等同于for each : offer
         }
-        currentThreads.decrementAndGet();
-        // 唤醒等待空闲线程的manageThread
-        synchronized (manageThread) {
-            manageThread.notify();
-        }
+
         // 计算累积共有多少有序结果
         synchronized (this) {
             queryCompleteMark[tid] = true;
             queryCompleteCount[tid] = alarms.size();
+            finish = true;
+            resultPrepared = 0;
             for (int i = 0; i < queryCompleteMark.length; i++) {
                 finish = finish && queryCompleteMark[i];
+                nextWaitId = i;
                 if (!queryCompleteMark[i]) break;
                 resultPrepared += queryCompleteCount[i];
             }
@@ -129,14 +130,15 @@ public class AlarmScanner {
         }
         if (manageThread == null) {
             manageThread = new ManageThread(queries.size());
+            pool.execute(manageThread);
         }
-        if (finish) return null;
+        if (finish && resultTaken < resultPrepared) return null;
         // 是否准备足够有序结果
         synchronized (this) {
-            while (resultPrepared < resultTaken + count && !finish){
+            while (resultPrepared < resultTaken + count && !finish) {
                 try {
-                    this.wait();
-                }catch (InterruptedException e){
+                    this.wait(50);
+                } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
 
@@ -160,11 +162,10 @@ public class AlarmScanner {
         private int tid;
         ScanThread(Query query, int tid){
             this.query = query;
-            this.tid = tid;  
+            this.tid = tid;
         }
         @Override
         public void run() {
-            
             List<Pair<Integer, IAlarm>> result = new ArrayList<>();
             Table table;
             try {
@@ -201,6 +202,7 @@ public class AlarmScanner {
                 e.printStackTrace();
             }
             AlarmScanner.this.commitQueryResult(tid, result);
+            currentThreads.decrementAndGet();
         }
     }
 
@@ -220,7 +222,7 @@ public class AlarmScanner {
                 synchronized (this) {
                     while (currentThreads.get() >= Settings.MAX_THREAD) {
                         try {
-                            this.wait();
+                            this.wait(50);
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }
