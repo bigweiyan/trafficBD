@@ -84,10 +84,16 @@ public class HbaseTest {
             userBIds.add(queryUser);
             QueryFilter queryFilter = new QueryFilter();
             queryFilter.setAllowTimeRange(new Pair<>(new Date(1533225600000L), new Date(1533484800000L)));
-            java.sql.Connection igniteConnection = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1");
+            java.sql.Connection igniteConnection = null;
+            try {
+                igniteConnection = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1");
+            } catch (SQLException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
 
             Date date = new Date();
-            AlarmScanner scanner = HbaseSearch.getInstance().queryAlarmByUser(igniteConnection, 2469, userBIds, true, HbaseSearch.NO_SORT, queryFilter);
+            AlarmScanner scanner = HbaseSearch.getInstance().queryAlarmByUser(igniteConnection, queryUser, userBIds, true, HbaseSearch.NO_SORT, queryFilter);
             long igniteQueryTime = new Date().getTime() - date.getTime();
             int queryCount = scanner.queries.size();
             sb.append("Ignite query Time: " + igniteQueryTime + "ms;\n");

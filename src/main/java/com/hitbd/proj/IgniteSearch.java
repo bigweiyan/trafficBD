@@ -22,7 +22,7 @@ public class IgniteSearch implements IIgniteSearch {
     static IgniteCache<Long, Integer> alarmCCache;
     static IgniteCache<Long, Integer> viewedCCache;
     static IgniteSearch search = null;
-	static {
+	/*static {
         Ignition.setClientMode(true);
         ignite = Ignition.start();
         CacheConfiguration<Long, Integer> cfg = new CacheConfiguration<Long, Integer>();
@@ -35,7 +35,7 @@ public class IgniteSearch implements IIgniteSearch {
         cfg.setCacheMode(CacheMode.PARTITIONED);// 存储方式 PARTITIONED适合分布式存储
         cfg.setIndexedTypes(Long.class, Integer.class); // 必须设置索引类否则只能以key-value方式查询
         viewedCCache = ignite.getOrCreateCache(cfg);// 根据配置创建缓存
-	}
+	}*/
 
     private IgniteSearch(){};
 
