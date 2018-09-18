@@ -170,7 +170,6 @@ public class AlarmScanner {
             try {
                 table = AlarmScanner.this.connection.getTable(TableName.valueOf(query.tableName));
                 String start, end;
-                int resultCount = 0;
                 for (Pair<Integer, Long> pair: query.imeis) {
                     StringBuilder sb = new StringBuilder();
                     String imei = pair.getValue().toString();
@@ -193,7 +192,6 @@ public class AlarmScanner {
                     AlarmSearchUtils.addToList(scanner, result, pair.getKey(),query.tableName);
                     Result[] results = scanner.next(100);
                     while (results.length != 0) {   // this method never return null
-                        resultCount += results.length;
                         results = scanner.next(100);
                     }
                     scanner.close();
