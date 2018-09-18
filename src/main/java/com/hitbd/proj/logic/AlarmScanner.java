@@ -47,6 +47,9 @@ public class AlarmScanner {
     private int resultTaken = 0;
 
     private int nextWaitId = 0;
+    
+    //DEBUG imeis count
+    public int totalImei = 0;
 
 
     public AlarmScanner(int sortType) {
