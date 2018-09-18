@@ -1,6 +1,7 @@
 package com.hitbd.proj;
 
 import com.hitbd.proj.logic.AlarmScanner;
+import com.hitbd.proj.model.IAlarm;
 import com.hitbd.proj.model.Pair;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
@@ -12,8 +13,7 @@ import org.junit.Test;
 import java.io.IOException;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Date;
+import java.util.*;
 
 public class HbaseTest {
     @Ignore
@@ -27,6 +27,9 @@ public class HbaseTest {
         ArrayList<Integer> userBIds = new ArrayList<>();
         userBIds.add(2469);
         QueryFilter queryFilter = new QueryFilter();
+        Set<String> type = new HashSet<>();
+        queryFilter.setAllowAlarmType(type);
+        type.add("other");
         queryFilter.setAllowTimeRange(new Pair<>(new Date(1533225600000L), new Date(1533484800000L)));
         java.sql.Connection igniteConnection = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1");
 
@@ -36,11 +39,14 @@ public class HbaseTest {
         scanner.setConnection(connection);
         date = new Date();
         if (scanner.notFinished()) {
-            scanner.next(50);
+            List<Pair<Integer, IAlarm>> result = scanner.next(50);
+            for (Pair<Integer, IAlarm> pair : result) {
+                System.out.println(pair.getValue().getType());
+            }
             System.out.println("Hbase response Time:" + (new Date().getTime() - date.getTime()) + "ms; scan alarm: " + scanner.getTotalAlarm());
         }
         while (scanner.notFinished()) {
-            scanner.next(50);
+            List<Pair<Integer, IAlarm>> result = scanner.next(50);
         }
         System.out.println("Hbase total Time:" + (new Date().getTime() - date.getTime()) + "ms; scan alarm: " + scanner.getTotalAlarm());
     }
