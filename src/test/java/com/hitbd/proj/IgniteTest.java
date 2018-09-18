@@ -26,10 +26,11 @@ public class IgniteTest {
         Assert.assertEquals(search.getViewedCount(123L), 1);
     }
 
-    @Ignore
+    
     @Test
     public void testScanner() {
         IgniteSearch.getInstance().connect();
+        System.out.println("success connect");
         ArrayList<Integer> userBIds = new ArrayList<>();
         userBIds.add(2469);
         QueryFilter queryFilter = new QueryFilter();

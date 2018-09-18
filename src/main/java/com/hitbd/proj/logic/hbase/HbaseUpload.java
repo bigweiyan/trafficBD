@@ -23,10 +23,15 @@ import java.util.*;
 public class HbaseUpload {
     private static HashMap<Long, Integer> alarmC;
     private static HashMap<Long, Integer> viewedC;
+    private static String[] imeiPrefix = {"", "11", "22", "33", "44"};
+    private static int copies = 1;
     public static void main(String args[]) {
         if (args.length < 3) {
             System.out.println("usage: ImportAlarm filename hbaseConfFile");
             return;
+        }
+        if (args.length >= 4) {
+            copies = Integer.valueOf(args[3]);
         }
         Configuration config = HBaseConfiguration.create();
         config.addResource(args[2]);
@@ -79,7 +84,13 @@ public class HbaseUpload {
         while (records.hasNext()){
             CSVRecord record = records.next();
             // 获取Put列表
-            Date createDate = new Date(Settings.START_TIME + random.nextInt(timeRange) * 1000L);
+            Date createDate;
+            try {
+                createDate = sdf.parse(record.get(2));
+            }catch (ParseException e){
+                System.out.println("TimeFormat: " + record.toString());
+                continue;
+            }
             String tableName = Utils.getTableName(createDate);
             List<Put> putList;
             if (putMap.containsKey(tableName)) {
@@ -89,51 +100,65 @@ public class HbaseUpload {
                 putMap.put(tableName, putList);
             }
 
-            // 获取RowKey
-            String imei = record.get(5);
-            StringBuilder sb = new StringBuilder();
-            for (int j = 0; j < 17 - imei.length(); j++) {
-                sb.append(0);
-            }
-            sb.append(imei).append(Utils.getRelativeSecond(createDate)).append(random.nextInt(Settings.ROW_KEY_E_FACTOR));
-            String rowKey = sb.toString();
-
-            // 获取Record
-            sb.setLength(0);
-            sb.append('\"').append(record.get(0)).append("\",").append(record.get(3)).append(',').append(record.get(4)).append(',');
-            sb.append(record.get(6)).append(',').append(record.get(7)).append(',').append(record.get(8)).append(',').append(record.get(10));
-            String rowRecord = sb.toString();
-
-            // 更新AlarmC和ViewedC
-            Long imeiLong = Long.parseLong(imei);
-            if (alarmC.containsKey(imeiLong)) {
-                alarmC.put(imeiLong, alarmC.get(imeiLong) + 1);
-            }else {
-                alarmC.put(imeiLong, 1);
-            }
-
-            if (!record.get(9).equals("0")) {
-                if (viewedC.containsKey(imeiLong)) {
-                    viewedC.put(imeiLong, viewedC.get(imeiLong) + 1);
-                }else {
-                    viewedC.put(imeiLong, 1);
+            for (int i = 0; i < copies; i++) {
+                // 获取RowKey
+                String imei = record.get(5);
+                try {
+                    if (i > 0) imei = imeiPrefix[i] + imei.substring(2);
+                }catch (Exception e) {
+                    System.out.println("imei " + record.toString() + " at " + i + "th copy");
+                    continue;
                 }
-            }
+                long imeiLong;
+                try {
+                    imeiLong = Long.parseLong(imei);
+                }catch (NumberFormatException e) {
+                    System.out.println("imei" + record.toString() + " at " + i + "th copy");
+                    continue;
+                }
+                StringBuilder sb = new StringBuilder();
+                for (int j = 0; j < 17 - imei.length(); j++) {
+                    sb.append(0);
+                }
+                sb.append(imei).append(Utils.getRelativeSecond(createDate)).append(random.nextInt(Settings.ROW_KEY_E_FACTOR));
+                String rowKey = sb.toString();
 
-            // 放入批处理中
-            Put put = new Put(Bytes.toBytes(rowKey));
-            put.addColumn("r".getBytes(), "record".getBytes(), rowRecord.getBytes());
-            put.addColumn("r".getBytes(), "stat".getBytes(), record.get(11).getBytes());
-            put.addColumn("r".getBytes(), "type".getBytes(), record.get(1).getBytes());
-            put.addColumn("r".getBytes(), "viewed".getBytes(), record.get(9).equals("0")?"0".getBytes():"1".getBytes());
-            putList.add(put);
+                // 获取Record
+                sb.setLength(0);
+                sb.append('\"').append(record.get(0)).append("\",").append(record.get(3)).append(',').append(record.get(4)).append(',');
+                sb.append(record.get(6)).append(',').append(record.get(7)).append(',').append(record.get(8)).append(',').append(record.get(10));
+                String rowRecord = sb.toString();
 
-            // 判断是否批上传
-            if (putList.size() > 10000) {
-                Table table = connection.getTable(TableName.valueOf(tableName));
-                table.put(putList);
-                table.close();
-                putMap.put(tableName, new ArrayList<>());
+                // 更新AlarmC和ViewedC
+                if (alarmC.containsKey(imeiLong)) {
+                    alarmC.put(imeiLong, alarmC.get(imeiLong) + 1);
+                } else {
+                    alarmC.put(imeiLong, 1);
+                }
+
+                if (!record.get(9).equals("0")) {
+                    if (viewedC.containsKey(imeiLong)) {
+                        viewedC.put(imeiLong, viewedC.get(imeiLong) + 1);
+                    } else {
+                        viewedC.put(imeiLong, 1);
+                    }
+                }
+
+                // 放入批处理中
+                Put put = new Put(Bytes.toBytes(rowKey));
+                put.addColumn("r".getBytes(), "record".getBytes(), rowRecord.getBytes());
+                put.addColumn("r".getBytes(), "stat".getBytes(), record.get(11).getBytes());
+                put.addColumn("r".getBytes(), "type".getBytes(), record.get(1).getBytes());
+                put.addColumn("r".getBytes(), "viewed".getBytes(), record.get(9).equals("0") ? "0".getBytes() : "1".getBytes());
+                putList.add(put);
+
+                // 判断是否批上传
+                if (putList.size() > 10000) {
+                    Table table = connection.getTable(TableName.valueOf(tableName));
+                    table.put(putList);
+                    table.close();
+                    putMap.put(tableName, new ArrayList<>());
+                }
             }
 
             // 更新进度
@@ -144,6 +169,7 @@ public class HbaseUpload {
                 if (percentage % 10 == 0) {
                     logWriter.write(percentage + "%\n");
                 }
+                logWriter.flush();
             }
         }
         // 上传最后未成批的部分

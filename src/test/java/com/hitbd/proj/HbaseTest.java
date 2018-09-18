@@ -33,12 +33,12 @@ public class HbaseTest {
         System.out.println(" total Time:" + (new Date().getTime() - date.getTime()) + "ms; create query " + scanner.queries.size());
         scanner.setConnection(connection);
         date = new Date();
-        if (!scanner.isFinished()) {
-            scanner.next();
+        if (scanner.notFinished()) {
+            scanner.next(50);
             System.out.println("Hbase response Time:" + (new Date().getTime() - date.getTime()) + "ms; scan alarm: " + scanner.getTotalAlarm());
         }
-        while (!scanner.isFinished()) {
-            scanner.next();
+        while (scanner.notFinished()) {
+            scanner.next(50);
         }
         System.out.println("Hbase total Time:" + (new Date().getTime() - date.getTime()) + "ms; scan alarm: " + scanner.getTotalAlarm());
     }

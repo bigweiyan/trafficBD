@@ -337,19 +337,19 @@ public class IgniteSearch implements IIgniteSearch {
 				throw new NotExistException();
 			}
 			// delete child
-			sql = "select children_ids from UserB where user_id = " + String.valueOf(parent);
+			sql = "select children_ids from User_B where user_id = " + String.valueOf(parent);
 			pstmt = connection.prepareStatement(sql);
 			rs = pstmt.executeQuery();
 			String child_ids = null;
 			if (rs.next())
 				child_ids = rs.getString("children_ids");
-			String sql2 = "update UserB set children_ids = '"
+			String sql2 = "update User_B set children_ids = '"
 					+ Serialization.listToStr(Serialization.deleteChild(Serialization.strToList(child_ids), childBId))
 					+ "' where user_id = " + String.valueOf(parent);
 			pstmt = connection.prepareStatement(sql2);
 			pstmt.executeUpdate();
 			// delete parent
-			sql = "update UserB set parent_id=null  where user_id=" + String.valueOf(childBId);
+			sql = "update User_B set parent_id=null  where user_id=" + String.valueOf(childBId);
 			pstmt = connection.prepareStatement(sql);
 			pstmt.executeUpdate();
 			// delete time
@@ -360,7 +360,7 @@ public class IgniteSearch implements IIgniteSearch {
 			while (!childqueue.isEmpty()) {
 				// query new value
 				sql = "select imei from Device where user_b_id in (" + Serialization.listToStr(childqueue) + ")";
-				sql2 = "select children_ids from UserB where user_id in (" + Serialization.listToStr(childqueue) + ")";
+				sql2 = "select children_ids from User_B where user_id in (" + Serialization.listToStr(childqueue) + ")";
 
 				pstmt = connection.prepareStatement(sql);
 				ResultSet imeiset = pstmt.executeQuery();
@@ -479,7 +479,7 @@ public class IgniteSearch implements IIgniteSearch {
 					}
 				}
 				pstmt.executeBatch();
-				sql = "update UserC set auth_user_ids='" + Serialization.listToStr(aud) + "', devices='"
+				sql = "update user_C set auth_user_ids='" + Serialization.listToStr(aud) + "', devices='"
 						+ Serialization.listToStr(devices) + "' where user_id = " + Integer.toString(usrid);
 				PreparedStatement pstmt1 = connection.prepareStatement(sql);
 				pstmt1.executeUpdate();
@@ -632,7 +632,7 @@ public class IgniteSearch implements IIgniteSearch {
 					}
 				}
 				pstmt.executeBatch();
-				sql = "update UserC set auth_user_ids='" + Serialization.listToStr(aud) + "', devices='"
+				sql = "update user_C set auth_user_ids='" + Serialization.listToStr(aud) + "', devices='"
 						+ Serialization.listToStr(devices) + "' where user_id = " + Integer.toString(usrid);
 				PreparedStatement pstmt1 = connection.prepareStatement(sql);
 				pstmt1.executeUpdate();
@@ -766,11 +766,16 @@ public class IgniteSearch implements IIgniteSearch {
 		ArrayList<Long> imeis = new ArrayList<Long>();
 		PreparedStatement pstmt = null;
 		childqueue.add(userBId);
+		Date now = new Date();
 		try {
             while (!childqueue.isEmpty()) {
                 // query new value
-                String sql = "select user_b_id,imei from Device where user_b_id in (" + Serialization.listToStr(childqueue) + ")";
-                pstmt = connection.prepareStatement(sql);
+            	String sql;
+            	if(!useExpire)
+            		sql = "select user_b_id,imei from Device where user_b_id in (" + Serialization.listToStr(childqueue) + ")";
+            	else
+            		sql = "select user_b_id,imei,expire_list from Device where user_b_id in (" + Serialization.listToStr(childqueue) + ")";
+            	pstmt = connection.prepareStatement(sql);
                 ResultSet imeiset = pstmt.executeQuery();
                 sql = "select children_ids from User_B where user_id in (" + Serialization.listToStr(childqueue) + ")";
                 pstmt = connection.prepareStatement(sql);
@@ -781,13 +786,34 @@ public class IgniteSearch implements IIgniteSearch {
                 while (imeiset.next()) {
                     long imei = imeiset.getLong("imei");
                     int userid = imeiset.getInt("user_b_id");
-                    if (userImeiMap.containsKey(userid)) {
-                        userImeiMap.get(userid).add(imei);
-                    } else {
-                        List<Long> list = new ArrayList<>();
-                        list.add(imei);
-                        userImeiMap.put(userid, list);
+            		if (useExpire) {
+                        String expireListText = imeiset.getString("expire_list");
+                        List<Pair<Integer, Date>> expireList = Serialization.getExpireList(expireListText);
+                        for (Pair<Integer, Date> pair : expireList) {
+                            if (pair.getKey() == userBId) {
+                                Date date = pair.getValue();
+                                if (date.after(now)) {
+                                	if (userImeiMap.containsKey(userid))
+                                		userImeiMap.get(userid).add(imei);
+                                	else {
+                                		List<Long> list = new ArrayList<>();
+                                        list.add(imei);
+                                        userImeiMap.put(userid, list);
+                                	}
+                                }
+                                break;
+                            }
+                        }
                     }
+            		else {
+            			if (userImeiMap.containsKey(userid))
+                    		userImeiMap.get(userid).add(imei);
+                    	else {
+                    		List<Long> list = new ArrayList<>();
+                            list.add(imei);
+                            userImeiMap.put(userid, list);
+                    	}
+            		}
                 }
                 while (childrenset.next()) {
                     ArrayList<Integer> temp = Serialization.strToList(childrenset.getString("children_ids"));
