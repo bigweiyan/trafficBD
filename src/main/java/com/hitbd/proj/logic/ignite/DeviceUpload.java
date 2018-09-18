@@ -4,11 +4,6 @@ import com.hitbd.proj.Settings;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.Ignition;
-import org.apache.ignite.cache.CacheMode;
-import org.apache.ignite.configuration.CacheConfiguration;
-import org.apache.ignite.configuration.IgniteConfiguration;
 
 import java.io.File;
 import java.io.FileReader;
@@ -27,10 +22,17 @@ public class DeviceUpload {
     private static String INSERT_DEVICE = "insert into device" +
             "(user_b_id,imei,device_type,device_name,project_id,enabled,repayment,user_c_id) " +
             "values(?,?,?,?,?,?,?,?)";
+
+    private static int copies = 1;
+    private static String[] imeiPrefix = {"","11","22","33","44"};
+    private static int[] userIdShift = {0, 1000000, 2000000, 3000000, 4000000};
     public static void main(String args[]){
         if (args.length < 2) {
             System.out.println("usage: ImportDevice [filename/folder]");
             return;
+        }
+        if (args.length >=3) {
+            copies = Integer.valueOf(args[2]);
         }
         File src = new File(args[1]);
         if (src.exists()) {
@@ -87,33 +89,45 @@ public class DeviceUpload {
         PreparedStatement pst = connection.prepareStatement(INSERT_DEVICE);
         while (records.hasNext()){
             CSVRecord record = records.next();
-            String appid = record.get(0);
-            int enabled = record.get(1).equals("Y") ? 1 : 0;
-            long imei = Long.parseLong(record.get(2));
-            String deviceType = record.get(4);
-            int repayment = Integer.parseInt(record.get(5));
-            int userID = Integer.parseInt(record.get(6));
-            StringBuilder parentIds = new StringBuilder(record.get(7));
-            parentIds.setLength(parentIds.length() - 1);
-            String[] parents = parentIds.toString().split(",");
-            addUser(parents);
+            for (int i = 0; i < copies; i++) {
+                String appid = record.get(0);
+                int enabled = record.get(1).equals("Y") ? 1 : 0;
+                long imei;
+                if (i == 0) {
+                    imei = Long.parseLong(record.get(2));
+                }else {
+                    imei = Long.parseLong(imeiPrefix[i] + record.get(2).substring(2));
+                }
+                String deviceType = record.get(4);
+                int repayment = record.get(5).equals("1") ? 1 : 0;
+                int userID = Integer.parseInt(record.get(6));
+                if (i > 0) userID += userIdShift[i];
+                StringBuilder parentIds = new StringBuilder(record.get(7));
+                parentIds.setLength(parentIds.length() - 1);
+                String[] parents = parentIds.toString().split(",");
+                if (i > 0) {
+                    parents[parents.length - 1] = (Integer.valueOf(parents[parents.length - 1]) + userIdShift[i]) + "";
+                }
+                addUser(parents);
 
-            // imei去重：重复的imei不进行插入
-            if (!devices.contains(imei)) {
-                devices.add(imei);
-                insertDevice(pst, userID, imei, deviceType, appid, enabled, repayment);
-                deviceCount++;
-            }
-            // 每100个device进行一次上传
-            if (deviceCount > 100) {
-                pst.executeBatch();
-                deviceCount = 0;
+                // imei去重：重复的imei不进行插入
+                if (!devices.contains(imei)) {
+                    devices.add(imei);
+                    insertDevice(pst, userID, imei, deviceType, appid, enabled, repayment);
+                    deviceCount++;
+                }
+                // 每100个device进行一次上传
+                if (deviceCount > 100) {
+                    pst.executeBatch();
+                    deviceCount = 0;
+                }
             }
         }
         // 上传剩余的device
         if(deviceCount > 0) {
             pst.executeBatch();
         }
+        pst.close();
         logWriter.append(" SUCCESS!\n");
         logWriter.flush();
     }

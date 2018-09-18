@@ -1,8 +1,8 @@
 package com.hitbd.proj;
 
-import com.hitbd.proj.Exception.ForeignKeyException;
-import com.hitbd.proj.Exception.NotExistException;
-import com.hitbd.proj.Exception.TimeException;
+import com.hitbd.proj.exception.ForeignKeyException;
+import com.hitbd.proj.exception.NotExistException;
+import com.hitbd.proj.exception.TimeException;
 import com.hitbd.proj.logic.AlarmScanner;
 import com.hitbd.proj.logic.Query;
 import com.hitbd.proj.model.AlarmImpl;
@@ -326,15 +326,18 @@ public class HbaseSearch implements IHbaseSearch {
     }
 
     @Override
-    public AlarmScanner queryAlarmByUser(int queryUser, List<Integer> userBIds, boolean recursive, int sortType, QueryFilter filter) {
+    public AlarmScanner queryAlarmByUser(java.sql.Connection connection, int queryUser, List<Integer> userBIds,
+                                         boolean recursive, int sortType, QueryFilter filter) {
         // 存放用户及其对应设备
         Map<Integer, List<Long>> userAndDevice;
         // 读取用户及其对应设备imei,这些设备将被过期时间进行过滤
         if (recursive) {
-            userAndDevice = IgniteSearch.getInstance().getLevelOrderChildrenDevicesOfUserB(queryUser, false);
+            userAndDevice = IgniteSearch.getInstance()
+                    .getLevelOrderChildrenDevicesOfUserB(connection, queryUser, false);
         } else {
             userAndDevice = new HashMap<>();
-            for (int user : userBIds) userAndDevice.put(user, IgniteSearch.getInstance().getDirectDevices(user, queryUser, false));
+            for (int user : userBIds) userAndDevice
+                    .put(user, IgniteSearch.getInstance().getDirectDevices(connection, user, queryUser, false));
         }
 
         // DEBUG output imeis
@@ -352,7 +355,7 @@ public class HbaseSearch implements IHbaseSearch {
             usedTable = Utils.getUseTable(filter.getAllowTimeRange().getKey(), filter.getAllowTimeRange().getValue());
         }
 
-        AlarmScanner result = new AlarmScanner();
+        AlarmScanner result = new AlarmScanner(sortType);
         // 划分查询，每个查询按时间进行排列
         LinkedList<Query> queries = new LinkedList<>();
         if (sortType == HbaseSearch.SORT_BY_CREATE_TIME || sortType == HbaseSearch.NO_SORT) {
@@ -529,7 +532,7 @@ public class HbaseSearch implements IHbaseSearch {
 
     @Override
     public AlarmScanner queryAlarmByImei(HashMap<Integer, List<Long>> userAndDevices, int sortType, QueryFilter filter) {
-        AlarmScanner result = new AlarmScanner();
+        AlarmScanner result = new AlarmScanner(sortType);
         // 计算需要在哪些表中进行查询
         List<String> usedTable;
         if (filter.getAllowTimeRange() == null) {
@@ -727,20 +730,19 @@ public class HbaseSearch implements IHbaseSearch {
     }
 
 	@Override
-	public Map<String, Integer> groupCountByImeiStatus(int parentBId, boolean recursive) {
+	public Map<String, Integer> groupCountByImeiStatus(java.sql.Connection connection, int parentBId, boolean recursive) {
 		Map<String, Integer> map = new HashMap<String, Integer>();
 		ArrayList<Long> imeilist = new ArrayList<Long>();
 		try {
             if (!recursive) {
                 String sql = "select imei from device where user_id = " + String.valueOf(parentBId);
-                IgniteSearch.getInstance().connect();
-                PreparedStatement pstmt =IgniteSearch.getInstance().connection.prepareStatement(sql);
+                PreparedStatement pstmt =connection.prepareStatement(sql);
                 ResultSet rs = pstmt.executeQuery();
                 while (rs.next()) {
                     imeilist.add(rs.getLong("imei"));
                 }
             } else {
-                Map<Integer, List<Long>> idandimei = IgniteSearch.getInstance().getChildrenDevicesOfUserB(parentBId);
+                Map<Integer, List<Long>> idandimei = IgniteSearch.getInstance().getChildrenDevicesOfUserB(connection, parentBId);
                 for (Integer id : idandimei.keySet()) {
                     List<Long> temp = idandimei.get(id);
                     for (Long i : temp) {
@@ -766,15 +768,15 @@ public class HbaseSearch implements IHbaseSearch {
 	}
 
 	@Override
-	public Map<String, Integer> groupCountByUserIdViewed(ArrayList<Integer> parentBIds, boolean recursive) {
+	public Map<String, Integer> groupCountByUserIdViewed(java.sql.Connection connection, ArrayList<Integer> parentBIds,
+                                                         boolean recursive) {
 		Map<String, Integer> map = new HashMap<String, Integer>();
 		try {
             if (!recursive) {
                 String sql = "select imei,user_b_id from device where user_b_id in (" + Serialization.listToStr(parentBIds)
                         + ")";
                 Map<Long, Integer> imeimap = new HashMap<Long, Integer>();
-                IgniteSearch.getInstance().connect();
-                PreparedStatement pstmt =IgniteSearch.getInstance().connection.prepareStatement(sql);
+                PreparedStatement pstmt =connection.prepareStatement(sql);
                 ResultSet rs = pstmt.executeQuery();
                 while (rs.next()) {
                     imeimap.put(rs.getLong("imei"), rs.getInt("user_b_id"));
@@ -799,7 +801,8 @@ public class HbaseSearch implements IHbaseSearch {
             } else {
                 for (int parentid : parentBIds) {
                     int count1 = 0, count2 = 0;
-                    Map<Integer, List<Long>> idandimei = IgniteSearch.getInstance().getChildrenDevicesOfUserB(parentid);
+                    Map<Integer, List<Long>> idandimei = IgniteSearch.getInstance().
+                            getChildrenDevicesOfUserB(connection, parentid);
                     for (Integer id : idandimei.keySet()) {
                         List<Long> temp = idandimei.get(id);
                         for (Long imei : temp) {
@@ -823,15 +826,15 @@ public class HbaseSearch implements IHbaseSearch {
 	}
 
 	@Override
-	public Map<Integer, Integer> groupCountByUserId(ArrayList<Integer> parentBIds, boolean recursive, int topK) {
+	public Map<Integer, Integer> groupCountByUserId(java.sql.Connection connection, ArrayList<Integer> parentBIds,
+                                                    boolean recursive, int topK) {
 		Map<Integer, Integer> map = new HashMap<Integer, Integer>();
 		try {
             if (!recursive) {
                 String sql = "select imei,user_b_id from device where user_b_id in (" + Serialization.listToStr(parentBIds)
                         + ")";
                 Map<Long, Integer> imeimap = new HashMap<Long, Integer>();
-                IgniteSearch.getInstance().connect();
-                PreparedStatement pstmt =IgniteSearch.getInstance().connection.prepareStatement(sql);
+                PreparedStatement pstmt = connection.prepareStatement(sql);
                 ResultSet rs = pstmt.executeQuery();
                 while (rs.next()) {
                     imeimap.put(rs.getLong("imei"), rs.getInt("user_b_id"));
@@ -850,7 +853,8 @@ public class HbaseSearch implements IHbaseSearch {
             } else {
                 for (int parentid : parentBIds) {
                     int count = 0;
-                    Map<Integer, List<Long>> idandimei = IgniteSearch.getInstance().getChildrenDevicesOfUserB(parentid);
+                    Map<Integer, List<Long>> idandimei = IgniteSearch.getInstance()
+                            .getChildrenDevicesOfUserB(connection, parentid);
                     for (Integer id : idandimei.keySet()) {
                         List<Long> temp = idandimei.get(id);
                         for (Long imei : temp) {

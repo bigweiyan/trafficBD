@@ -1,126 +1,168 @@
 package com.hitbd.proj.logic;
 
-import com.hitbd.proj.Settings;
-import com.hitbd.proj.model.IAlarm;
-import com.hitbd.proj.model.Pair;
-import org.apache.hadoop.hbase.TableName;
-import org.apache.hadoop.hbase.client.*;
-
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import com.hitbd.proj.HbaseSearch;
+import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.client.Connection;
+import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.client.ResultScanner;
+import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.client.Table;
+
+import com.hitbd.proj.Settings;
+import com.hitbd.proj.logic.hbase.AlarmSearchUtils;
+import com.hitbd.proj.model.IAlarm;
+import com.hitbd.proj.model.Pair;
+
+/**
+ * 对象创建时，开启线程调度器及工作线程
+ * 工作线程生产数据，直到查询告警缓存满时，工作线程阻塞
+ * 如果一个工作线程结束时，查询没有处理完，则启动另一个工作线程
+ */
 public class AlarmScanner {
-    // 未来可以优化为生产者-消费者模式
     public Queue<Query> queries;
-    private List<Pair<Integer, IAlarm>> alarms;
-    private int currentThreads;
-    private boolean ready;
-    private boolean finished;
-    private int totalAlarm = 0;
+    // 查询告警缓存 当缓存满导致无法添加时工作线程进入wait, 缓存有空位时主线程进行notify
+    private final PriorityBlockingQueue<Pair<Integer, IAlarm>> cacheAlarms;
+    // 用于判断是否应该增加线程
+    private AtomicInteger currentThreads = new AtomicInteger();
+    private ThreadPoolExecutor pool = (ThreadPoolExecutor) Executors.newFixedThreadPool(Settings.MAX_THREAD + 4);
+    private Connection connection;
+    // 调度线程。其上会进行加锁，当不能开始新查询时调度线程进入wait，当某个查询结束时工作线程进行notify
+    private ManageThread manageThread;
+    // 对应查询是否完成，以及对应查询结果数
+    private boolean[] queryCompleteMark;
+    private int[] queryCompleteCount;
+    // 是否完成查询。每次有线程提交结果时更新此变量
+    private boolean finish = false;
+    // 已产生多少有序结果。每次线程提交结果时更新此变量
+    private int resultPrepared = 0;
+    // 已获取多少有序结果。每次取结果时更新此变量
+    private int resultTaken = 0;
+
+    private int nextWaitId = 0;
+
+
+    public AlarmScanner(int sortType) {
+        if (sortType == HbaseSearch.SORT_BY_CREATE_TIME) {
+            cacheAlarms = new PriorityBlockingQueue<>(1000,
+                    (e1, e2) -> e2.getValue().getCreateTime().compareTo(e1.getValue().getCreateTime()));
+        }else if (sortType == HbaseSearch.SORT_BY_IMEI) {
+            cacheAlarms = new PriorityBlockingQueue<>(1000,
+                    (e1, e2) -> Long.compare(e2.getValue().getImei(), e1.getValue().getImei()));
+        }else{
+            cacheAlarms = new PriorityBlockingQueue<>(1000,
+                    (e1, e2) -> Integer.compare(e2.getKey(), e1.getKey()));
+        }
+    }
+
+    public AlarmScanner(int sortType, Connection connection) {
+        this.connection = connection;
+        if (sortType == HbaseSearch.SORT_BY_CREATE_TIME) {
+            cacheAlarms = new PriorityBlockingQueue<>(1000,
+                    (e1, e2) -> e2.getValue().getCreateTime().compareTo(e1.getValue().getCreateTime()));
+        }else if (sortType == HbaseSearch.SORT_BY_IMEI) {
+            cacheAlarms = new PriorityBlockingQueue<>(1000,
+                    (e1, e2) -> Long.compare(e2.getValue().getImei(), e1.getValue().getImei()));
+        }else{
+            cacheAlarms = new PriorityBlockingQueue<>(1000,
+                    (e1, e2) -> Integer.compare(e2.getKey(), e1.getKey()));
+        }
+    }
 
     public void setConnection(Connection connection) {
         this.connection = connection;
     }
 
-    private Connection connection;
-
-    public AlarmScanner() {
-        currentThreads = 0;
-        alarms = new ArrayList<>();
-        ready = false;
-        finished = false;
-    }
-
-    public AlarmScanner(Connection connection) {
-        this.connection = connection;
-        currentThreads = 0;
-        alarms = new ArrayList<>();
-        ready = false;
-        finished = false;
-    }
-
     public void setQueries(Queue<Query> queries) {
         this.queries = queries;
-        if (queries == null || queries.isEmpty()) {
-            finished = true;
-        }
+        queryCompleteMark = new boolean[queries.size()];
+        queryCompleteCount = new int[queries.size()];
     }
 
-    public synchronized List<Pair<Integer, IAlarm>> next() {
-        if (finished) return null;
-        while (!ready){
-            // 线程为0，未准备好，表示是第一次执行next方法。此时进行第一次查询，创建查询线程
-            if (currentThreads == 0) {
-                int startThread = 0;
-                for (int i = 0; i < Settings.MAX_THREAD; i ++){
-                    Query q = queries.poll();
-                    if (q == null) {
-                        // 已经完成查询，下次调用方法会直接返回null
-                        finished = true;
-                        break;
-                    }
-                    startThread ++;
-                    new ScanThread(q).start();
+    // 线程提交结果
+    private void commitQueryResult(int tid, List<Pair<Integer,IAlarm>> alarms) {
+        // 同步块保证一次只能有一个线程在addAll
+        synchronized (cacheAlarms) {
+            try {
+                while (cacheAlarms.size() > Settings.MAX_CACHE_ALARM && tid != nextWaitId) {
+                    cacheAlarms.wait();
                 }
-                currentThreads = startThread;
-            }else {
-                // 线程不为0，表示正在查询，需要等待
-                try {
-                    this.wait(40);
-                }catch (InterruptedException e){
-                    e.printStackTrace();
-                }
+            }catch (InterruptedException e) {
+                e.printStackTrace();
             }
+            cacheAlarms.addAll(alarms); // 等同于for each : offer
         }
-        // 将结果保存在临时变量，并将类变量换一个新数组
-        List<Pair<Integer, IAlarm>> result = alarms;
-        alarms = new ArrayList<>();
 
-        // 如果此时空闲，可以开始为下次方法调用做准备
-        if (currentThreads == 0) {
-            int startThread = 0;
-            for (int i = 0; i < Settings.MAX_THREAD; i ++){
-                Query q = queries.poll();
-                if (q == null) {
-                    // 想开启新任务，却没有查询可以开启时，认为查询已经结束
-                    if (startThread == 0) finished = true;
-                    break;
-                }
-                ready = false;
-                startThread ++;
-                new ScanThread(q).start();
+        // 计算累积共有多少有序结果
+        synchronized (this) {
+            queryCompleteMark[tid] = true;
+            queryCompleteCount[tid] = alarms.size();
+            finish = true;
+            resultPrepared = 0;
+            for (int i = 0; i < queryCompleteMark.length; i++) {
+                finish = finish && queryCompleteMark[i];
+                nextWaitId = i;
+                if (!queryCompleteMark[i]) break;
+                resultPrepared += queryCompleteCount[i];
             }
-            currentThreads = startThread;
+            this.notify();
         }
-        return result;
-    }
-
-    synchronized void putAlarm(List<Pair<Integer, IAlarm>> newAlarms) {
-        currentThreads --;
-        alarms.addAll(newAlarms);
-        // 这是最后一个工作中的线程，表示数据已经准备好
-        if (currentThreads == 0) ready = true;
-        this.notify();
-    }
-
-    public boolean isFinished() {
-        return finished;
     }
 
     public int getTotalAlarm() {
-        return totalAlarm;
+        return resultPrepared;
     }
 
-    public synchronized void addTotalAlarm(int alarm){
-        totalAlarm += alarm;
+    public boolean notFinished() {
+        return !finish;
     }
 
+    public List<Pair<Integer, IAlarm>> next(int count) {
+        if (connection == null || queries == null) {
+            throw new RuntimeException("queries and connection should be set before run next()");
+        }
+        if (manageThread == null) {
+            manageThread = new ManageThread(queries.size());
+            pool.execute(manageThread);
+        }
+        if (finish && resultTaken < resultPrepared) return null;
+        // 是否准备足够有序结果
+        synchronized (this) {
+            while (resultPrepared < resultTaken + count && !finish) {
+                try {
+                    this.wait(50);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+
+            }
+        }
+        List<Pair<Integer, IAlarm>> result = new ArrayList<>();
+        // 从缓存中获取count个元素
+        cacheAlarms.drainTo(result, count);
+        synchronized (cacheAlarms) {
+            cacheAlarms.notifyAll(); // 释放因为空间不足阻塞的正在addAll的线程
+        }
+        resultTaken += result.size();
+        return result;
+    }
+
+    /**
+     * 工作线程
+     */
     class ScanThread extends Thread{
         private Query query;
-        public ScanThread(Query query){
+        private int tid;
+        ScanThread(Query query, int tid){
             this.query = query;
+            this.tid = tid;
         }
         @Override
         public void run() {
@@ -129,7 +171,6 @@ public class AlarmScanner {
             try {
                 table = AlarmScanner.this.connection.getTable(TableName.valueOf(query.tableName));
                 String start, end;
-                int resultCount = 0;
                 for (Pair<Integer, Long> pair: query.imeis) {
                     StringBuilder sb = new StringBuilder();
                     String imei = pair.getValue().toString();
@@ -149,21 +190,48 @@ public class AlarmScanner {
                     scan.addFamily("r".getBytes());
                     scan.setBatch(100);
                     ResultScanner scanner = table.getScanner(scan);
+                    AlarmSearchUtils.addToList(scanner, result, pair.getKey(),query.tableName);
                     Result[] results = scanner.next(100);
                     while (results.length != 0) {   // this method never return null
-                        resultCount += results.length;
                         results = scanner.next(100);
                     }
                     scanner.close();
                 }
                 table.close();
-
-                // DEBUG output result size
-                AlarmScanner.this.addTotalAlarm(resultCount);
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            AlarmScanner.this.putAlarm(result);
+            AlarmScanner.this.commitQueryResult(tid, result);
+            currentThreads.decrementAndGet();
+        }
+    }
+
+    /**
+     * 线程调度器，用于调度工作线程
+     */
+    class ManageThread implements Runnable {
+        int queries = 0;
+        ManageThread(int queries){
+            this.queries = queries;
+        }
+
+        public void run() {
+            int nextid = 0; //下一个分配的线程id
+            while(nextid < queries) {
+                // 取得本对象的锁。锁的目的是等待空闲线程
+                synchronized (this) {
+                    while (currentThreads.get() >= Settings.MAX_THREAD) {
+                        try {
+                            this.wait(50);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+                pool.submit(new ScanThread(AlarmScanner.this.queries.poll(), nextid));
+                nextid++;
+                currentThreads.incrementAndGet();
+            }
         }
     }
 
