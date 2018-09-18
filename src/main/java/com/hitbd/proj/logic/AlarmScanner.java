@@ -30,16 +30,20 @@ public class AlarmScanner {
     public Queue<Query> queries;
     // 查询告警缓存 当缓存满导致无法添加时工作线程进入wait, 缓存有空位时主线程进行notify
     private final PriorityBlockingQueue<Pair<Integer, IAlarm>> cacheAlarms;
-    private int totalAlarm = 0;
+    // 用于判断是否应该增加线程
     private AtomicInteger currentThreads = new AtomicInteger();
     private ThreadPoolExecutor pool = (ThreadPoolExecutor) Executors.newFixedThreadPool(Settings.MAX_THREAD+1);
     private Connection connection;
-    // 其上会进行加锁，当不能开始新查询时调度线程进入wait，当某个查询结束时工作线程进行notify
+    // 调度线程。其上会进行加锁，当不能开始新查询时调度线程进入wait，当某个查询结束时工作线程进行notify
     private ManageThread manageThread;
+    // 对应查询是否完成，以及对应查询结果数
     private boolean[] queryCompleteMark;
     private int[] queryCompleteCount;
+    // 是否完成查询。每次有线程提交结果时更新此变量
     private boolean finish = false;
+    // 已产生多少有序结果。每次线程提交结果时更新此变量
     private int resultPrepared = 0;
+    // 已获取多少有序结果。每次取结果时更新此变量
     private int resultTaken = 0;
 
 
@@ -79,7 +83,8 @@ public class AlarmScanner {
         queryCompleteMark = new boolean[queries.size()];
         queryCompleteCount = new int[queries.size()];
     }
-    
+
+    // 线程提交结果
     private void commitQueryResult(int tid, List<Pair<Integer,IAlarm>> alarms) {
         // 同步块保证一次只能有一个线程在addAll
         synchronized (cacheAlarms) {
@@ -111,15 +116,11 @@ public class AlarmScanner {
     }
 
     public int getTotalAlarm() {
-        return totalAlarm;
+        return resultPrepared;
     }
 
-    private void addTotalAlarm(int alarm){
-        totalAlarm += alarm;
-    }
-
-    public boolean isFinished() {
-        return finish;
+    public boolean notFinished() {
+        return !finish;
     }
 
     public List<Pair<Integer, IAlarm>> next(int count) {
@@ -132,7 +133,7 @@ public class AlarmScanner {
         if (finish) return null;
         // 是否准备足够有序结果
         synchronized (this) {
-            while (resultPrepared <= resultTaken + count && !finish){
+            while (resultPrepared < resultTaken + count && !finish){
                 try {
                     this.wait();
                 }catch (InterruptedException e){
@@ -198,9 +199,6 @@ public class AlarmScanner {
                     scanner.close();
                 }
                 table.close();
-
-                // DEBUG output result size
-                AlarmScanner.this.addTotalAlarm(resultCount);
             } catch (IOException e) {
                 e.printStackTrace();
             }
