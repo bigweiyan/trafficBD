@@ -19,6 +19,10 @@ import org.junit.Test;
 import com.hitbd.proj.logic.AlarmScanner;
 import com.hitbd.proj.model.Pair;
 
+import java.sql.DriverManager;
+import java.sql.SQLException;
+
+
 public class HbaseTest {
     
     String fileName = "/home/hadoop/case.txt" ; //测试用例文件
@@ -27,7 +31,7 @@ public class HbaseTest {
     private AtomicInteger currentThreads = new AtomicInteger();
 
     @Test
-    public void testQuery() throws IOException{
+    public void testQuery() throws IOException, SQLException {
         Configuration configuration = HBaseConfiguration.create();
         configuration.addResource("/usr/hbase-1.3.2.1/conf/hbase-site.xml");
         Settings.HBASE_CONFIG = configuration;
@@ -80,10 +84,10 @@ public class HbaseTest {
             userBIds.add(queryUser);
             QueryFilter queryFilter = new QueryFilter();
             queryFilter.setAllowTimeRange(new Pair<>(new Date(1533225600000L), new Date(1533484800000L)));
-            IgniteSearch.getInstance().connect();
+            java.sql.Connection igniteConnection = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1");
 
             Date date = new Date();
-            AlarmScanner scanner = HbaseSearch.getInstance().queryAlarmByUser(queryUser, userBIds, true, HbaseSearch.NO_SORT, queryFilter);
+            AlarmScanner scanner = HbaseSearch.getInstance().queryAlarmByUser(igniteConnection, 2469, userBIds, true, HbaseSearch.NO_SORT, queryFilter);
             long igniteQueryTime = new Date().getTime() - date.getTime();
             int queryCount = scanner.queries.size();
             sb.append("Ignite query Time: " + igniteQueryTime + "ms;\n");

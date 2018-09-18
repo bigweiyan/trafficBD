@@ -1,8 +1,8 @@
 package com.hitbd.proj;
 
-import com.hitbd.proj.Exception.ForeignKeyException;
-import com.hitbd.proj.Exception.NotExistException;
-import com.hitbd.proj.Exception.TimeException;
+import com.hitbd.proj.exception.ForeignKeyException;
+import com.hitbd.proj.exception.NotExistException;
+import com.hitbd.proj.exception.TimeException;
 import com.hitbd.proj.logic.AlarmScanner;
 import com.hitbd.proj.model.IAlarm;
 import com.hitbd.proj.model.Pair;
@@ -92,7 +92,8 @@ public interface IHbaseSearch {
      * @param filter 筛选类型
      * @return
      */
-    AlarmScanner queryAlarmByUser(int queryUser, List<Integer> userBIds, boolean recursive, int sortType, QueryFilter filter);
+    AlarmScanner queryAlarmByUser(java.sql.Connection connection, int queryUser,
+                                  List<Integer> userBIds, boolean recursive, int sortType, QueryFilter filter);
 
     /**
      * 5.1-5.3a
@@ -140,7 +141,7 @@ public interface IHbaseSearch {
      * @param parentBId
      * @param recursive 是否递归查询所有设备
      */
-    Map<String, Integer> groupCountByImeiStatus(int parentBId, boolean recursive);
+    Map<String, Integer> groupCountByImeiStatus(java.sql.Connection connection, int parentBId, boolean recursive);
 
     /**
      * 5.5 按照用户和已读标记分组Count查询
@@ -148,7 +149,8 @@ public interface IHbaseSearch {
      * @param recursive 是否递归查询所有用户
      * @return
      */
-    Map<String, Integer> groupCountByUserIdViewed(ArrayList<Integer> parentBIds, boolean recursive);
+    Map<String, Integer> groupCountByUserIdViewed(java.sql.Connection connection, ArrayList<Integer> parentBIds,
+                                                  boolean recursive);
 
     /**
      * 5.5 按照用户Count查询，只要求前K个结果
@@ -157,7 +159,8 @@ public interface IHbaseSearch {
      * @param topK
      * @return
      */
-    Map<Integer, Integer> groupCountByUserId(ArrayList<Integer> parentBIds, boolean recursive, int topK);
+    Map<Integer, Integer> groupCountByUserId(java.sql.Connection connection, ArrayList<Integer> parentBIds,
+                                             boolean recursive, int topK);
 
     /**
      * A5.3

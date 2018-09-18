@@ -90,7 +90,7 @@ public class DeviceUpload {
         while (records.hasNext()){
             CSVRecord record = records.next();
             for (int i = 0; i < copies; i++) {
-                String appid = "undefined";
+                String appid = record.get(0);
                 int enabled = record.get(1).equals("Y") ? 1 : 0;
                 long imei;
                 if (i == 0) {
