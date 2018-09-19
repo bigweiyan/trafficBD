@@ -19,13 +19,16 @@ public class Settings {
     public static long START_TIME = 1530115200000L; // 2018-06-28 00:00:00
     public static long END_TIME = 1535990399000L; // 2018-09-03 23:59:59
 
-    public static int MAX_DEVICES_PER_QUERY = 100;
-    public static int MAX_QUERY_THREAD = 3;
+    public static int MAX_DEVICES_PER_WORKER = 100;
+    public static int MAX_WORKER_THREAD = 3;
     public static int MAX_CACHE_ALARM = 1000;
 
     public static class Test{
         public static int IMEI_PER_QUERY = 100;
         public static int QUERY_THREAD_PER_TEST = 3;
         public static boolean WAIT_UNTIL_FINISH = false;
+        public static long START_TIME = 1532880000000L; // 2018-07-30 00:00:00
+        public static long END_TIME = 1534089600000L; // 2018-08-13 00:00:00
+        public static boolean SHOW_TOP_RESULT = false;
     }
 }

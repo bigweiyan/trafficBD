@@ -77,7 +77,7 @@ public class HbaseUpload {
         int percentage = 0;
         CSVParser parser = new CSVParser(new FileReader(file), CSVFormat.DEFAULT);
         Iterator<CSVRecord> records = parser.iterator();
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         records.next();
         Random random = new Random();
         logWriter.write("start " + file.getName() + ": \n");

@@ -13,12 +13,14 @@ import java.util.Iterator;
 import java.util.Set;
 
 public class GenerateImeiCase {
+    private int imeiPerFile;
     public void main(String[] args) {
-        if (args.length < 2) {
-            System.out.println("Usage: GenerateImeiCase FileName/Folder");
+        if (args.length < 3) {
+            System.out.println("Usage: GenerateImeiCase FileName/Folder length");
             return;
         }
         File input = new File(args[1]);
+        imeiPerFile = Integer.parseInt(args[2]);
         if (!input.exists()) {
             System.out.println("File not found:" + args[1]);
             return;
@@ -59,7 +61,7 @@ public class GenerateImeiCase {
                 }catch (NumberFormatException e){
                     System.out.println("imei " + record);
                 }
-                if (count >= 100) break;
+                if (count >= imeiPerFile) break;
             }
         }catch (IOException e){
             e.printStackTrace();

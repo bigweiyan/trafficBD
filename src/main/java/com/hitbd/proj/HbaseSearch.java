@@ -392,13 +392,13 @@ public class HbaseSearch implements IHbaseSearch {
                             imeis.add(new Pair<>(user.getKey(), user.getValue().get(lastPostion)));
                             lastPostion++;
                             // 如果现在已经读取了一批MAX_DEVICE的imei，则先构建新子查询
-                            if (lastPostion % Settings.MAX_DEVICES_PER_QUERY == 0) {
+                            if (lastPostion % Settings.MAX_DEVICES_PER_WORKER == 0) {
                                 doneUser = false;
                                 break;
                             }
                         }
                         // 如果一个表中查询的设备数大于100， 则构建一个新查询
-                        if (imeis.size() > Settings.MAX_DEVICES_PER_QUERY) {
+                        if (imeis.size() > Settings.MAX_DEVICES_PER_WORKER) {
                             query.imeis = imeis;
                             queries.add(query);
                             query = new Query();
@@ -489,13 +489,13 @@ public class HbaseSearch implements IHbaseSearch {
                             imeis.add(new Pair<>(user.getKey(), user.getValue().get(lastPostion)));
                             lastPostion++;
                             // 如果现在已经读取了一批MAX_DEVICE的imei，则先构建新子查询
-                            if (lastPostion % Settings.MAX_DEVICES_PER_QUERY == 0) {
+                            if (lastPostion % Settings.MAX_DEVICES_PER_WORKER == 0) {
                                 doneUser = false;
                                 break;
                             }
                         }
                         // 如果一个表中查询的设备数大于100， 则构建一个新查询
-                        if (imeis.size() > Settings.MAX_DEVICES_PER_QUERY) {
+                        if (imeis.size() > Settings.MAX_DEVICES_PER_WORKER) {
                             query.imeis = imeis;
                             queries.add(query);
                             query = new Query();
@@ -571,13 +571,13 @@ public class HbaseSearch implements IHbaseSearch {
                             imeis.add(new Pair<>(user.getKey(), user.getValue().get(lastPostion)));
                             lastPostion++;
                             // 如果现在已经读取了一批MAX_DEVICE的imei，则先构建新子查询
-                            if (lastPostion % Settings.MAX_DEVICES_PER_QUERY == 0) {
+                            if (lastPostion % Settings.MAX_DEVICES_PER_WORKER == 0) {
                                 doneUser = false;
                                 break;
                             }
                         }
                         // 如果一个表中查询的设备数大于100， 则构建一个新查询
-                        if (imeis.size() > Settings.MAX_DEVICES_PER_QUERY) {
+                        if (imeis.size() > Settings.MAX_DEVICES_PER_WORKER) {
                             query.imeis = imeis;
                             queries.add(query);
                             query = new Query();
@@ -668,13 +668,13 @@ public class HbaseSearch implements IHbaseSearch {
                             imeis.add(new Pair<>(user.getKey(), user.getValue().get(lastPostion)));
                             lastPostion++;
                             // 如果现在已经读取了一批MAX_DEVICE的imei，则先构建新子查询
-                            if (lastPostion % Settings.MAX_DEVICES_PER_QUERY == 0) {
+                            if (lastPostion % Settings.MAX_DEVICES_PER_WORKER == 0) {
                                 doneUser = false;
                                 break;
                             }
                         }
                         // 如果一个表中查询的设备数大于100， 则构建一个新查询
-                        if (imeis.size() > Settings.MAX_DEVICES_PER_QUERY) {
+                        if (imeis.size() > Settings.MAX_DEVICES_PER_WORKER) {
                             query.imeis = imeis;
                             queries.add(query);
                             query = new Query();

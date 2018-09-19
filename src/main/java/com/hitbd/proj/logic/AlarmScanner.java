@@ -34,7 +34,7 @@ public class AlarmScanner implements Closeable {
     private final PriorityBlockingQueue<Pair<Integer, IAlarm>> cacheAlarms;
     // 用于判断是否应该增加线程
     private AtomicInteger currentThreads = new AtomicInteger();
-    private ThreadPoolExecutor pool = (ThreadPoolExecutor) Executors.newFixedThreadPool(Settings.MAX_QUERY_THREAD + 4);
+    private ThreadPoolExecutor pool = (ThreadPoolExecutor) Executors.newFixedThreadPool(Settings.MAX_WORKER_THREAD + 4);
     private Connection connection;
     // 调度线程。其上会进行加锁，当不能开始新查询时调度线程进入wait，当某个查询结束时工作线程进行notify
     private ManageThread manageThread;
@@ -260,7 +260,7 @@ public class AlarmScanner implements Closeable {
             while(nextid < queries) {
                 // 取得本对象的锁。锁的目的是等待空闲线程
                 synchronized (this) {
-                    while (currentThreads.get() >= Settings.MAX_QUERY_THREAD) {
+                    while (currentThreads.get() >= Settings.MAX_WORKER_THREAD) {
                         try {
                             this.wait(50);
                             if (closing) return;
