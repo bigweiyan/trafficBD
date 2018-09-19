@@ -6,7 +6,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 
 public class TestAlarmC {
-    public static void main(String[] args){
+    public void main(String[] args){
         try (FileWriter fileWriter = new FileWriter("testAlarmC.log")){
             long imei = 442304026366966L;
             fileWriter.write(imei +":" + IgniteSearch.getInstance().getAlarmCount(imei));

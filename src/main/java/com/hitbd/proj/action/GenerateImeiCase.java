@@ -13,7 +13,7 @@ import java.util.Iterator;
 import java.util.Set;
 
 public class GenerateImeiCase {
-    public static void main(String[] args) {
+    public void main(String[] args) {
         if (args.length < 2) {
             System.out.println("Usage: GenerateImeiCase FileName/Folder");
         }
@@ -41,7 +41,7 @@ public class GenerateImeiCase {
         }
     }
 
-    public static void addToSet(File file, Set<Long> set){
+    public void addToSet(File file, Set<Long> set){
         try {
             CSVParser parser = new CSVParser(new FileReader(file), CSVFormat.DEFAULT);
             Iterator<CSVRecord> records = parser.iterator();

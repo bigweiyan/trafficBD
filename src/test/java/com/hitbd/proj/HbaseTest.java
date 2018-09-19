@@ -7,6 +7,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.BufferedReader;
@@ -27,6 +28,7 @@ public class HbaseTest {
     private ThreadPoolExecutor pool = (ThreadPoolExecutor) Executors.newFixedThreadPool(MAX_QUERY); //指定并发个数
     private AtomicInteger currentThreads = new AtomicInteger();
 
+    @Ignore
     @Test
     public void testQuery() throws IOException, SQLException {
         Configuration configuration = HBaseConfiguration.create();
