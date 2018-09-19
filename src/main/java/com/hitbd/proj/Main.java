@@ -5,7 +5,6 @@ import com.hitbd.proj.action.TestAlarmC;
 import com.hitbd.proj.logic.hbase.HbaseUpload;
 import com.hitbd.proj.logic.ignite.CreateIgniteTable;
 import com.hitbd.proj.logic.ignite.DeviceUpload;
-import org.apache.ignite.Ignition;
 
 import java.io.File;
 import java.io.IOException;
@@ -66,10 +65,10 @@ public class Main {
                     String value = conf[1].trim();
                     switch (key) {
                         case "igniteHostAddress":
-                            Settings.igniteHostAddress = value;
+                            Settings.IGNITE_HOST_ADDRESS = value;
                             break;
                         case "logDir":
-                            Settings.logDir = value;
+                            Settings.LOG_DIR = value;
                             break;
                         default:
                             System.out.println("Cannot resolve attribute: " + key);

@@ -37,7 +37,7 @@ public class DeviceUpload {
         File src = new File(args[1]);
         if (src.exists()) {
             try (Connection connection = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1/");
-                 FileWriter writer = new FileWriter(new File(Settings.logDir, "import" + args[1] + ".log"))){
+                 FileWriter writer = new FileWriter(new File(Settings.LOG_DIR, "import" + args[1] + ".log"))){
                 System.out.println("Connect Success");
                 if (src.isFile()) {
                     uploadFile(connection, src, writer);

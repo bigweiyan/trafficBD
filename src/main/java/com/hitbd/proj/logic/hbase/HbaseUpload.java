@@ -39,7 +39,7 @@ public class HbaseUpload {
         alarmC = new HashMap<>();
         viewedC = new HashMap<>();
         try (Connection connection = ConnectionFactory.createConnection(config);
-             FileWriter writer = new FileWriter(new File(Settings.logDir, "import" + args[1] + ".log"))){
+             FileWriter writer = new FileWriter(new File(Settings.LOG_DIR, "import" + args[1] + ".log"))){
             System.out.println("Connect Success");
             File src = new File(args[1]);
             if (src.isFile()) {

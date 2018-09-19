@@ -49,10 +49,11 @@ public class AlarmScanner {
     private int resultPrepared = 0;
     // 已获取多少有序结果。每次取结果时更新此变量
     private int resultTaken = 0;
-
+    // 下一个可以运行的id
     private int nextWaitId = 0;
     private QueryFilter filter = null;
-
+    // TEST
+    public int totalImei;
 
     public AlarmScanner(int sortType) {
         if (sortType == HbaseSearch.SORT_BY_CREATE_TIME) {

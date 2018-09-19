@@ -9,17 +9,21 @@ import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.junit.Test;
 
-import com.hitbd.proj.logic.AlarmScanner;
-import com.hitbd.proj.model.Pair;
-
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class HbaseTest {
     
-    String fileName = "/home/hadoop/case.txt" ; //测试用例文件
-    int MAX_QUERY = 2 ;  //查询并发个数
+    private String fileName = "/home/hadoop/case.txt" ; //测试用例文件
+    private int MAX_QUERY = 2 ;  //查询并发个数
     private ThreadPoolExecutor pool = (ThreadPoolExecutor) Executors.newFixedThreadPool(MAX_QUERY); //指定并发个数
     private AtomicInteger currentThreads = new AtomicInteger();
 
@@ -59,7 +63,7 @@ public class HbaseTest {
         int queryid;
         Connection connection;
         
-        public QueryThread(String parameter,int queryid,Connection connection) {
+        public QueryThread(String parameter,int queryid, Connection connection) {
             this.parameter = parameter;
             this.queryid = queryid;
             this.connection = connection;
@@ -67,9 +71,8 @@ public class HbaseTest {
 
         @Override
         public void run() {
-            // TODO Auto-generated method stub
             StringBuilder sb = new StringBuilder();
-            sb.append("----------- Case " + queryid + " -------------\n");
+            sb.append("----------- Case ").append(queryid).append(" -------------\n");
             
             ArrayList<Integer> userBIds = new ArrayList<>();
             int queryUser = Integer.valueOf(parameter);
@@ -83,7 +86,6 @@ public class HbaseTest {
             try {
                 igniteConnection = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1");
             } catch (SQLException e) {
-                // TODO Auto-generated catch block
                 e.printStackTrace();
             }
 
@@ -91,7 +93,7 @@ public class HbaseTest {
             AlarmScanner scanner = HbaseSearch.getInstance().queryAlarmByUser(igniteConnection, queryUser, userBIds, true, HbaseSearch.NO_SORT, queryFilter);
             long igniteQueryTime = new Date().getTime() - date.getTime();
             int queryCount = scanner.queries.size();
-            sb.append("Ignite query Time: " + igniteQueryTime + "ms;\n");
+            sb.append("Ignite query Time: ").append(igniteQueryTime).append("ms;\n");
             scanner.setConnection(connection);
             date = new Date();
             if (scanner.notFinished()) {
@@ -99,19 +101,19 @@ public class HbaseTest {
                 for (Pair<Integer, IAlarm> pair : result) {
                     System.out.println(pair.getValue().getType());
                 }
-                sb.append("Hbase response Time: " + (new Date().getTime() - date.getTime()) + "ms;\n");
+                sb.append("Hbase response Time: ").append(new Date().getTime() - date.getTime()).append("ms;\n");
             }
             while (scanner.notFinished()) {
                 scanner.next(50);
             }
             long hbaseQueryTime = new Date().getTime() - date.getTime();
             long totalQueryTime = igniteQueryTime + hbaseQueryTime;
-            sb.append("Hbase query Time: " + hbaseQueryTime + "ms;\n");
-            sb.append("Total Time: " + totalQueryTime + "ms;\n");
-            sb.append("Query imei count: " + scanner.totalImei + "\n");
-            sb.append("Create query: " + queryCount + "\n");
-            sb.append("Scan alarm: " + scanner.getTotalAlarm() + "\n");
-            sb.append("Query imei average time: " + totalQueryTime/scanner.totalImei + "ms;\n");
+            sb.append("Hbase query Time: ").append(hbaseQueryTime).append("ms;\n");
+            sb.append("Total Time: ").append(totalQueryTime).append("ms;\n");
+            sb.append("Query imei count: ").append(scanner.totalImei).append("\n");
+            sb.append("Create query: ").append(queryCount).append("\n");
+            sb.append("Scan alarm: ").append(scanner.getTotalAlarm()).append("\n");
+            sb.append("Query imei average time: ").append(totalQueryTime/scanner.totalImei).append("ms;\n");
             System.out.println(sb.toString());
             currentThreads.decrementAndGet();
         }

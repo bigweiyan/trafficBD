@@ -328,6 +328,7 @@ public class HbaseSearch implements IHbaseSearch {
     @Override
     public AlarmScanner queryAlarmByUser(java.sql.Connection connection, int queryUser, List<Integer> userBIds,
                                          boolean recursive, int sortType, QueryFilter filter) {
+        AlarmScanner result = new AlarmScanner(sortType);
         // 存放用户及其对应设备
         Map<Integer, List<Long>> userAndDevice;
         // 读取用户及其对应设备imei,这些设备将被过期时间进行过滤
@@ -340,12 +341,13 @@ public class HbaseSearch implements IHbaseSearch {
                     .put(user, IgniteSearch.getInstance().getDirectDevices(connection, user, queryUser, false));
         }
 
-        // DEBUG output imeis
+        // TEST output imeis
         int totalImei = 0;
         for (Map.Entry<Integer, List<Long>> imei : userAndDevice.entrySet()) {
             totalImei += imei.getValue().size();
         }
-        //System.out.print("Ignite find imei: " + totalImei);
+        result.totalImei = totalImei;
+
 
         // 计算需要在哪些表中进行查询
         List<String> usedTable;
@@ -355,9 +357,6 @@ public class HbaseSearch implements IHbaseSearch {
             usedTable = Utils.getUseTable(filter.getAllowTimeRange().getKey(), filter.getAllowTimeRange().getValue());
         }
 
-        AlarmScanner result = new AlarmScanner(sortType);
-        //DEBUG imei count
-        result.totalImei = totalImei;
         // 划分查询，每个查询按时间进行排列
         LinkedList<Query> queries = new LinkedList<>();
         if (sortType == HbaseSearch.SORT_BY_CREATE_TIME || sortType == HbaseSearch.NO_SORT) {
@@ -462,7 +461,6 @@ public class HbaseSearch implements IHbaseSearch {
                 }
             }
         }else if (sortType == HbaseSearch.SORT_BY_USER_ID) {
-            // TODO solve user_id sort
             //对userid进行排序
             List<Map.Entry<Integer, List<Long>>> sortByUserId = new ArrayList<>(userAndDevice.entrySet());
             Collections.sort(sortByUserId,new Comparator<Map.Entry<Integer, List<Long>>>() {
@@ -543,7 +541,13 @@ public class HbaseSearch implements IHbaseSearch {
         }else{
             usedTable = Utils.getUseTable(filter.getAllowTimeRange().getKey(), filter.getAllowTimeRange().getValue());
         }
-     // 划分查询，每个查询按时间进行排列
+        // TEST output imeis
+        int totalImei = 0;
+        for (Map.Entry<Integer, List<Long>> imei : userAndDevices.entrySet()) {
+            totalImei += imei.getValue().size();
+        }
+        result.totalImei = totalImei;
+        // 划分查询，每个查询按时间进行排列
         LinkedList<Query> queries = new LinkedList<>();
         if (sortType == HbaseSearch.SORT_BY_CREATE_TIME || sortType == HbaseSearch.NO_SORT) {
             for (int i = 0; i < usedTable.size(); i++){
@@ -647,7 +651,6 @@ public class HbaseSearch implements IHbaseSearch {
                 }
             }
         }else if (sortType == HbaseSearch.SORT_BY_USER_ID) {
-            // TODO solve user_id sort
             //对userid进行排序
             List<Map.Entry<Integer, List<Long>>> sortByUserId = new ArrayList<>(userAndDevices.entrySet());
             Collections.sort(sortByUserId,new Comparator<Map.Entry<Integer, List<Long>>>() {
@@ -714,6 +717,7 @@ public class HbaseSearch implements IHbaseSearch {
             throw new IllegalArgumentException("sort type should be defined in IHbaseSearch");
         }
         result.setQueries(queries);
+        result.setFilter(filter);
         return result;
     }
 
