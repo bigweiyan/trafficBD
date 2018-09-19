@@ -19,7 +19,7 @@ public class TestImeiSearch {
     private BlockingQueue<Long> query;
     public void main(String[] args) {
         // verify input
-        String fileName = "conf/imeicase";
+        String fileName = "conf/imeiCase";
         File file = new File(fileName);
         if (!file.exists()) {
             System.out.println("File not found: " + fileName);

@@ -521,6 +521,7 @@ public class HbaseSearch implements IHbaseSearch {
 
     @Override
     public AlarmScanner queryAlarmByImei(HashMap<Integer, List<Long>> userAndDevices, int sortType, QueryFilter filter) {
+        if (filter == null) throw new IllegalArgumentException("filter could not be null");
         AlarmScanner result = new AlarmScanner(sortType);
         // 计算需要在哪些表中进行查询
         List<String> usedTable;
