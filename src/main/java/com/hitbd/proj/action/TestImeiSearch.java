@@ -11,15 +11,20 @@ import org.apache.hadoop.hbase.client.ConnectionFactory;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 
 public class TestImeiSearch {
     private BlockingQueue<Long> query;
+    private String logDate = new SimpleDateFormat("dd_hh_mm_ss").format(new Date());
     public void main(String[] args) {
         // verify input
-        String fileName = "conf/imeicase";
+        String fileName = "conf/imeiCase";
+        if (args.length >= 2) {
+            fileName = args[1];
+        }
         File file = new File(fileName);
         if (!file.exists()) {
             System.out.println("File not found: " + fileName);
@@ -58,7 +63,7 @@ public class TestImeiSearch {
         @Override
         public void run(){
             try (Connection connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
-                 FileWriter logWriter = new FileWriter(Settings.LOG_DIR + this.getName() + ".log")){
+                 FileWriter logWriter = new FileWriter(Settings.LOG_DIR + logDate + getId() + ".log")){
                 int queryNo = 0;
                 while (!query.isEmpty()) {
                     // prepare input
