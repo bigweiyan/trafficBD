@@ -27,7 +27,7 @@ public class HbaseUpload {
     private static int copies = 1;
     public static void main(String args[]) {
         if (args.length < 3) {
-            System.out.println("usage: ImportAlarm filename hbaseConfFile");
+            System.out.println("usage: ImportAlarm filename hbaseConfFile [copies]");
             return;
         }
         if (args.length >= 4) {

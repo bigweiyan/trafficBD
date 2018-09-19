@@ -528,6 +528,7 @@ public class HbaseSearch implements IHbaseSearch {
         }else {
             throw new IllegalArgumentException("sort type should be defined in IHbaseSearch");
         }
+        result.setFilter(filter);
         result.setQueries(queries);
         return result;
     }

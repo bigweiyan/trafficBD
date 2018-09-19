@@ -9,6 +9,7 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.hitbd.proj.HbaseSearch;
+import com.hitbd.proj.QueryFilter;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.Result;
@@ -20,6 +21,9 @@ import com.hitbd.proj.Settings;
 import com.hitbd.proj.logic.hbase.AlarmSearchUtils;
 import com.hitbd.proj.model.IAlarm;
 import com.hitbd.proj.model.Pair;
+import org.apache.hadoop.hbase.filter.*;
+import org.apache.hadoop.hbase.util.Bytes;
+import org.intellij.lang.annotations.Subst;
 
 /**
  * 对象创建时，开启线程调度器及工作线程
@@ -47,9 +51,7 @@ public class AlarmScanner {
     private int resultTaken = 0;
 
     private int nextWaitId = 0;
-    
-    //DEBUG imeis count
-    public int totalImei = 0;
+    private QueryFilter filter = null;
 
 
     public AlarmScanner(int sortType) {
@@ -77,6 +79,10 @@ public class AlarmScanner {
             cacheAlarms = new PriorityBlockingQueue<>(1000,
                     (e1, e2) -> Integer.compare(e2.getKey(), e1.getKey()));
         }
+    }
+
+    public void setFilter(QueryFilter filter){
+        this.filter = filter;
     }
 
     public void setConnection(Connection connection) {
@@ -191,13 +197,31 @@ public class AlarmScanner {
                     end = sb.toString();
                     Scan scan = new Scan(start.getBytes(),end.getBytes());
                     scan.addFamily("r".getBytes());
-                    scan.setBatch(100);
+                    // scan.setBatch(100);
+                    if (filter.getAllowAlarmType() != null && filter.getAllowAlarmType().size() != 0){
+                        // Create a list of filters.
+                        List<Filter> filters = new ArrayList<>();
+
+                        // Add specific filter to list.
+                        for (String alarmType : filter.getAllowAlarmType()) {
+                            SingleColumnValueFilter filter = new SingleColumnValueFilter(
+                                    Bytes.toBytes("r"),
+                                    Bytes.toBytes("type"),
+                                    CompareFilter.CompareOp.EQUAL,
+                                    new SubstringComparator(alarmType)
+                            );
+                            filter.setFilterIfMissing(false);
+                            filter.setLatestVersionOnly(false);
+                            filters.add(filter);
+                        }
+
+                        // Create combined filter.
+                        FilterList fList = new FilterList(FilterList.Operator.MUST_PASS_ONE, filters);
+                        scan.setFilter(fList);
+                    }
+
                     ResultScanner scanner = table.getScanner(scan);
                     AlarmSearchUtils.addToList(scanner, result, pair.getKey(),query.tableName);
-                    Result[] results = scanner.next(100);
-                    while (results.length != 0) {   // this method never return null
-                        results = scanner.next(100);
-                    }
                     scanner.close();
                 }
                 table.close();

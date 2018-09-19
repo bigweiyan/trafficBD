@@ -1,15 +1,8 @@
 package com.hitbd.proj;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-
+import com.hitbd.proj.logic.AlarmScanner;
+import com.hitbd.proj.model.IAlarm;
+import com.hitbd.proj.model.Pair;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.client.Connection;
@@ -21,7 +14,7 @@ import com.hitbd.proj.model.Pair;
 
 import java.sql.DriverManager;
 import java.sql.SQLException;
-
+import java.util.*;
 
 public class HbaseTest {
     
@@ -56,7 +49,6 @@ public class HbaseTest {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-
         System.out.println("Average time :" + (new Date().getTime()-date.getTime())/count + "ms;");
 
         
@@ -84,6 +76,9 @@ public class HbaseTest {
             userBIds.add(queryUser);
             QueryFilter queryFilter = new QueryFilter();
             queryFilter.setAllowTimeRange(new Pair<>(new Date(1533225600000L), new Date(1533484800000L)));
+            Set<String> type = new HashSet<>();
+            queryFilter.setAllowAlarmType(type);
+            type.add("other");
             java.sql.Connection igniteConnection = null;
             try {
                 igniteConnection = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1");
@@ -100,7 +95,10 @@ public class HbaseTest {
             scanner.setConnection(connection);
             date = new Date();
             if (scanner.notFinished()) {
-                scanner.next(50);
+                List<Pair<Integer, IAlarm>> result = scanner.next(50);
+                for (Pair<Integer, IAlarm> pair : result) {
+                    System.out.println(pair.getValue().getType());
+                }
                 sb.append("Hbase response Time: " + (new Date().getTime() - date.getTime()) + "ms;\n");
             }
             while (scanner.notFinished()) {
@@ -117,6 +115,5 @@ public class HbaseTest {
             System.out.println(sb.toString());
             currentThreads.decrementAndGet();
         }
-        
     }
 }
