@@ -23,7 +23,8 @@ public class Main {
             System.out.println("ImportAlarm FileName/Folder HBaseConfFile [copies]  #import alarm file to hbase");
             System.out.println("ImportDevice FileName/Folder [copies] #import device file to ignite");
             System.out.println("CreateIgniteTable [hostname]  #create user_b, user_c and device table");
-            System.out.println("GenerateImeiCase FileName/Folder  #generate imei test case");
+            System.out.println("GenerateImeiCase FileName/Folder length  #generate imei test case");
+            System.out.println("TestImeiSearch  #test query by imei");
             return;
         }
         loadSettings();
@@ -56,7 +57,8 @@ public class Main {
                 System.out.println("ImportAlarm FileName/Folder HBaseConfFile [copies]  #import alarm file to hbase");
                 System.out.println("ImportDevice FileName/Folder [copies] #import device file to ignite");
                 System.out.println("CreateIgniteTable [hostname]  #create user_b, user_c and device table");
-                System.out.println("GenerateImeiCase FileName/Folder  #generate imei test case");
+                System.out.println("GenerateImeiCase FileName/Folder length  #generate imei test case");
+                System.out.println("TestImeiSearch  #test query by imei");
         }
 
     }
