@@ -75,6 +75,9 @@ public class Main {
                             case "logDir":
                                 Settings.LOG_DIR = value;
                                 break;
+                            case "max_query_thread":
+                                Settings.MAX_QUERY_THREAD = Integer.valueOf(value);
+                                break;
                             case "test.imei_per_query":
                                 Settings.Test.IMEI_PER_QUERY = Integer.valueOf(value);
                                 break;

@@ -102,11 +102,12 @@ public class AlarmScanner implements Closeable {
             try {
                 while (cacheAlarms.size() > Settings.MAX_CACHE_ALARM && tid != nextWaitId) {
                     cacheAlarms.wait();
+                    if (closing) return;
                 }
             }catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            if (closing) return;
+
             cacheAlarms.addAll(alarms); // 等同于for each : offer
         }
 
@@ -172,6 +173,7 @@ public class AlarmScanner implements Closeable {
         synchronized (manageThread) {
             manageThread.notify();
         }
+        pool.shutdown();
     }
 
     /**
@@ -261,12 +263,12 @@ public class AlarmScanner implements Closeable {
                     while (currentThreads.get() >= Settings.MAX_QUERY_THREAD) {
                         try {
                             this.wait(50);
+                            if (closing) return;
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }
                     }
                 }
-                if (closing) return;
                 pool.submit(new ScanThread(AlarmScanner.this.queries.poll(), nextid));
                 nextid++;
                 currentThreads.incrementAndGet();

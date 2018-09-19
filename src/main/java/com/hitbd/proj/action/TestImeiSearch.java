@@ -1,6 +1,7 @@
 package com.hitbd.proj.action;
 
 import com.hitbd.proj.HbaseSearch;
+import com.hitbd.proj.QueryFilter;
 import com.hitbd.proj.Settings;
 import com.hitbd.proj.logic.AlarmScanner;
 import com.hitbd.proj.model.IAlarm;
@@ -76,27 +77,29 @@ public class TestImeiSearch {
                     logWriter.write("========Query:" + queryNo + " | Devices: " + imeiBatch.size() + "========\n");
                     queryNo++;
                     Date date = new Date();
+                    QueryFilter filter = new QueryFilter();
+                    filter.setAllowTimeRange(new Pair<>(new Date(1532880000000L), new Date(1534089600000L)));
                     // start work
-                    try (AlarmScanner result = HbaseSearch.getInstance()
-                            .queryAlarmByImei(batch, HbaseSearch.NO_SORT, null)){
-                        result.setConnection(connection);
-                        int queryCount = result.queries.size();
-                        if (result.notFinished()) {
-                            result.next(200);
-                            logWriter.write("Response time: " + (new Date().getTime() - date.getTime()) + " ms\n");
-                        }
-                        if (Settings.Test.WAIT_UNTIL_FINISH) {
-                            while (result.notFinished()) {
-                                result.next(200);
-                            }
-                            logWriter.write("Finish time: " + (new Date().getTime() - date.getTime()) + " ms\n");
-                        }
-                        long totalTime = new Date().getTime() - date.getTime();
-                        logWriter.write("Total time: " + totalTime + " ms\n");
-                        logWriter.write("Query created: " + queryCount + "\n");
-                        logWriter.write("Alarm scanned: " + result.getTotalAlarm() + "\n");
-                        logWriter.write("Time spent per IMEI: " + totalTime / imeiBatch.size() + " ms\n");
+                    AlarmScanner result = HbaseSearch.getInstance()
+                            .queryAlarmByImei(batch, HbaseSearch.NO_SORT, filter);
+                    result.setConnection(connection);
+                    int queryCount = result.queries.size();
+                    if (result.notFinished()) {
+                        result.next(200);
+                        logWriter.write("Response time: " + (new Date().getTime() - date.getTime()) + " ms\n");
                     }
+                    if (Settings.Test.WAIT_UNTIL_FINISH) {
+                        while (result.notFinished()) {
+                            result.next(200);
+                        }
+                        logWriter.write("Finish time: " + (new Date().getTime() - date.getTime()) + " ms\n");
+                    }
+                    long totalTime = new Date().getTime() - date.getTime();
+                    logWriter.write("Total time: " + totalTime + " ms\n");
+                    logWriter.write("Query created: " + queryCount + "\n");
+                    logWriter.write("Alarm scanned: " + result.getTotalAlarm() + "\n");
+                    logWriter.write("Time spent per IMEI: " + totalTime / imeiBatch.size() + " ms\n");
+                    result.close();
                 }
             }catch (IOException e){
                 e.printStackTrace();

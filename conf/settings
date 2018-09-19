@@ -1,1 +1,2 @@
 logDir=./
+test.query_thread_per_test=1

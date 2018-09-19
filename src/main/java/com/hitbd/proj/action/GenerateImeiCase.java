@@ -16,6 +16,7 @@ public class GenerateImeiCase {
     public void main(String[] args) {
         if (args.length < 2) {
             System.out.println("Usage: GenerateImeiCase FileName/Folder");
+            return;
         }
         File input = new File(args[1]);
         if (!input.exists()) {
