@@ -786,5 +786,8 @@ public class IgniteSearch implements IIgniteSearch {
         }
         return userImeiMap;
     }
-    
+
+    public void stop(){
+        if(ignite != null) Ignition.stop(true);
+    }
 }

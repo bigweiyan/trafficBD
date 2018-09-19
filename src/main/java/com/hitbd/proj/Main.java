@@ -1,5 +1,7 @@
 package com.hitbd.proj;
 
+import com.hitbd.proj.action.GenerateImeiCase;
+import com.hitbd.proj.action.TestAlarmC;
 import com.hitbd.proj.logic.hbase.HbaseUpload;
 import com.hitbd.proj.logic.ignite.CreateIgniteTable;
 import com.hitbd.proj.logic.ignite.DeviceUpload;
@@ -17,18 +19,29 @@ public class Main {
             System.out.println("ImportAlarm FileName/Folder HBaseConfFile [copies]  #import alarm file to hbase");
             System.out.println("ImportDevice FileName/Folder [copies] #import device file to ignite");
             System.out.println("CreateIgniteTable [hostname]  #create user_b, user_c and device table");
+            System.out.println("GenerateImeiCase FileName/Folder  #generate imei test case");
             return;
         }
         loadSettings();
         switch (args[0]) {
             case "ImportAlarm":
                 HbaseUpload.main(args);
+                IgniteSearch.getInstance().stop();
                 break;
             case "ImportDevice":
                 DeviceUpload.main(args);
+                IgniteSearch.getInstance().stop();
                 break;
             case "CreateIgniteTable":
                 CreateIgniteTable.main(args);
+                IgniteSearch.getInstance().stop();
+                break;
+            case "AlarmC":
+                TestAlarmC.main(args);
+                IgniteSearch.getInstance().stop();
+                break;
+            case "GenerateImeiCase":
+                GenerateImeiCase.main(args);
                 break;
             default:
                 System.out.println("Usage: trafficBD Action [Parameter]");
@@ -36,7 +49,9 @@ public class Main {
                 System.out.println("ImportAlarm FileName/Folder HBaseConfFile [copies]  #import alarm file to hbase");
                 System.out.println("ImportDevice FileName/Folder [copies] #import device file to ignite");
                 System.out.println("CreateIgniteTable [hostname]  #create user_b, user_c and device table");
+                System.out.println("GenerateImeiCase FileName/Folder  #generate imei test case");
         }
+
     }
 
     static void loadSettings() {

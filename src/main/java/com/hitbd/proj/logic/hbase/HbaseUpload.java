@@ -55,21 +55,22 @@ public class HbaseUpload {
         }catch (FileNotFoundException e) {
             System.out.println("File Not found: " + args[1]);
             e.printStackTrace();
-        }catch (Exception e2) {
+        }catch (IOException e2) {
             e2.printStackTrace();
         }
 
         for (Map.Entry<Long, Integer> count: alarmC.entrySet()) {
-            IgniteSearch.getInstance().setAlarmCount(count.getKey(), count.getValue());
+            int value = IgniteSearch.getInstance().getAlarmCount(count.getKey());
+            IgniteSearch.getInstance().setAlarmCount(count.getKey(), count.getValue() + value);
         }
         for (Map.Entry<Long, Integer> count: alarmC.entrySet()) {
-            IgniteSearch.getInstance().setAlarmCount(count.getKey(), count.getValue());
+            int value = IgniteSearch.getInstance().getAlarmCount(count.getKey());
+            IgniteSearch.getInstance().setAlarmCount(count.getKey(), count.getValue() + value);
         }
     }
 
     public static void uploadFile(File file, Connection connection, HashMap<String, List<Put>> putMap, FileWriter logWriter)
-            throws IOException, ParseException {
-        int timeRange = (int) ((Settings.END_TIME - Settings.START_TIME) / 1000);
+            throws IOException {
         long totalLength = file.length();
         long lineEstimate = totalLength / 230;
         long lineRead = 0;
@@ -113,7 +114,7 @@ public class HbaseUpload {
                 try {
                     imeiLong = Long.parseLong(imei);
                 }catch (NumberFormatException e) {
-                    System.out.println("imei" + record.toString() + " at " + i + "th copy");
+                    System.out.println("imei " + record.toString() + " at " + i + "th copy");
                     continue;
                 }
                 StringBuilder sb = new StringBuilder();
