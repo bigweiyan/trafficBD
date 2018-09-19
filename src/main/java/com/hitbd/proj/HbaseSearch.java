@@ -345,7 +345,7 @@ public class HbaseSearch implements IHbaseSearch {
         for (Map.Entry<Integer, List<Long>> imei : userAndDevice.entrySet()) {
             totalImei += imei.getValue().size();
         }
-        System.out.print("Ignite find imei: " + totalImei);
+        //System.out.print("Ignite find imei: " + totalImei);
 
         // 计算需要在哪些表中进行查询
         List<String> usedTable;
@@ -356,6 +356,8 @@ public class HbaseSearch implements IHbaseSearch {
         }
 
         AlarmScanner result = new AlarmScanner(sortType);
+        //DEBUG imei count
+        result.totalImei = totalImei;
         // 划分查询，每个查询按时间进行排列
         LinkedList<Query> queries = new LinkedList<>();
         if (sortType == HbaseSearch.SORT_BY_CREATE_TIME || sortType == HbaseSearch.NO_SORT) {
@@ -526,6 +528,7 @@ public class HbaseSearch implements IHbaseSearch {
         }else {
             throw new IllegalArgumentException("sort type should be defined in IHbaseSearch");
         }
+        result.setFilter(filter);
         result.setQueries(queries);
         return result;
     }
