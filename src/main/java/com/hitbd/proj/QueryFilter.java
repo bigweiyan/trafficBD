@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Set;
 
 public class QueryFilter {
-    private Boolean allowReadStatus;
+    private Set<String> allowReadStatus;
     private Set<String> allowAlarmStatus;
     private Set<String> allowAlarmType;
     private Pair<Date, Date> allowTimeRange;
@@ -30,10 +30,10 @@ public class QueryFilter {
     public void setAllowAlarmStatus(Set<String> allowAlarmStatus) {
         this.allowAlarmStatus = allowAlarmStatus;
     }
-    public Boolean getAllowReadStatus() {
+    public Set<String> getAllowReadStatus() {
         return allowReadStatus;
     }
-    public void setAllowReadStatus(Boolean allowReadStatus) {
+    public void setAllowReadStatus(Set<String> allowReadStatus) {
         this.allowReadStatus = allowReadStatus;
     }
 }
