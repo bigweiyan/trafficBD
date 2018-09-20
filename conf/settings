@@ -16,3 +16,5 @@ test.start_time=2018-08-26 00:00:00
 test.end_time=2018-08-26 23:59:59
 
 test.show_top_result=false
+
+test.show_all_result=false
