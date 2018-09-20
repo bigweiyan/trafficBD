@@ -1,8 +1,8 @@
 package com.hitbd.proj.logic;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.*;
@@ -12,7 +12,6 @@ import com.hitbd.proj.HbaseSearch;
 import com.hitbd.proj.QueryFilter;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Connection;
-import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.Table;
@@ -23,20 +22,19 @@ import com.hitbd.proj.model.IAlarm;
 import com.hitbd.proj.model.Pair;
 import org.apache.hadoop.hbase.filter.*;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.intellij.lang.annotations.Subst;
 
 /**
  * 对象创建时，开启线程调度器及工作线程
  * 工作线程生产数据，直到查询告警缓存满时，工作线程阻塞
  * 如果一个工作线程结束时，查询没有处理完，则启动另一个工作线程
  */
-public class AlarmScanner {
+public class AlarmScanner implements Closeable {
     public Queue<Query> queries;
     // 查询告警缓存 当缓存满导致无法添加时工作线程进入wait, 缓存有空位时主线程进行notify
     private final PriorityBlockingQueue<Pair<Integer, IAlarm>> cacheAlarms;
     // 用于判断是否应该增加线程
     private AtomicInteger currentThreads = new AtomicInteger();
-    private ThreadPoolExecutor pool = (ThreadPoolExecutor) Executors.newFixedThreadPool(Settings.MAX_THREAD + 4);
+    private ThreadPoolExecutor pool = (ThreadPoolExecutor) Executors.newFixedThreadPool(Settings.MAX_WORKER_THREAD + 4);
     private Connection connection;
     // 调度线程。其上会进行加锁，当不能开始新查询时调度线程进入wait，当某个查询结束时工作线程进行notify
     private ManageThread manageThread;
@@ -49,10 +47,12 @@ public class AlarmScanner {
     private int resultPrepared = 0;
     // 已获取多少有序结果。每次取结果时更新此变量
     private int resultTaken = 0;
-
+    // 下一个可以运行的id
     private int nextWaitId = 0;
     private QueryFilter filter = null;
-
+    private boolean closing = false;
+    // TEST
+    public int totalImei;
 
     public AlarmScanner(int sortType) {
         if (sortType == HbaseSearch.SORT_BY_CREATE_TIME) {
@@ -102,10 +102,12 @@ public class AlarmScanner {
             try {
                 while (cacheAlarms.size() > Settings.MAX_CACHE_ALARM && tid != nextWaitId) {
                     cacheAlarms.wait();
+                    if (closing) return;
                 }
             }catch (InterruptedException e) {
                 e.printStackTrace();
             }
+
             cacheAlarms.addAll(alarms); // 等同于for each : offer
         }
 
@@ -150,7 +152,6 @@ public class AlarmScanner {
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
-
             }
         }
         List<Pair<Integer, IAlarm>> result = new ArrayList<>();
@@ -161,6 +162,18 @@ public class AlarmScanner {
         }
         resultTaken += result.size();
         return result;
+    }
+
+    @Override
+    public void close(){
+        closing = true;
+        synchronized (cacheAlarms) {
+            cacheAlarms.notifyAll();
+        }
+        synchronized (manageThread) {
+            manageThread.notify();
+        }
+        pool.shutdown();
     }
 
     /**
@@ -247,9 +260,10 @@ public class AlarmScanner {
             while(nextid < queries) {
                 // 取得本对象的锁。锁的目的是等待空闲线程
                 synchronized (this) {
-                    while (currentThreads.get() >= Settings.MAX_THREAD) {
+                    while (currentThreads.get() >= Settings.MAX_WORKER_THREAD) {
                         try {
                             this.wait(50);
+                            if (closing) return;
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }

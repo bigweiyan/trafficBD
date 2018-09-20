@@ -10,8 +10,6 @@ import com.hitbd.proj.util.Serialization;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.Ignition;
-import org.apache.ignite.cache.CacheMode;
-import org.apache.ignite.configuration.CacheConfiguration;
 
 import java.sql.*;
 import java.util.*;
@@ -540,7 +538,7 @@ public class IgniteSearch implements IIgniteSearch {
 					break;
 				}
 				if (i % 2 == 1) {
-					if (expireDate.compareTo(Settings.MAXTIME) > 0)
+					if (expireDate.compareTo(Settings.MAX_TIME) > 0)
 						time = 0;
 					else
 						time = (int) (day - list.get(i));
@@ -786,5 +784,8 @@ public class IgniteSearch implements IIgniteSearch {
         }
         return userImeiMap;
     }
-    
+
+    public void stop(){
+        if(ignite != null) Ignition.stop(true);
+    }
 }

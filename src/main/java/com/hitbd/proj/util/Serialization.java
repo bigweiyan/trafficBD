@@ -113,7 +113,7 @@ public class Serialization {
 			long temp = (expireDates[i].getTime() - Settings.BASETIME) / (1000 * 60 * 60 * 24);
 			if (temp < 0)
 				return null;
-			if (expireDates[i].compareTo(Settings.MAXTIME) > 0) {
+			if (expireDates[i].compareTo(Settings.MAX_TIME) > 0) {
 				temp = 0;
 			} else
 				temp = temp - chick;

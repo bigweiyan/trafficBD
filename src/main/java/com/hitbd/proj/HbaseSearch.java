@@ -168,7 +168,7 @@ public class HbaseSearch implements IHbaseSearch {
         return ret;
     }
 
-    public ResultScanner scanTable(String tableName,String start,String end) {
+    private ResultScanner scanTable(String tableName,String start,String end) {
         Table table;
         try {
             table = connection.getTable(TableName.valueOf(tableName));
@@ -183,7 +183,7 @@ public class HbaseSearch implements IHbaseSearch {
         return null;
     }
 
-    public void addToList(ResultScanner results, Date startTime, Date endTime, List<IAlarm> ret,long basicTime) {
+    private void addToList(ResultScanner results, Date startTime, Date endTime, List<IAlarm> ret,long basicTime) {
         for(Result r:results) {
             String rowKey = Bytes.toString(r.getRow());
 
@@ -225,17 +225,17 @@ public class HbaseSearch implements IHbaseSearch {
             String tableName = alarm.getTableName();
 
             StringBuilder sb = new StringBuilder();
-            String imeistr = String.valueOf(alarm.getImei());
-            for (int j = 0; j < 17 - imeistr.length(); j++) {
+            String imeiStr = String.valueOf(alarm.getImei());
+            for (int j = 0; j < 17 - imeiStr.length(); j++) {
                 sb.append(0);
             }
-            sb.append(imeistr).append(Utils.getRelativeSecond(alarm.getCreateTime())).append((IgniteSearch.getInstance().getAlarmCount(alarm.getImei())+1)%10);
-            String rowkey = sb.toString();
+            sb.append(imeiStr).append(Utils.getRelativeSecond(alarm.getCreateTime())).append((IgniteSearch.getInstance().getAlarmCount(alarm.getImei())+1)%10);
+            String rowKey = sb.toString();
 
             Table table;
             try {
                 table = connection.getTable(TableName.valueOf(tableName));
-                Put put = new Put(Bytes.toBytes(rowkey));
+                Put put = new Put(Bytes.toBytes(rowKey));
                 SimpleDateFormat dateformatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
                 sb = new StringBuilder();
                 sb.append('\"').append(alarm.getAddress()).append("\",").append(alarm.getEncId()).append(',').append(alarm.getId()).append(',');
@@ -254,16 +254,16 @@ public class HbaseSearch implements IHbaseSearch {
 
     @Override
     public void setPushTime(List<Pair<String, String>> rowKeys, Date pushTime) throws NotExistException {
-        for(Pair<String,String> rowKey:rowKeys) {
+        for(Pair<String,String> tableRowKey:rowKeys) {
             //异常抛出
-            String tableName = rowKey.getKey();
-            String rowkey = rowKey.getValue();
+            String tableName = tableRowKey.getKey();
+            String rowKey = tableRowKey.getValue();
 
             Table table;
             try {
                 table = connection.getTable(TableName.valueOf(tableName));
 
-                Get get = new Get(Bytes.toBytes(rowkey));
+                Get get = new Get(Bytes.toBytes(rowKey));
                 Result result = table.get(get);
                 byte[] value = result.getValue("r".getBytes(), "record".getBytes());
                 String record = Bytes.toString(value);
@@ -274,7 +274,7 @@ public class HbaseSearch implements IHbaseSearch {
                 sb.append('\"').append(csvrecord.get(0).get(0)).append("\",").append(csvrecord.get(0).get(1)).append(',').append(csvrecord.get(0).get(2)).append(',');
                 sb.append(csvrecord.get(0).get(3)).append(',').append(csvrecord.get(0).get(4)).append(',').append(dateformatter.format(pushTime)).append(',').append(csvrecord.get(0).get(6));
 
-                Put put = new Put(Bytes.toBytes(rowkey));
+                Put put = new Put(Bytes.toBytes(rowKey));
                 put.addColumn("r".getBytes(), "record".getBytes(), sb.toString().getBytes());
                 table.put(put);
                 table.close();
@@ -328,6 +328,7 @@ public class HbaseSearch implements IHbaseSearch {
     @Override
     public AlarmScanner queryAlarmByUser(java.sql.Connection connection, int queryUser, List<Integer> userBIds,
                                          boolean recursive, int sortType, QueryFilter filter) {
+        AlarmScanner result = new AlarmScanner(sortType);
         // 存放用户及其对应设备
         Map<Integer, List<Long>> userAndDevice;
         // 读取用户及其对应设备imei,这些设备将被过期时间进行过滤
@@ -340,12 +341,13 @@ public class HbaseSearch implements IHbaseSearch {
                     .put(user, IgniteSearch.getInstance().getDirectDevices(connection, user, queryUser, false));
         }
 
-        // DEBUG output imeis
+        // TEST output imeis
         int totalImei = 0;
         for (Map.Entry<Integer, List<Long>> imei : userAndDevice.entrySet()) {
             totalImei += imei.getValue().size();
         }
-        //System.out.print("Ignite find imei: " + totalImei);
+        result.totalImei = totalImei;
+
 
         // 计算需要在哪些表中进行查询
         List<String> usedTable;
@@ -355,9 +357,6 @@ public class HbaseSearch implements IHbaseSearch {
             usedTable = Utils.getUseTable(filter.getAllowTimeRange().getKey(), filter.getAllowTimeRange().getValue());
         }
 
-        AlarmScanner result = new AlarmScanner(sortType);
-        //DEBUG imei count
-        result.totalImei = totalImei;
         // 划分查询，每个查询按时间进行排列
         LinkedList<Query> queries = new LinkedList<>();
         if (sortType == HbaseSearch.SORT_BY_CREATE_TIME || sortType == HbaseSearch.NO_SORT) {
@@ -365,12 +364,12 @@ public class HbaseSearch implements IHbaseSearch {
                 // 确定这个查询所对应的起止时间
                 String startRelativeSecond;
                 String endRelativeSecond;
-                if (i == 0) {
+                if (i == 0 && filter.getAllowTimeRange() != null) {
                     startRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getKey());
                 }else {
                     startRelativeSecond = "00000";
                 }
-                if (i == usedTable.size() - 1) {
+                if (i == usedTable.size() - 1 && filter.getAllowTimeRange() != null) {
                     endRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getValue());
                 }else {
                     endRelativeSecond = "fffff";
@@ -393,13 +392,13 @@ public class HbaseSearch implements IHbaseSearch {
                             imeis.add(new Pair<>(user.getKey(), user.getValue().get(lastPostion)));
                             lastPostion++;
                             // 如果现在已经读取了一批MAX_DEVICE的imei，则先构建新子查询
-                            if (lastPostion % Settings.MAX_DEVICES_PER_QUERY == 0) {
+                            if (lastPostion % Settings.MAX_DEVICES_PER_WORKER == 0) {
                                 doneUser = false;
                                 break;
                             }
                         }
                         // 如果一个表中查询的设备数大于100， 则构建一个新查询
-                        if (imeis.size() > Settings.MAX_DEVICES_PER_QUERY) {
+                        if (imeis.size() > Settings.MAX_DEVICES_PER_WORKER) {
                             query.imeis = imeis;
                             queries.add(query);
                             query = new Query();
@@ -423,27 +422,19 @@ public class HbaseSearch implements IHbaseSearch {
                     sortByImei.add(new Pair<>(user.getKey(),imei));
                 }
             }
-            Collections.sort(sortByImei, new Comparator<Pair<Integer,Long>>() {
-                public int compare(Pair<Integer,Long> pair1,Pair<Integer,Long> pair2) {
-                    long tmp =  pair1.getValue().longValue()-pair2.getValue().longValue();
-                    if(tmp>0)
-                        return 1;
-                    else
-                        return -1;
-                }
-            });
+            sortByImei.sort(Comparator.comparingLong(Pair::getValue));
             //对每个imei在每个表中新建子查询
             for(Pair<Integer,Long> imei:sortByImei) {
                 for (int i = 0; i < usedTable.size(); i++) {
                  // 确定这个查询所对应的起止时间
                     String startRelativeSecond;
                     String endRelativeSecond;
-                    if (i == 0) {
+                    if (i == 0 && filter.getAllowTimeRange() != null) {
                         startRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getKey());
                     }else {
                         startRelativeSecond = "00000";
                     }
-                    if (i == usedTable.size() - 1) {
+                    if (i == usedTable.size() - 1 && filter.getAllowTimeRange() != null) {
                         endRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getValue());
                     }else {
                         endRelativeSecond = "fffff";
@@ -462,14 +453,9 @@ public class HbaseSearch implements IHbaseSearch {
                 }
             }
         }else if (sortType == HbaseSearch.SORT_BY_USER_ID) {
-            // TODO solve user_id sort
             //对userid进行排序
             List<Map.Entry<Integer, List<Long>>> sortByUserId = new ArrayList<>(userAndDevice.entrySet());
-            Collections.sort(sortByUserId,new Comparator<Map.Entry<Integer, List<Long>>>() {
-                public int compare(Map.Entry<Integer,List<Long>> o1,Map.Entry<Integer,List<Long>> o2) {
-                    return o1.getKey()-o2.getKey();
-                }
-            });
+            sortByUserId.sort(Comparator.comparingInt(Map.Entry::getKey));
             //对每个user的所有imei在每个表中构建子查询
             for(Map.Entry<Integer, List<Long>> user :sortByUserId) {
                 Query query = new Query();
@@ -478,12 +464,12 @@ public class HbaseSearch implements IHbaseSearch {
                     // 确定这个查询所对应的起止时间
                     String startRelativeSecond;
                     String endRelativeSecond;
-                    if (i == 0) {
+                    if (i == 0 && filter.getAllowTimeRange() != null) {
                         startRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getKey());
                     }else {
                         startRelativeSecond = "00000";
                     }
-                    if (i == usedTable.size() - 1) {
+                    if (i == usedTable.size() - 1 && filter.getAllowTimeRange() != null) {
                         endRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getValue());
                     }else {
                         endRelativeSecond = "fffff";
@@ -503,13 +489,13 @@ public class HbaseSearch implements IHbaseSearch {
                             imeis.add(new Pair<>(user.getKey(), user.getValue().get(lastPostion)));
                             lastPostion++;
                             // 如果现在已经读取了一批MAX_DEVICE的imei，则先构建新子查询
-                            if (lastPostion % Settings.MAX_DEVICES_PER_QUERY == 0) {
+                            if (lastPostion % Settings.MAX_DEVICES_PER_WORKER == 0) {
                                 doneUser = false;
                                 break;
                             }
                         }
                         // 如果一个表中查询的设备数大于100， 则构建一个新查询
-                        if (imeis.size() > Settings.MAX_DEVICES_PER_QUERY) {
+                        if (imeis.size() > Settings.MAX_DEVICES_PER_WORKER) {
                             query.imeis = imeis;
                             queries.add(query);
                             query = new Query();
@@ -535,6 +521,7 @@ public class HbaseSearch implements IHbaseSearch {
 
     @Override
     public AlarmScanner queryAlarmByImei(HashMap<Integer, List<Long>> userAndDevices, int sortType, QueryFilter filter) {
+        if (filter == null) throw new IllegalArgumentException("filter could not be null");
         AlarmScanner result = new AlarmScanner(sortType);
         // 计算需要在哪些表中进行查询
         List<String> usedTable;
@@ -543,19 +530,25 @@ public class HbaseSearch implements IHbaseSearch {
         }else{
             usedTable = Utils.getUseTable(filter.getAllowTimeRange().getKey(), filter.getAllowTimeRange().getValue());
         }
-     // 划分查询，每个查询按时间进行排列
+        // TEST output imeis
+        int totalImei = 0;
+        for (Map.Entry<Integer, List<Long>> imei : userAndDevices.entrySet()) {
+            totalImei += imei.getValue().size();
+        }
+        result.totalImei = totalImei;
+        // 划分查询，每个查询按时间进行排列
         LinkedList<Query> queries = new LinkedList<>();
         if (sortType == HbaseSearch.SORT_BY_CREATE_TIME || sortType == HbaseSearch.NO_SORT) {
             for (int i = 0; i < usedTable.size(); i++){
                 // 确定这个查询所对应的起止时间
                 String startRelativeSecond;
                 String endRelativeSecond;
-                if (i == 0) {
+                if (i == 0 && filter.getAllowTimeRange() != null) {
                     startRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getKey());
                 }else {
                     startRelativeSecond = "00000";
                 }
-                if (i == usedTable.size() - 1) {
+                if (i == usedTable.size() - 1 && filter.getAllowTimeRange() != null) {
                     endRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getValue());
                 }else {
                     endRelativeSecond = "fffff";
@@ -578,13 +571,13 @@ public class HbaseSearch implements IHbaseSearch {
                             imeis.add(new Pair<>(user.getKey(), user.getValue().get(lastPostion)));
                             lastPostion++;
                             // 如果现在已经读取了一批MAX_DEVICE的imei，则先构建新子查询
-                            if (lastPostion % Settings.MAX_DEVICES_PER_QUERY == 0) {
+                            if (lastPostion % Settings.MAX_DEVICES_PER_WORKER == 0) {
                                 doneUser = false;
                                 break;
                             }
                         }
                         // 如果一个表中查询的设备数大于100， 则构建一个新查询
-                        if (imeis.size() > Settings.MAX_DEVICES_PER_QUERY) {
+                        if (imeis.size() > Settings.MAX_DEVICES_PER_WORKER) {
                             query.imeis = imeis;
                             queries.add(query);
                             query = new Query();
@@ -608,27 +601,19 @@ public class HbaseSearch implements IHbaseSearch {
                     sortByImei.add(new Pair<>(user.getKey(),imei));
                 }
             }
-            Collections.sort(sortByImei, new Comparator<Pair<Integer,Long>>() {
-                public int compare(Pair<Integer,Long> pair1,Pair<Integer,Long> pair2) {
-                    long tmp =  pair1.getValue().longValue()-pair2.getValue().longValue();
-                    if(tmp>0)
-                        return 1;
-                    else
-                        return -1;
-                }
-            });
+            sortByImei.sort(Comparator.comparingLong(Pair::getValue));
             //对每个imei在每个表中新建子查询
             for(Pair<Integer,Long> imei:sortByImei) {
                 for (int i = 0; i < usedTable.size(); i++) {
                  // 确定这个查询所对应的起止时间
                     String startRelativeSecond;
                     String endRelativeSecond;
-                    if (i == 0) {
+                    if (i == 0 && filter.getAllowTimeRange() != null) {
                         startRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getKey());
                     }else {
                         startRelativeSecond = "00000";
                     }
-                    if (i == usedTable.size() - 1) {
+                    if (i == usedTable.size() - 1 && filter.getAllowTimeRange() != null) {
                         endRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getValue());
                     }else {
                         endRelativeSecond = "fffff";
@@ -647,14 +632,9 @@ public class HbaseSearch implements IHbaseSearch {
                 }
             }
         }else if (sortType == HbaseSearch.SORT_BY_USER_ID) {
-            // TODO solve user_id sort
             //对userid进行排序
             List<Map.Entry<Integer, List<Long>>> sortByUserId = new ArrayList<>(userAndDevices.entrySet());
-            Collections.sort(sortByUserId,new Comparator<Map.Entry<Integer, List<Long>>>() {
-                public int compare(Map.Entry<Integer,List<Long>> o1,Map.Entry<Integer,List<Long>> o2) {
-                    return o1.getKey()-o2.getKey();
-                }
-            });
+            sortByUserId.sort(Comparator.comparingInt(Map.Entry::getKey));
             //对每个user的所有imei在每个表中构建子查询
             for(Map.Entry<Integer, List<Long>> user :sortByUserId) {
                 Query query = new Query();
@@ -663,12 +643,12 @@ public class HbaseSearch implements IHbaseSearch {
                     // 确定这个查询所对应的起止时间
                     String startRelativeSecond;
                     String endRelativeSecond;
-                    if (i == 0) {
+                    if (i == 0 && filter.getAllowTimeRange() != null) {
                         startRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getKey());
                     }else {
                         startRelativeSecond = "00000";
                     }
-                    if (i == usedTable.size() - 1) {
+                    if (i == usedTable.size() - 1 && filter.getAllowTimeRange() != null) {
                         endRelativeSecond = Utils.getRelativeSecond(filter.getAllowTimeRange().getValue());
                     }else {
                         endRelativeSecond = "fffff";
@@ -688,13 +668,13 @@ public class HbaseSearch implements IHbaseSearch {
                             imeis.add(new Pair<>(user.getKey(), user.getValue().get(lastPostion)));
                             lastPostion++;
                             // 如果现在已经读取了一批MAX_DEVICE的imei，则先构建新子查询
-                            if (lastPostion % Settings.MAX_DEVICES_PER_QUERY == 0) {
+                            if (lastPostion % Settings.MAX_DEVICES_PER_WORKER == 0) {
                                 doneUser = false;
                                 break;
                             }
                         }
                         // 如果一个表中查询的设备数大于100， 则构建一个新查询
-                        if (imeis.size() > Settings.MAX_DEVICES_PER_QUERY) {
+                        if (imeis.size() > Settings.MAX_DEVICES_PER_WORKER) {
                             query.imeis = imeis;
                             queries.add(query);
                             query = new Query();
@@ -714,6 +694,7 @@ public class HbaseSearch implements IHbaseSearch {
             throw new IllegalArgumentException("sort type should be defined in IHbaseSearch");
         }
         result.setQueries(queries);
+        result.setFilter(filter);
         return result;
     }
 
@@ -734,8 +715,8 @@ public class HbaseSearch implements IHbaseSearch {
 
 	@Override
 	public Map<String, Integer> groupCountByImeiStatus(java.sql.Connection connection, int parentBId, boolean recursive) {
-		Map<String, Integer> map = new HashMap<String, Integer>();
-		ArrayList<Long> imeilist = new ArrayList<Long>();
+		Map<String, Integer> map = new HashMap<>();
+		ArrayList<Long> imeilist = new ArrayList<>();
 		try {
             if (!recursive) {
                 String sql = "select imei from device where user_id = " + String.valueOf(parentBId);
@@ -748,13 +729,11 @@ public class HbaseSearch implements IHbaseSearch {
                 Map<Integer, List<Long>> idandimei = IgniteSearch.getInstance().getChildrenDevicesOfUserB(connection, parentBId);
                 for (Integer id : idandimei.keySet()) {
                     List<Long> temp = idandimei.get(id);
-                    for (Long i : temp) {
-                        imeilist.add(i);
-                    }
+                    imeilist.addAll(temp);
                 }
             }
             for (int i = 0; i < imeilist.size(); i++) {
-                List<IAlarm> ialarmlist = new ArrayList<IAlarm>();
+                List<IAlarm> ialarmlist;
                 Date endtime = new Date();
                 ialarmlist = getAlarms(imeilist.get(i), imeilist.get(i), new Date(Settings.BASETIME), endtime);
                 String temp = ialarmlist.get(i).getStatus();
@@ -773,30 +752,30 @@ public class HbaseSearch implements IHbaseSearch {
 	@Override
 	public Map<String, Integer> groupCountByUserIdViewed(java.sql.Connection connection, ArrayList<Integer> parentBIds,
                                                          boolean recursive) {
-		Map<String, Integer> map = new HashMap<String, Integer>();
+		Map<String, Integer> map = new HashMap<>();
 		try {
             if (!recursive) {
                 String sql = "select imei,user_b_id from device where user_b_id in (" + Serialization.listToStr(parentBIds)
                         + ")";
-                Map<Long, Integer> imeimap = new HashMap<Long, Integer>();
+                Map<Long, Integer> imeimap = new HashMap<>();
                 PreparedStatement pstmt =connection.prepareStatement(sql);
                 ResultSet rs = pstmt.executeQuery();
                 while (rs.next()) {
                     imeimap.put(rs.getLong("imei"), rs.getInt("user_b_id"));
                 }
 
-                for (int i = 0; i < parentBIds.size(); i++) {
+                for (int parentBid : parentBIds) {
                     int count1 = 0, count2 = 0;
                     for (Long imei : imeimap.keySet()) {
-                        if (imeimap.get(imei).equals(parentBIds.get(i))) {
+                        if (imeimap.get(imei).equals(parentBid)) {
                             count1 = count1 + IgniteSearch.getInstance().getViewedCount(imei);
                             count2 = count2 + IgniteSearch.getInstance().getAlarmCount(imei)
                                     - IgniteSearch.getInstance().getViewedCount(imei);
                         }
                     }
                     String parentBId1, parentBId2 ;
-                    parentBId1 = parentBIds.get(i).toString() + "1";
-                    parentBId2 = parentBIds.get(i).toString() + "0";
+                    parentBId1 = parentBid + "1";
+                    parentBId2 = parentBid + "0";
                     map.put(parentBId1, count1);
                     map.put(parentBId2, count2);
                 }
@@ -831,26 +810,26 @@ public class HbaseSearch implements IHbaseSearch {
 	@Override
 	public Map<Integer, Integer> groupCountByUserId(java.sql.Connection connection, ArrayList<Integer> parentBIds,
                                                     boolean recursive, int topK) {
-		Map<Integer, Integer> map = new HashMap<Integer, Integer>();
+		Map<Integer, Integer> map = new HashMap<>();
 		try {
             if (!recursive) {
                 String sql = "select imei,user_b_id from device where user_b_id in (" + Serialization.listToStr(parentBIds)
                         + ")";
-                Map<Long, Integer> imeimap = new HashMap<Long, Integer>();
+                Map<Long, Integer> imeimap = new HashMap<>();
                 PreparedStatement pstmt = connection.prepareStatement(sql);
                 ResultSet rs = pstmt.executeQuery();
                 while (rs.next()) {
                     imeimap.put(rs.getLong("imei"), rs.getInt("user_b_id"));
                 }
 
-                for (int i = 0; i < parentBIds.size(); i++) {
+                for (int parentBid: parentBIds) {
                     int count = 0;
                     for (Long imei : imeimap.keySet()) {
-                        if (imeimap.get(imei).equals(parentBIds.get(i))) {
+                        if (imeimap.get(imei).equals(parentBid)) {
                             count = count + IgniteSearch.getInstance().getAlarmCount(imei);
                         }
                     }
-                    map.put(parentBIds.get(i), count);
+                    map.put(parentBid, count);
                 }
                 return map;
             } else {

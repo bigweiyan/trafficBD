@@ -7,6 +7,6 @@ public class MainTest {
     @Test
     public void testLoadSettings() {
         Main.loadSettings();
-        Assert.assertEquals(Settings.igniteHostAddress, "127.0.0.1");
+        Assert.assertEquals(1, Settings.Test.QUERY_THREAD_PER_TEST);
     }
 }
