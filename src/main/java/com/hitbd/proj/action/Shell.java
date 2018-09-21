@@ -23,6 +23,7 @@ public class Shell {
     private static final int QUERY_USER_ID = 1;
     int queryType = 0;
     List<Integer> userIDs;
+    int queryUserId = 2214;
     List<Long> imeis;
     Date startTime;
     Date endTime;
@@ -62,6 +63,7 @@ public class Shell {
                 for (Integer user : userIDs) {
                     System.out.print(user + " ");
                 }
+                System.out.print("\n查询者 " + queryUserId);
             }
             System.out.println("\n查询起止时间:" + (startTime == null ? "不限" : sdf.format(startTime)) + "-"
                  + (endTime == null ? "不限" : sdf.format(endTime)));
@@ -89,6 +91,9 @@ public class Shell {
                             userIDs.add(Integer.parseInt(scanner.nextLine()));
                         }
                         break;
+                    case "as":
+                        queryUserId = Integer.valueOf(scanner.nextLine());
+                        break;
                     case "start time":
                         startTime = sdf.parse(scanner.nextLine());
                         break;
@@ -100,7 +105,7 @@ public class Shell {
                             System.out.println("please add imei to query");
                             continue;
                         }
-                        if (queryType == QUERY_USER_ID && userIDs.isEmpty()) {
+                        if (queryType == QUERY_USER_ID && (userIDs.isEmpty() || queryUserId == 0)) {
                             System.out.println("please add user_id to query");
                             continue;
                         }
@@ -156,6 +161,32 @@ public class Shell {
     }
 
     private void userSearch(Scanner scanner) {
-
+        QueryFilter filter = new QueryFilter();
+        filter.setAllowTimeRange(new Pair<>(startTime, endTime));
+        AlarmScanner result = HbaseSearch.getInstance().
+                queryAlarmByUser(ignite, queryUserId, userIDs,true, HbaseSearch.SORT_BY_CREATE_TIME, filter);
+        result.setConnection(connection);
+        int no = 1;
+        int total = 0;
+        Date startTime;
+        while (true) {
+            if (!result.notFinished()) {
+                System.out.println("query finished, " + total + " result found");
+                break;
+            }
+            startTime = new Date();
+            List<Pair<Integer, IAlarm>> batch = result.next(resultSize);
+            for (Pair<Integer, IAlarm> pair : batch) {
+                IAlarm alarm = pair.getValue();
+                System.out.println(no +" : "+ pair.getKey() + " " + alarm.getImei() +
+                        " " + sdf.format(alarm.getCreateTime()) + " " + alarm.getAddress());
+                no++;
+                total++;
+            }
+            System.out.println(batch.size() + " rows queried, use time " + (new Date().getTime() - startTime.getTime()) + "ms");
+            String cmd = scanner.nextLine();
+            if (cmd.equals("quit") || cmd.equals("exit")) break;
+        }
+        result.close();
     }
 }
