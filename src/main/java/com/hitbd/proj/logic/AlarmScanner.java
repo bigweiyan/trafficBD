@@ -96,7 +96,7 @@ public class AlarmScanner implements Closeable {
         this.queries = queries;
         queryCompleteMark = new boolean[queries.size()];
         queryCompleteCount = new int[queries.size()];
-        if (queries.size() <= 1) finish = true;
+        if (queries == null || queries.size() < 1) finish = true;
     }
 
     // 线程提交结果

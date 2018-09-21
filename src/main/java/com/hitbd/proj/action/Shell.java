@@ -21,7 +21,7 @@ public class Shell {
     Connection connection;
     private static final int QUERY_IMEI = 0;
     private static final int QUERY_USER_ID = 1;
-    int queryType = 0;
+    int queryType = QUERY_USER_ID;
     List<Integer> userIDs;
     int queryUserId = 2214;
     List<Long> imeis;
@@ -42,13 +42,14 @@ public class Shell {
         System.out.println("工作线程数: " + Settings.MAX_WORKER_THREAD);
         System.out.println("单次工作任务数: " + Settings.MAX_DEVICES_PER_WORKER);
         userIDs = new ArrayList<>();
+        userIDs.add(3439);
         imeis = new ArrayList<>();
         Scanner scanner = new Scanner(System.in);
         boolean stop = false;
         sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         try {
             startTime = sdf.parse("2018-08-01 00:00:00");
-            endTime = sdf.parse("2018-08-14 23:59:59");
+            endTime = sdf.parse("2018-08-01 23:59:59");
         }catch (ParseException e){
             e.printStackTrace();
         }

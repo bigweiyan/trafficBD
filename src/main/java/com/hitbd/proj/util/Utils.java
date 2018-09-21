@@ -44,7 +44,7 @@ public class Utils {
         int day = Integer.valueOf(tableName.substring(8));
         Calendar calendar = Calendar.getInstance();
         int year = month <= calendar.get(Calendar.MONTH) ? calendar.get(Calendar.YEAR) : calendar.get(Calendar.YEAR) - 1;
-        calendar.set(year, month, day);
+        calendar.set(year, month, day, 0,0,0);
         return calendar.getTime().getTime();
     }
 
