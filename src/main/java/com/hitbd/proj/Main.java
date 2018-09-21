@@ -15,7 +15,6 @@ import java.util.Scanner;
 
 public class Main {
     public static void main(String[] args) {
-        args = new String[]{"shell"};
         if (args.length < 1) {
             System.out.println("Usage: trafficBD Action [Parameter]");
             System.out.println("Actions:");
@@ -117,6 +116,8 @@ public class Main {
                             case "test.show_all_result":
                                 Settings.Test.SHOW_ALL_RESULT = value.equals("true");
                                 break;
+                            case "import_time_shift":
+                                Settings.IMPORT_TIME_SHIFT = Long.parseLong(value);
                             default:
                                 System.out.println("Cannot resolve attribute: " + key);
                         }

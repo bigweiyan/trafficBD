@@ -1,18 +1,21 @@
-
+# 日志存放位置
 logDir=./
-
+# 一次查询任务最多可以使用多少worker线程
 max_worker_thread=1
-
+# 一个worker线程最多可以接受多少imei进行查询
 max_devices_per_worker=10
-
+# 一次测试最多同时执行多少查询任务
 test.query_thread_per_test=1
-
+# 一次查询任务最多接受多少imei进行查询
 test.imei_per_query=50
-
+# 是否将所有查询结果都返回。设置false表示当得到前200个结果时就返回
 test.wait_until_finish=false
-
+# 查询结果的创建时间从什么时间开始
 test.start_time=2018-08-01 00:00:00
-
+# 查询结果到创建时间什么时间结束
 test.end_time=2018-08-11 23:59:59
-
+# 是否查看每个查询的前5个结果样例
 test.show_top_result=false
+# 是否查看每个查询的所有结果（此时wait_until_finish必须为true）
+test.show_all_result=false
+import_time_shift=2678400
