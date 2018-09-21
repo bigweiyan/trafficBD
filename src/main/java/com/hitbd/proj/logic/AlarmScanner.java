@@ -174,8 +174,10 @@ public class AlarmScanner implements Closeable {
         synchronized (cacheAlarms) {
             cacheAlarms.notifyAll();
         }
-        synchronized (manageThread) {
-            manageThread.notify();
+        if (manageThread != null) {
+            synchronized (manageThread) {
+                manageThread.notify();
+            }
         }
         pool.shutdown();
     }
