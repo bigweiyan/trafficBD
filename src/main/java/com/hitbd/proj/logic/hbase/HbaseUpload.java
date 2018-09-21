@@ -92,6 +92,7 @@ public class HbaseUpload {
                 System.out.println("TimeFormat: " + record.toString());
                 continue;
             }
+            createDate.setTime(createDate.getTime() - Settings.IMPORT_TIME_SHIFT);
             String tableName = Utils.getTableName(createDate);
             List<Put> putList;
             if (putMap.containsKey(tableName)) {

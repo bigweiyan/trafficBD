@@ -16,3 +16,5 @@ test.start_time=2018-08-01 00:00:00
 test.end_time=2018-08-11 23:59:59
 
 test.show_top_result=false
+
+import_time_shift=2678400
