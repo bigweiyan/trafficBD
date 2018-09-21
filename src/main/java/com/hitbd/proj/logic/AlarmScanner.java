@@ -132,7 +132,7 @@ public class AlarmScanner implements Closeable {
     }
 
     public boolean notFinished() {
-        return !finish;
+        return !finish || resultPrepared > resultTaken;
     }
 
     public List<Pair<Integer, IAlarm>> next(int count) {
@@ -143,7 +143,7 @@ public class AlarmScanner implements Closeable {
             manageThread = new ManageThread(queries.size());
             pool.execute(manageThread);
         }
-        if (finish && resultTaken < resultPrepared) return null;
+        if (finish && resultTaken >= resultPrepared) return null;
         // 是否准备足够有序结果
         synchronized (this) {
             while (resultPrepared < resultTaken + count && !finish) {
@@ -269,6 +269,7 @@ public class AlarmScanner implements Closeable {
                         }
                     }
                 }
+                if(closing) return;
                 pool.submit(new ScanThread(AlarmScanner.this.queries.poll(), nextid));
                 nextid++;
                 currentThreads.incrementAndGet();
