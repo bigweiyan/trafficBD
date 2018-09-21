@@ -127,8 +127,17 @@ public class HbaseUpload {
 
                 // 获取Record
                 sb.setLength(0);
-                sb.append('\"').append(record.get(0)).append("\",").append(record.get(3)).append(',').append(record.get(4)).append(',');
-                sb.append(record.get(6)).append(',').append(record.get(7)).append(',').append(record.get(8)).append(',').append(record.get(10));
+                Date pushTime;
+                try {
+                     pushTime = sdf.parse(record.get(8));
+                }catch (ParseException e) {
+                    System.out.println("push time " + record.toString() + " at " + i + "th copy");
+                    continue;
+                }
+                pushTime.setTime(pushTime.getTime() - Settings.IMPORT_TIME_SHIFT);
+                sb.append('\"').append(record.get(0)).append("\",").append(record.get(3)).append(',');
+                sb.append(record.get(4)).append(',').append(record.get(6)).append(',');
+                sb.append(record.get(7)).append(',').append(sdf.format(pushTime)).append(',').append(record.get(10));
                 String rowRecord = sb.toString();
 
                 // 更新AlarmC和ViewedC
