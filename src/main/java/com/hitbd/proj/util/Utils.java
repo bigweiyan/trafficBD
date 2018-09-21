@@ -4,6 +4,7 @@ import com.hitbd.proj.Settings;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.Formatter;
 
@@ -35,6 +36,16 @@ public class Utils {
         long milliSecond = date.getTime() - Settings.BASETIME;
         int dayPass = (int) (milliSecond / (1000L * 3600* 24));
         return dayPass;
+    }
+
+    public static long getBasedTime(String tableName){
+        if (!tableName.startsWith("alarm_")) throw new IllegalArgumentException("argument should like \"alarm_MMdd\"");
+        int month = Integer.valueOf(tableName.substring(6,8)) - 1;
+        int day = Integer.valueOf(tableName.substring(8));
+        Calendar calendar = Calendar.getInstance();
+        int year = month <= calendar.get(Calendar.MONTH) ? calendar.get(Calendar.YEAR) : calendar.get(Calendar.YEAR) - 1;
+        calendar.set(year, month, day);
+        return calendar.getTime().getTime();
     }
 
     public static ArrayList<String> getUseTable(Date queryStart, Date queryEnd) {

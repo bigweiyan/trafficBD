@@ -1,20 +1,18 @@
 
 logDir=./
 
-max_worker_thread=3
+max_worker_thread=1
 
 max_devices_per_worker=10
 
 test.query_thread_per_test=1
 
-test.imei_per_query=300
+test.imei_per_query=50
 
 test.wait_until_finish=false
 
-test.start_time=2018-08-26 00:00:00
+test.start_time=2018-08-01 00:00:00
 
-test.end_time=2018-08-26 23:59:59
+test.end_time=2018-08-11 23:59:59
 
 test.show_top_result=false
-
-test.show_all_result=false

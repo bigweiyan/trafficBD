@@ -67,21 +67,9 @@ public class AlarmSearchUtils {
         return imeisRowKey;
     }
     
-    public static long calculateBasicTime(String tablename) {
-        Calendar calendar = Calendar.getInstance();
-        int year = calendar.get(Calendar.YEAR);
-        int month = Integer.valueOf(tablename.substring(6, 8));
-        int day = Integer.valueOf(tablename.substring(8, 10));
-        Date date = new Date(year,month,day);
-        if(date.after(calendar.getTime()))
-            return new Date(year-1,month,day).getTime();
-        else
-            return date.getTime();
-    }
-    
     public static void addToList(ResultScanner results,List<Pair<Integer, IAlarm>> ret,Integer userBId,String tablename) {
         
-        long basicTime = calculateBasicTime(tablename);
+        long basicTime = Utils.getBasedTime(tablename);
         
         SimpleDateFormat dateformatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         for(Result r:results) {
@@ -89,7 +77,7 @@ public class AlarmSearchUtils {
             String rowKey = Bytes.toString(r.getRow());
             alarm.setRowKey(rowKey);
             alarm.setImei(Long.valueOf(rowKey.substring(0, 17)));
-            alarm.setCreateTime(new Date(Long.valueOf(rowKey.substring(17,22),16)*1000+basicTime));
+            alarm.setCreateTime(new Date(Long.valueOf(rowKey.substring(17,22),16) * 1000L + basicTime));
             alarm.setStatus(Bytes.toString(r.getValue("r".getBytes(), "stat".getBytes())));
             alarm.setType(Bytes.toString(r.getValue("r".getBytes(), "type".getBytes())));
             alarm.setViewed(Bytes.toString(r.getValue("r".getBytes(), "viewed".getBytes())).equals("1"));

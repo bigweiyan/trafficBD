@@ -27,6 +27,7 @@ public class Shell {
     Date startTime;
     Date endTime;
     int resultSize = 5;
+    SimpleDateFormat sdf;
     public void main(){
         try {
             ignite = DriverManager.getConnection("jdbc:ignite:thin://localhost");
@@ -43,7 +44,13 @@ public class Shell {
         imeis = new ArrayList<>();
         Scanner scanner = new Scanner(System.in);
         boolean stop = false;
-        SimpleDateFormat sdf = new SimpleDateFormat("YYYY-MM-dd HH:mm:ss");
+        sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        try {
+            startTime = sdf.parse("2018-08-01 00:00:00");
+            endTime = sdf.parse("2018-08-14 23:59:59");
+        }catch (ParseException e){
+            e.printStackTrace();
+        }
         while (!stop) {
             System.out.println("当前查询类型：" + (queryType == QUERY_IMEI ? "IMEI维度" :  "用户维度"));
             System.out.print("当前查询对象");
@@ -123,18 +130,29 @@ public class Shell {
         map.put(0, imeis);
         QueryFilter filter = new QueryFilter();
         filter.setAllowTimeRange(new Pair<>(startTime, endTime));
-        AlarmScanner result = HbaseSearch.getInstance().queryAlarmByImei(map, HbaseSearch.NO_SORT, filter);
+        AlarmScanner result = HbaseSearch.getInstance().queryAlarmByImei(map, HbaseSearch.SORT_BY_CREATE_TIME, filter);
         result.setConnection(connection);
-        while (result.notFinished()) {
+        int no = 1;
+        int total = 0;
+        Date startTime;
+        while (true) {
+            if (!result.notFinished()) {
+                System.out.println("query finished, " + total + " result found");
+                break;
+            }
+            startTime = new Date();
             List<Pair<Integer, IAlarm>> batch = result.next(resultSize);
             for (Pair<Integer, IAlarm> pair : batch) {
                 IAlarm alarm = pair.getValue();
-                System.out.println(alarm.getImei() + " " + alarm.getCreateTime() + " " + alarm.getAddress());
+                System.out.println(no +" : "+ alarm.getImei() + " " + sdf.format(alarm.getCreateTime()) + " " + alarm.getAddress());
+                no++;
+                total++;
             }
+            System.out.println(batch.size() + " rows queried, use time " + (new Date().getTime() - startTime.getTime()) + "ms");
             String cmd = scanner.nextLine();
             if (cmd.equals("quit") || cmd.equals("exit")) break;
         }
-
+        result.close();
     }
 
     private void userSearch(Scanner scanner) {

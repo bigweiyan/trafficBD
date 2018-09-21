@@ -15,6 +15,7 @@ import java.util.Scanner;
 
 public class Main {
     public static void main(String[] args) {
+        args = new String[]{"shell"};
         if (args.length < 1) {
             System.out.println("Usage: trafficBD Action [Parameter]");
             System.out.println("Actions:");
@@ -56,6 +57,7 @@ public class Main {
                 break;
             case "shell":
                 new Shell().main();
+                break;
             default:
                 System.out.println("Usage: trafficBD Action [Parameter]");
                 System.out.println("Actions:");
@@ -70,7 +72,7 @@ public class Main {
 
     }
 
-    static void loadSettings() {
+    public static void loadSettings() {
         File settings;
         File hbaseSite;
         try {
