@@ -1,9 +1,6 @@
 package com.hitbd.proj;
 
-import com.hitbd.proj.action.GenerateImeiCase;
-import com.hitbd.proj.action.TestAlarmC;
-import com.hitbd.proj.action.TestImeiSearch;
-import com.hitbd.proj.action.TestUserSearch;
+import com.hitbd.proj.action.*;
 import com.hitbd.proj.logic.hbase.HbaseUpload;
 import com.hitbd.proj.logic.ignite.CreateIgniteTable;
 import com.hitbd.proj.logic.ignite.DeviceUpload;
@@ -27,6 +24,7 @@ public class Main {
             System.out.println("GenerateImeiCase FileName/Folder length  #generate imei test case");
             System.out.println("TestImeiSearch  #test query by imei");
             System.out.println("TestUserSearch  #test query by imei");
+            System.out.println("shell");
             return;
         }
         loadSettings();
@@ -56,6 +54,8 @@ public class Main {
             case "TestUserSearch":
                 new TestUserSearch().main(args);
                 break;
+            case "shell":
+                new Shell().main();
             default:
                 System.out.println("Usage: trafficBD Action [Parameter]");
                 System.out.println("Actions:");
@@ -65,6 +65,7 @@ public class Main {
                 System.out.println("GenerateImeiCase FileName/Folder length  #generate imei test case");
                 System.out.println("TestImeiSearch  #test query by imei");
                 System.out.println("TestUserSearch  #test query by imei");
+                System.out.println("shell");
         }
 
     }

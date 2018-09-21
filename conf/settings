@@ -3,7 +3,7 @@ logDir=./
 
 max_worker_thread=3
 
-max_devices_per_worker=100
+max_devices_per_worker=10
 
 test.query_thread_per_test=1
 
