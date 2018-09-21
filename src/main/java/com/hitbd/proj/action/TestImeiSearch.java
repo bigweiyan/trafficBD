@@ -82,7 +82,6 @@ public class TestImeiSearch {
                 logWriter.write("Average finish time:" + finishedTime.get() / responseCount.get() + "ms\n");
             }
             logWriter.write("Total alarm scanned:" + alarmScanned.get() + "\n");
-            connection.close();
         }catch (IOException e){
             e.printStackTrace();
         }

@@ -28,6 +28,7 @@ public class TestUserSearch {
     private AtomicInteger responseCount = new AtomicInteger();
     private AtomicLong finishedTime = new AtomicLong();
     private AtomicInteger alarmScanned = new AtomicInteger();
+    private Connection connection;
     public void main(String[] args) {
         // verify input
         String fileName = "conf/userCase";
@@ -47,6 +48,7 @@ public class TestUserSearch {
         query = new LinkedBlockingDeque<>();
         try (Scanner scanner = new Scanner(file);
              FileWriter logWriter = new FileWriter(Settings.LOG_DIR + logDate + "main" + ".log")){
+            connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
             while(scanner.hasNext()) {
                 int userID = Integer.parseInt(scanner.nextLine());
                 query.offer(userID);
@@ -91,8 +93,7 @@ public class TestUserSearch {
     class SearchThread extends Thread{
         @Override
         public void run(){
-            try (Connection connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
-                 FileWriter logWriter = new FileWriter(Settings.LOG_DIR + logDate + getId() + ".log");
+            try (FileWriter logWriter = new FileWriter(Settings.LOG_DIR + logDate + getId() + ".log");
                  java.sql.Connection ignite = DriverManager.getConnection("jdbc:ignite:thin://localhost")){
                 int queryNo = 0;
                 logWriter.write("wait until finished:" + Settings.Test.WAIT_UNTIL_FINISH + "\n");
