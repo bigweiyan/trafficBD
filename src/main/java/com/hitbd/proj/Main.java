@@ -15,7 +15,6 @@ import java.util.Scanner;
 
 public class Main {
     public static void main(String[] args) {
-        args = new String[]{"shell"};
         if (args.length < 1) {
             System.out.println("Usage: trafficBD Action [Parameter]");
             System.out.println("Actions:");
