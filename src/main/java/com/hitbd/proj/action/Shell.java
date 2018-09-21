@@ -63,7 +63,6 @@ public class Shell {
                 for (Integer user : userIDs) {
                     System.out.print(user + " ");
                 }
-                System.out.print("\n查询者 " + queryUserId);
             }
             System.out.println("\n查询起止时间:" + (startTime == null ? "不限" : sdf.format(startTime)) + "-"
                  + (endTime == null ? "不限" : sdf.format(endTime)));
@@ -91,6 +90,12 @@ public class Shell {
                             userIDs.add(Integer.parseInt(scanner.nextLine()));
                         }
                         break;
+                    case "del":
+                        if (queryType == QUERY_IMEI) {
+                            if (!imeis.isEmpty()) imeis.remove(imeis.size() - 1);
+                        }else {
+                            if (!imeis.isEmpty()) imeis.remove(imeis.size() - 1);
+                        }
                     case "as":
                         queryUserId = Integer.valueOf(scanner.nextLine());
                         break;
@@ -117,6 +122,8 @@ public class Shell {
                         imeis.clear();
                         userIDs.clear();
                         break;
+                    default:
+                        System.out.println("unknown command: " + cmd);
                 }
             }catch (ParseException|NumberFormatException p){
                 System.out.println(p.getMessage());
@@ -149,7 +156,8 @@ public class Shell {
             List<Pair<Integer, IAlarm>> batch = result.next(resultSize);
             for (Pair<Integer, IAlarm> pair : batch) {
                 IAlarm alarm = pair.getValue();
-                System.out.println(no +" : "+ alarm.getImei() + " " + sdf.format(alarm.getCreateTime()) + " " + alarm.getAddress());
+                System.out.println(no +" : imei-"+ alarm.getImei() + " " +
+                        sdf.format(alarm.getCreateTime()) + " " + alarm.getAddress());
                 no++;
                 total++;
             }
@@ -164,7 +172,7 @@ public class Shell {
         QueryFilter filter = new QueryFilter();
         filter.setAllowTimeRange(new Pair<>(startTime, endTime));
         AlarmScanner result = HbaseSearch.getInstance().
-                queryAlarmByUser(ignite, queryUserId, userIDs,true, HbaseSearch.SORT_BY_CREATE_TIME, filter);
+                queryAlarmByUser(ignite, queryUserId, userIDs,false, HbaseSearch.SORT_BY_CREATE_TIME, filter);
         result.setConnection(connection);
         int no = 1;
         int total = 0;
@@ -178,7 +186,7 @@ public class Shell {
             List<Pair<Integer, IAlarm>> batch = result.next(resultSize);
             for (Pair<Integer, IAlarm> pair : batch) {
                 IAlarm alarm = pair.getValue();
-                System.out.println(no +" : "+ pair.getKey() + " " + alarm.getImei() +
+                System.out.println(no +" : userid-"+ pair.getKey() + " imei-" + alarm.getImei() +
                         " " + sdf.format(alarm.getCreateTime()) + " " + alarm.getAddress());
                 no++;
                 total++;
