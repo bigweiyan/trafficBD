@@ -51,18 +51,19 @@ public class AlarmScanner implements Closeable {
     private int nextWaitId = 0;
     private QueryFilter filter = null;
     private boolean closing = false;
+    private boolean queryAdded = false;
     // TEST
     public int totalImei;
 
     public AlarmScanner(int sortType) {
         if (sortType == HbaseSearch.SORT_BY_CREATE_TIME) {
-            cacheAlarms = new PriorityBlockingQueue<>(1000,
-                    (e1, e2) -> e2.getValue().getCreateTime().compareTo(e1.getValue().getCreateTime()));
+            cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
+                    (e1, e2) -> e1.getValue().getCreateTime().compareTo(e2.getValue().getCreateTime()));
         }else if (sortType == HbaseSearch.SORT_BY_IMEI) {
-            cacheAlarms = new PriorityBlockingQueue<>(1000,
+            cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
                     (e1, e2) -> Long.compare(e2.getValue().getImei(), e1.getValue().getImei()));
         }else{
-            cacheAlarms = new PriorityBlockingQueue<>(1000,
+            cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
                     (e1, e2) -> Integer.compare(e2.getKey(), e1.getKey()));
         }
     }
@@ -90,9 +91,12 @@ public class AlarmScanner implements Closeable {
     }
 
     public void setQueries(Queue<Query> queries) {
+        if (queryAdded) throw new RuntimeException("setQueries should only run once!");
+        queryAdded = true;
         this.queries = queries;
         queryCompleteMark = new boolean[queries.size()];
         queryCompleteCount = new int[queries.size()];
+        if (queries == null || queries.size() < 1) finish = true;
     }
 
     // 线程提交结果
@@ -132,7 +136,7 @@ public class AlarmScanner implements Closeable {
     }
 
     public boolean notFinished() {
-        return !finish;
+        return !finish || resultPrepared > resultTaken;
     }
 
     public List<Pair<Integer, IAlarm>> next(int count) {
@@ -143,7 +147,7 @@ public class AlarmScanner implements Closeable {
             manageThread = new ManageThread(queries.size());
             pool.execute(manageThread);
         }
-        if (finish && resultTaken < resultPrepared) return null;
+        if (finish && resultTaken >= resultPrepared) return null;
         // 是否准备足够有序结果
         synchronized (this) {
             while (resultPrepared < resultTaken + count && !finish) {
@@ -170,8 +174,10 @@ public class AlarmScanner implements Closeable {
         synchronized (cacheAlarms) {
             cacheAlarms.notifyAll();
         }
-        synchronized (manageThread) {
-            manageThread.notify();
+        if (manageThread != null) {
+            synchronized (manageThread) {
+                manageThread.notify();
+            }
         }
         pool.shutdown();
     }

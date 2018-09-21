@@ -121,10 +121,12 @@ public class TestImeiSearch {
                     result.setConnection(connection);
                     int queryCount = result.queries.size();
                     long response = 0;
+                    int resultBatchSize = 200;
+                    int get = Settings.Test.SHOW_ALL_RESULT ? resultBatchSize : 5;
                     if (result.notFinished()) {
-                        List<Pair<Integer, IAlarm>> top = result.next(200);
-                        if (Settings.Test.SHOW_TOP_RESULT) {
-                            for (int i = 0; i < 5; i++) {
+                        List<Pair<Integer, IAlarm>> top = result.next(resultBatchSize);
+                        if (Settings.Test.SHOW_TOP_RESULT || Settings.Test.SHOW_ALL_RESULT) {
+                            for (int i = 0; i < get; i++) {
                                 IAlarm alarm = top.get(i).getValue();
                                 logWriter.write(alarm.getCreateTime() + "," + alarm.getImei() + "," + alarm.getType() + "\n");
                             }
@@ -133,7 +135,13 @@ public class TestImeiSearch {
                     }
                     if (Settings.Test.WAIT_UNTIL_FINISH) {
                         while (result.notFinished()) {
-                            result.next(200);
+                            List<Pair<Integer, IAlarm>> n = result.next(resultBatchSize);
+                            if (Settings.Test.SHOW_ALL_RESULT) {
+                                for (Pair<Integer, IAlarm> pair : n) {
+                                    IAlarm alarm = pair.getValue();
+                                    logWriter.write(alarm.getCreateTime() + "," + alarm.getImei() + "," + alarm.getType() + "\n");
+                                }
+                            }
                         }
 
                     }

@@ -412,7 +412,6 @@ public class HbaseSearch implements IHbaseSearch {
                 }
                 query.imeis = imeis;
                 queries.add(query);
-                result.setQueries(queries);
             }
         }else if (sortType == HbaseSearch.SORT_BY_IMEI) {
             //对imei进行排序
@@ -449,7 +448,6 @@ public class HbaseSearch implements IHbaseSearch {
                     imeis.add(imei);
                     query.imeis = imeis;
                     queries.add(query);
-                    result.setQueries(queries);
                 }
             }
         }else if (sortType == HbaseSearch.SORT_BY_USER_ID) {
@@ -509,7 +507,6 @@ public class HbaseSearch implements IHbaseSearch {
                 }
                 query.imeis = imeis;
                 queries.add(query);
-                result.setQueries(queries);
             }
         }else {
             throw new IllegalArgumentException("sort type should be defined in IHbaseSearch");
@@ -591,7 +588,6 @@ public class HbaseSearch implements IHbaseSearch {
                 }
                 query.imeis = imeis;
                 queries.add(query);
-                result.setQueries(queries);
             }
         }else if (sortType == HbaseSearch.SORT_BY_IMEI) {
             //对imei进行排序
@@ -628,7 +624,6 @@ public class HbaseSearch implements IHbaseSearch {
                     imeis.add(imei);
                     query.imeis = imeis;
                     queries.add(query);
-                    result.setQueries(queries);
                 }
             }
         }else if (sortType == HbaseSearch.SORT_BY_USER_ID) {
@@ -688,7 +683,6 @@ public class HbaseSearch implements IHbaseSearch {
                 }
                 query.imeis = imeis;
                 queries.add(query);
-                result.setQueries(queries);
             }
         }else {
             throw new IllegalArgumentException("sort type should be defined in IHbaseSearch");
