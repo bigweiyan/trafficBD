@@ -26,6 +26,7 @@ public class TestImeiSearch {
     private AtomicInteger responseCount = new AtomicInteger();
     private AtomicLong finishedTime = new AtomicLong();
     private AtomicInteger alarmScanned = new AtomicInteger();
+    Connection connection;
     public void main(String[] args) {
         // verify input
         String fileName = "conf/imeiCase";
@@ -45,6 +46,7 @@ public class TestImeiSearch {
         query = new LinkedBlockingDeque<>();
         try (Scanner scanner = new Scanner(file);
              FileWriter logWriter = new FileWriter(Settings.LOG_DIR + logDate + "main" + ".log")){
+            connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
             while(scanner.hasNext()) {
                 long imei = Long.parseLong(scanner.nextLine());
                 query.offer(imei);
@@ -89,8 +91,7 @@ public class TestImeiSearch {
     class SearchThread extends Thread{
         @Override
         public void run(){
-            try (Connection connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
-                 FileWriter logWriter = new FileWriter(Settings.LOG_DIR + logDate + getId() + ".log")){
+            try (FileWriter logWriter = new FileWriter(Settings.LOG_DIR + logDate + getId() + ".log")){
                 int queryNo = 0;
                 logWriter.write("wait until finished:" + Settings.Test.WAIT_UNTIL_FINISH + "\n");
                 logWriter.write("start time:"
