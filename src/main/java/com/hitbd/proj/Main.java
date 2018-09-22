@@ -2,6 +2,7 @@ package com.hitbd.proj;
 
 import com.hitbd.proj.action.*;
 import com.hitbd.proj.logic.hbase.HbaseUpload;
+import com.hitbd.proj.logic.hbase.UserCUpload;
 import com.hitbd.proj.logic.ignite.CreateIgniteTable;
 import com.hitbd.proj.logic.ignite.DeviceUpload;
 import org.apache.hadoop.conf.Configuration;
@@ -20,6 +21,7 @@ public class Main {
             System.out.println("Actions:");
             System.out.println("ImportAlarm FileName/Folder HBaseConfFile [copies]  #import alarm file to hbase");
             System.out.println("ImportDevice FileName/Folder [copies] #import device file to ignite");
+            System.out.println("ImportUserC FileName/Folder  #import device file to ignite");
             System.out.println("CreateIgniteTable [hostname]  #create user_b, user_c and device table");
             System.out.println("GenerateImeiCase FileName/Folder length  #generate imei test case");
             System.out.println("TestImeiSearch  #test query by imei");
@@ -37,6 +39,9 @@ public class Main {
                 DeviceUpload.main(args);
                 IgniteSearch.getInstance().stop();
                 break;
+            case "ImportUserC":
+                UserCUpload.main(args);
+                break;
             case "CreateIgniteTable":
                 CreateIgniteTable.main(args);
                 IgniteSearch.getInstance().stop();
@@ -53,15 +58,18 @@ public class Main {
                 break;
             case "TestUserSearch":
                 new TestUserSearch().main(args);
+                IgniteSearch.getInstance().stop();
                 break;
             case "shell":
                 new Shell().main();
+                IgniteSearch.getInstance().stop();
                 break;
             default:
                 System.out.println("Usage: trafficBD Action [Parameter]");
                 System.out.println("Actions:");
                 System.out.println("ImportAlarm FileName/Folder HBaseConfFile [copies]  #import alarm file to hbase");
                 System.out.println("ImportDevice FileName/Folder [copies] #import device file to ignite");
+                System.out.println("ImportUserC FileName/Folder  #import device file to ignite");
                 System.out.println("CreateIgniteTable [hostname]  #create user_b, user_c and device table");
                 System.out.println("GenerateImeiCase FileName/Folder length  #generate imei test case");
                 System.out.println("TestImeiSearch  #test query by imei");

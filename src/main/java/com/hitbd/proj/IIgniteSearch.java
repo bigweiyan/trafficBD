@@ -141,7 +141,7 @@ public interface IIgniteSearch {
      * @param repayment
      * @throws SQLException 该设备不存在时抛出此异常
      */
-    public void updateDevice(Connection connection, long imei, String deviceType, String deviceName, String projectId,
+    void updateDevice(Connection connection, long imei, String deviceType, String deviceName, String projectId,
                              boolean enabled, boolean repayment, String isupdate) throws SQLException;
 
     /**

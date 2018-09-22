@@ -163,15 +163,14 @@ public class IgniteSearch implements IIgniteSearch {
 		return -1;
 	}
 
-	private int addUserBData(UserB usr, Connection conn) throws SQLException {
+	private void addUserBData(UserB usr, Connection conn) throws SQLException {
 		String sql = "insert into user_b values(?,?,?)";
 		PreparedStatement pstmt = conn.prepareStatement(sql);
 		pstmt.setInt(1, usr.getUserBId());
 		pstmt.setInt(2, usr.getParentId());
 		pstmt.setString(3, "");
-		int result = pstmt.executeUpdate();
+		pstmt.executeUpdate();
 		pstmt.close();
-		return result;
 	}
 
 	@Override
@@ -189,16 +188,15 @@ public class IgniteSearch implements IIgniteSearch {
 		return newid;
 	}
 
-	public int addUserCData(UserC usr, Connection conn) throws SQLException {
+	private void addUserCData(UserC usr, Connection conn) throws SQLException {
 		String sql = "insert into UserC values(?,?,?,?)";
 		PreparedStatement pstmt = conn.prepareStatement(sql);
 		pstmt.setInt(1, usr.getUserCId());
 		pstmt.setString(2, usr.getDevicesText());
 		pstmt.setString(3, usr.getAuthedDevicesText());
 		pstmt.setString(4, usr.getAuthUserIdsText());
-		int result = pstmt.executeUpdate();
+		pstmt.executeUpdate();
 		pstmt.close();
-		return result;
 	}
 
 	@Override

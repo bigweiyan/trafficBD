@@ -9,6 +9,5 @@ public class MainTest {
     @Test
     public void testLoadSettings() {
         Main.loadSettings();
-        Assert.assertEquals(1, Settings.Test.QUERY_THREAD_PER_TEST);
     }
 }
