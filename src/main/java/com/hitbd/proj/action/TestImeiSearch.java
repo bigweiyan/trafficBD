@@ -22,9 +22,9 @@ import java.util.concurrent.atomic.AtomicLong;
 public class TestImeiSearch {
     private BlockingQueue<Long> query;
     private String logDate = new SimpleDateFormat("dd-HH_mm_ss-").format(new Date());
-    private AtomicLong responseTime = new AtomicLong();
+    private AtomicInteger responseTime = new AtomicInteger();
     private AtomicInteger responseCount = new AtomicInteger();
-    private AtomicLong finishedTime = new AtomicLong();
+    private AtomicInteger finishedTime = new AtomicInteger();
     private AtomicInteger alarmScanned = new AtomicInteger();
     Connection connection;
     public void main(String[] args) {
@@ -77,9 +77,9 @@ public class TestImeiSearch {
             logWriter.write("Test end at " + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(end) + "\n");
             logWriter.write("Total time:" + (end.getTime() - start.getTime()) + "ms\n");
             logWriter.write("Average Time:" + (end.getTime() - start.getTime()) / imeis + "ms\n");
-            logWriter.write("Average response time:" + responseTime.get() / responseCount.get() + "\n");
+            logWriter.write(String.format("Average response time:%.2fms\n", responseTime.get() * 1.0f / responseCount.get()));
             if (Settings.Test.WAIT_UNTIL_FINISH) {
-                logWriter.write("Average finish time:" + finishedTime.get() / responseCount.get() + "ms\n");
+                logWriter.write(String.format("Average finish time:%dms\n", finishedTime.get() / responseCount.get()));
             }
             logWriter.write("Total alarm scanned:" + alarmScanned.get() + "\n");
         }catch (IOException e){
@@ -147,14 +147,14 @@ public class TestImeiSearch {
                     }
                     long totalTime = new Date().getTime() - date.getTime();
                     responseCount.incrementAndGet();
-                    responseTime.addAndGet(response);
-                    finishedTime.addAndGet(totalTime);
+                    responseTime.addAndGet((int)response);
+                    finishedTime.addAndGet((int)totalTime);
                     alarmScanned.addAndGet(result.getTotalAlarm());
                     logWriter.write("Response time: " + response + " ms\n");
                     logWriter.write("Finish time: " + totalTime + " ms\n");
                     logWriter.write("Query created: " + queryCount + "\n");
                     logWriter.write("Alarm scanned: " + result.getTotalAlarm() + "\n");
-                    logWriter.write("Time used per IMEI: " + totalTime / imeiBatch.size() + " ms\n");
+                    logWriter.write(String.format("Time used per IMEI: %.2fms\n", (int)totalTime * 1.0f / imeiBatch.size()));
                     result.close();
                     System.out.print(".");
                 }
