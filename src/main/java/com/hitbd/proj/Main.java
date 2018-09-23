@@ -126,6 +126,7 @@ public class Main {
                                 break;
                             case "import_time_shift":
                                 Settings.IMPORT_TIME_SHIFT = Long.parseLong(value);
+                                break;
                             default:
                                 System.out.println("Cannot resolve attribute: " + key);
                         }
