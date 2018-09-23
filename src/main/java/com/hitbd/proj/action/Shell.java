@@ -171,9 +171,11 @@ public class Shell {
     private void userSearch(Scanner scanner) {
         QueryFilter filter = new QueryFilter();
         filter.setAllowTimeRange(new Pair<>(startTime, endTime));
+        Date date = new Date();
         AlarmScanner result = HbaseSearch.getInstance().
                 queryAlarmByUser(ignite, queryUserId, userIDs,false, HbaseSearch.SORT_BY_CREATE_TIME, filter);
         result.setConnection(connection);
+        System.out.println("ignite time:" + (new Date().getTime() - date.getTime()) + "ms\n");
         int no = 1;
         int total = 0;
         Date startTime;

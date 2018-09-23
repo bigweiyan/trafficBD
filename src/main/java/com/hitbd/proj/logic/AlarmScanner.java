@@ -244,6 +244,7 @@ public class AlarmScanner implements Closeable {
                     scanner.close();
                 }
                 table.close();
+                if (closing) return;
             } catch (IOException e) {
                 e.printStackTrace();
             }
