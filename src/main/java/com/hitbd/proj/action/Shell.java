@@ -23,7 +23,7 @@ public class Shell {
     private static final int QUERY_USER_ID = 1;
     int queryType = QUERY_USER_ID;
     List<Integer> userIDs;
-    int queryUserId = 0;
+    int queryUserId = 1;
     List<Long> imeis;
     Date startTime;
     Date endTime;
