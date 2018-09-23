@@ -380,6 +380,7 @@ public class HbaseSearch implements IHbaseSearch {
                 query.tableName = usedTable.get(i);
                 query.startRelativeSecond = startRelativeSecond;
                 query.endRelativeSecond = endRelativeSecond;
+                // 这里的Integer指的是设备对于的用户，Long指的是设备号
                 List<Pair<Integer, Long>> imeis = new ArrayList<>();
                 for (Map.Entry<Integer, List<Long>> user : userAndDevice.entrySet()) {
                     // 记录上次读取的imei位置
@@ -414,15 +415,16 @@ public class HbaseSearch implements IHbaseSearch {
                 queries.add(query);
             }
         }else if (sortType == HbaseSearch.SORT_BY_IMEI) {
-            //对imei进行排序
+            // 这里的Integer指的是设备对于的用户，Long指的是设备号
             List<Pair<Integer,Long>> sortByImei = new ArrayList<>();
             for (Map.Entry<Integer, List<Long>> user : userAndDevice.entrySet()) {
                 for(Long imei:user.getValue()) {
                     sortByImei.add(new Pair<>(user.getKey(),imei));
                 }
             }
+            // 按imei进行排序
             sortByImei.sort(Comparator.comparingLong(Pair::getValue));
-            //对每个imei在每个表中新建子查询
+            // 对每个imei在每个表中新建子查询
             for(Pair<Integer,Long> imei:sortByImei) {
                 for (int i = 0; i < usedTable.size(); i++) {
                  // 确定这个查询所对应的起止时间
@@ -451,10 +453,12 @@ public class HbaseSearch implements IHbaseSearch {
                 }
             }
         }else if (sortType == HbaseSearch.SORT_BY_USER_ID) {
-            //对userid进行排序
+
+            // 这里的Integer指的是设备对于的用户，Long指的是设备号
             List<Map.Entry<Integer, List<Long>>> sortByUserId = new ArrayList<>(userAndDevice.entrySet());
+            // 对用户-设备按userid进行排序
             sortByUserId.sort(Comparator.comparingInt(Map.Entry::getKey));
-            //对每个user的所有imei在每个表中构建子查询
+            // 对每个user的所有imei在每个表中构建子查询
             for(Map.Entry<Integer, List<Long>> user :sortByUserId) {
                 Query query = new Query();
                 List<Pair<Integer, Long>> imeis = new ArrayList<>();
@@ -703,7 +707,7 @@ public class HbaseSearch implements IHbaseSearch {
     }
 
     @Override
-    public List<IAlarm> queryAlarmByUserC(int userCId, int sortType) {
+    public AlarmScanner queryAlarmByUserC(int userCId, int sortType) {
         return null;
     }
 

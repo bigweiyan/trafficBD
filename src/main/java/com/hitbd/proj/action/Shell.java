@@ -23,7 +23,7 @@ public class Shell {
     private static final int QUERY_USER_ID = 1;
     int queryType = QUERY_USER_ID;
     List<Integer> userIDs;
-    int queryUserId = 2214;
+    int queryUserId = 0;
     List<Long> imeis;
     Date startTime;
     Date endTime;
@@ -42,7 +42,6 @@ public class Shell {
         System.out.println("工作线程数: " + Settings.MAX_WORKER_THREAD);
         System.out.println("单次工作任务数: " + Settings.MAX_DEVICES_PER_WORKER);
         userIDs = new ArrayList<>();
-        userIDs.add(3439);
         imeis = new ArrayList<>();
         Scanner scanner = new Scanner(System.in);
         boolean stop = false;
@@ -54,8 +53,8 @@ public class Shell {
             e.printStackTrace();
         }
         while (!stop) {
-            System.out.println("当前查询类型：" + (queryType == QUERY_IMEI ? "IMEI维度" :  "用户维度"));
-            System.out.print("当前查询对象");
+            System.out.println("当前查询类型:" + (queryType == QUERY_IMEI ? "IMEI维度" :  "用户维度"));
+            System.out.print("当前查询对象:");
             if (queryType == QUERY_IMEI) {
                 for (Long imei : imeis) {
                     System.out.print(imei + " ");

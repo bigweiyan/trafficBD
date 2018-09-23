@@ -133,7 +133,7 @@ public interface IHbaseSearch {
      * @param sortType 排序类型
      * @return
      */
-    List<IAlarm> queryAlarmByUserC(int userCId, int sortType);
+    AlarmScanner queryAlarmByUserC(int userCId, int sortType);
 
     /**
      * 5.5
