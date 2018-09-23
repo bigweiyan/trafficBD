@@ -10,6 +10,8 @@ import com.hitbd.proj.util.Serialization;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.Ignition;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.configuration.CacheConfiguration;
 
 import java.sql.*;
 import java.util.*;
@@ -20,20 +22,20 @@ public class IgniteSearch implements IIgniteSearch {
     static IgniteCache<Long, Integer> alarmCCache;
     static IgniteCache<Long, Integer> viewedCCache;
     static IgniteSearch search = null;
-//	static {
-//        Ignition.setClientMode(true);
-//        ignite = Ignition.start();
-//        CacheConfiguration<Long, Integer> cfg = new CacheConfiguration<Long, Integer>();
-//        cfg.setName("alarm_c");
-//        cfg.setCacheMode(CacheMode.PARTITIONED);// 存储方式 PARTITIONED适合分布式存储
-//        cfg.setIndexedTypes(Long.class, Integer.class); // 必须设置索引类否则只能以key-value方式查询
-//        alarmCCache = ignite.getOrCreateCache(cfg);// 根据配置创建缓存
-//        cfg = new CacheConfiguration<Long, Integer>();
-//        cfg.setName("viewed_c");
-//        cfg.setCacheMode(CacheMode.PARTITIONED);// 存储方式 PARTITIONED适合分布式存储
-//        cfg.setIndexedTypes(Long.class, Integer.class); // 必须设置索引类否则只能以key-value方式查询
-//        viewedCCache = ignite.getOrCreateCache(cfg);// 根据配置创建缓存
-//	}
+	static {
+        Ignition.setClientMode(true);
+        ignite = Ignition.start();
+        CacheConfiguration<Long, Integer> cfg = new CacheConfiguration<Long, Integer>();
+        cfg.setName("alarm_c");
+        cfg.setCacheMode(CacheMode.PARTITIONED);// 存储方式 PARTITIONED适合分布式存储
+        cfg.setIndexedTypes(Long.class, Integer.class); // 必须设置索引类否则只能以key-value方式查询
+        alarmCCache = ignite.getOrCreateCache(cfg);// 根据配置创建缓存
+        cfg = new CacheConfiguration<Long, Integer>();
+        cfg.setName("viewed_c");
+        cfg.setCacheMode(CacheMode.PARTITIONED);// 存储方式 PARTITIONED适合分布式存储
+        cfg.setIndexedTypes(Long.class, Integer.class); // 必须设置索引类否则只能以key-value方式查询
+        viewedCCache = ignite.getOrCreateCache(cfg);// 根据配置创建缓存
+	}
 
     private IgniteSearch(){};
 
@@ -161,15 +163,14 @@ public class IgniteSearch implements IIgniteSearch {
 		return -1;
 	}
 
-	private int addUserBData(UserB usr, Connection conn) throws SQLException {
+	private void addUserBData(UserB usr, Connection conn) throws SQLException {
 		String sql = "insert into user_b values(?,?,?)";
 		PreparedStatement pstmt = conn.prepareStatement(sql);
 		pstmt.setInt(1, usr.getUserBId());
 		pstmt.setInt(2, usr.getParentId());
 		pstmt.setString(3, "");
-		int result = pstmt.executeUpdate();
+		pstmt.executeUpdate();
 		pstmt.close();
-		return result;
 	}
 
 	@Override
@@ -187,16 +188,15 @@ public class IgniteSearch implements IIgniteSearch {
 		return newid;
 	}
 
-	public int addUserCData(UserC usr, Connection conn) throws SQLException {
+	private void addUserCData(UserC usr, Connection conn) throws SQLException {
 		String sql = "insert into UserC values(?,?,?,?)";
 		PreparedStatement pstmt = conn.prepareStatement(sql);
 		pstmt.setInt(1, usr.getUserCId());
 		pstmt.setString(2, usr.getDevicesText());
 		pstmt.setString(3, usr.getAuthedDevicesText());
 		pstmt.setString(4, usr.getAuthUserIdsText());
-		int result = pstmt.executeUpdate();
+		pstmt.executeUpdate();
 		pstmt.close();
-		return result;
 	}
 
 	@Override
