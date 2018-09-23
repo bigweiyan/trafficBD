@@ -707,8 +707,10 @@ public class HbaseSearch implements IHbaseSearch {
     }
 
     @Override
-    public AlarmScanner queryAlarmByUserC(int userCId, int sortType) {
-        return null;
+    public AlarmScanner queryAlarmByUserC(java.sql.Connection connection, int userCId, int sortType, QueryFilter filter) {
+        HashMap<Integer, List<Long>> map = null;
+        // TODO 找到userCID可以访问的所有IMEI，以及他相关的用户id
+        return queryAlarmByImei(map, sortType, filter);
     }
 
 	@Override

@@ -133,7 +133,7 @@ public interface IHbaseSearch {
      * @param sortType 排序类型
      * @return
      */
-    AlarmScanner queryAlarmByUserC(int userCId, int sortType);
+    AlarmScanner queryAlarmByUserC(java.sql.Connection connection, int userCId, int sortType, QueryFilter filter);
 
     /**
      * 5.5
