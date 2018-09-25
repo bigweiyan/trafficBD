@@ -242,12 +242,9 @@ public class AlarmScanner implements Closeable {
                     end = sb.toString();
                     Scan scan = new Scan(start.getBytes(),end.getBytes());
                     scan.addFamily("r".getBytes());
-                    // scan.setBatch(100);
+                    // 设置字段Filter
+                    List<Filter> filters = new ArrayList<>();
                     if (filter.getAllowAlarmType() != null && filter.getAllowAlarmType().size() != 0){
-                        // Create a list of filters.
-                        List<Filter> filters = new ArrayList<>();
-
-                        // Add specific filter to list.
                         for (String alarmType : filter.getAllowAlarmType()) {
                             SingleColumnValueFilter filter = new SingleColumnValueFilter(
                                     Bytes.toBytes("r"),
@@ -256,12 +253,38 @@ public class AlarmScanner implements Closeable {
                                     new SubstringComparator(alarmType)
                             );
                             filter.setFilterIfMissing(false);
-                            filter.setLatestVersionOnly(false);
+                            filter.setLatestVersionOnly(true);
                             filters.add(filter);
                         }
-
-                        // Create combined filter.
-                        FilterList fList = new FilterList(FilterList.Operator.MUST_PASS_ONE, filters);
+                    }
+                    if (filter.getAllowAlarmStatus() != null && filter.getAllowAlarmType().size() != 0){
+                        for (String alarmStatus : filter.getAllowAlarmStatus()) {
+                            SingleColumnValueFilter filter = new SingleColumnValueFilter(
+                                    Bytes.toBytes("r"),
+                                    Bytes.toBytes("stat"),
+                                    CompareFilter.CompareOp.EQUAL,
+                                    new SubstringComparator(alarmStatus)
+                            );
+                            filter.setFilterIfMissing(false);
+                            filter.setLatestVersionOnly(true);
+                            filters.add(filter);
+                        }
+                    }
+                    if (filter.getAllowReadStatus() != null && filter.getAllowAlarmType().size() != 0){
+                        for (String readStatus : filter.getAllowReadStatus()) {
+                            SingleColumnValueFilter filter = new SingleColumnValueFilter(
+                                    Bytes.toBytes("r"),
+                                    Bytes.toBytes("viewed"),
+                                    CompareFilter.CompareOp.EQUAL,
+                                    new SubstringComparator(readStatus)
+                            );
+                            filter.setFilterIfMissing(false);
+                            filter.setLatestVersionOnly(true);
+                            filters.add(filter);
+                        }
+                    }
+                    if (!filters.isEmpty()) {
+                        FilterList fList = new FilterList(FilterList.Operator.MUST_PASS_ALL, filters);
                         scan.setFilter(fList);
                     }
 
