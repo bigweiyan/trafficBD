@@ -124,6 +124,9 @@ public class Main {
                             case "test.show_all_result":
                                 Settings.Test.SHOW_ALL_RESULT = value.equals("true");
                                 break;
+                            case "test.result_size":
+                                Settings.Test.RESULT_SIZE = Integer.parseInt(value);
+                                break;
                             case "import_time_shift":
                                 Settings.IMPORT_TIME_SHIFT = Long.parseLong(value);
                                 break;

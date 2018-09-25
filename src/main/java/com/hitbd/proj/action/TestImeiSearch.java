@@ -17,7 +17,6 @@ import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class TestImeiSearch {
     private BlockingQueue<Long> query;
@@ -122,7 +121,7 @@ public class TestImeiSearch {
                     result.setConnection(connection);
                     int queryCount = result.queries.size();
                     long response = 0;
-                    int resultBatchSize = 200;
+                    int resultBatchSize = Settings.Test.RESULT_SIZE;
                     int get = Settings.Test.SHOW_ALL_RESULT ? resultBatchSize : 5;
                     if (result.notFinished()) {
                         List<Pair<Integer, IAlarm>> top = result.next(resultBatchSize);

@@ -1,6 +1,7 @@
 package com.hitbd.proj.action;
 
 import com.hitbd.proj.HbaseSearch;
+import com.hitbd.proj.IgniteSearch;
 import com.hitbd.proj.QueryFilter;
 import com.hitbd.proj.Settings;
 import com.hitbd.proj.logic.AlarmScanner;
@@ -30,6 +31,9 @@ public class Shell {
     int resultSize = 5;
     SimpleDateFormat sdf;
     public void main(){
+        System.out.println("初始化Ignite");
+        IgniteSearch.getInstance();
+        System.out.println("初始化完成");
         try {
             ignite = DriverManager.getConnection("jdbc:ignite:thin://localhost");
             connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
@@ -171,20 +175,19 @@ public class Shell {
     private void userSearch(Scanner scanner) {
         QueryFilter filter = new QueryFilter();
         filter.setAllowTimeRange(new Pair<>(startTime, endTime));
-        Date date = new Date();
+        Date startTime = new Date();
         AlarmScanner result = HbaseSearch.getInstance().
                 queryAlarmByUser(ignite, queryUserId, userIDs,false, HbaseSearch.SORT_BY_CREATE_TIME, filter);
         result.setConnection(connection);
-        System.out.println("ignite time:" + (new Date().getTime() - date.getTime()) + "ms\n");
+        System.out.println("imei query finished in" + (new Date().getTime() - startTime.getTime()) + "ms, "
+                + result.totalImei + "result found");
         int no = 1;
         int total = 0;
-        Date startTime;
         while (true) {
             if (!result.notFinished()) {
-                System.out.println("query finished, " + total + " result found");
+                System.out.println("alarm query finished, " + total + " result found");
                 break;
             }
-            startTime = new Date();
             List<Pair<Integer, IAlarm>> batch = result.next(resultSize);
             for (Pair<Integer, IAlarm> pair : batch) {
                 IAlarm alarm = pair.getValue();
@@ -196,6 +199,7 @@ public class Shell {
             System.out.println(batch.size() + " rows queried, use time " + (new Date().getTime() - startTime.getTime()) + "ms");
             String cmd = scanner.nextLine();
             if (cmd.equals("quit") || cmd.equals("exit")) break;
+            startTime = new Date();
         }
         result.close();
     }

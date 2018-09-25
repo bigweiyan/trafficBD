@@ -709,7 +709,7 @@ public class HbaseSearch implements IHbaseSearch {
     @Override
     public AlarmScanner queryAlarmByUserC(java.sql.Connection connection, int userCId, int sortType, QueryFilter filter) {
         HashMap<Integer, List<Long>> map = null;
-        // TODO 找到userCID可以访问的所有IMEI，以及他相关的用户id
+        // TODO 找到userCID可以访问的所有IMEI，以及他直接相关的C端用户id
         return queryAlarmByImei(map, sortType, filter);
     }
 
@@ -768,14 +768,15 @@ public class HbaseSearch implements IHbaseSearch {
                     int count1 = 0, count2 = 0;
                     for (Long imei : imeimap.keySet()) {
                         if (imeimap.get(imei).equals(parentBid)) {
-                            count1 = count1 + IgniteSearch.getInstance().getViewedCount(imei);
+                            int viewedCount = IgniteSearch.getInstance().getViewedCount(imei);
+                            count1 = count1 + viewedCount;
                             count2 = count2 + IgniteSearch.getInstance().getAlarmCount(imei)
-                                    - IgniteSearch.getInstance().getViewedCount(imei);
+                                    - viewedCount;
                         }
                     }
                     String parentBId1, parentBId2 ;
-                    parentBId1 = parentBid + "1";
-                    parentBId2 = parentBid + "0";
+                    parentBId1 = parentBid + "-1";
+                    parentBId2 = parentBid + "-0";
                     map.put(parentBId1, count1);
                     map.put(parentBId2, count2);
                 }
@@ -788,14 +789,15 @@ public class HbaseSearch implements IHbaseSearch {
                     for (Integer id : idandimei.keySet()) {
                         List<Long> temp = idandimei.get(id);
                         for (Long imei : temp) {
-                            count1 = count1 + IgniteSearch.getInstance().getViewedCount(imei);
+                            int viewedCount = IgniteSearch.getInstance().getViewedCount(imei);
+                            count1 = count1 + viewedCount;
                             count2 = count2 + IgniteSearch.getInstance().getAlarmCount(imei)
-                                    - IgniteSearch.getInstance().getViewedCount(imei);
+                                    - viewedCount;
                         }
                     }
                     String parentBId1, parentBId2 ;
-                    parentBId1 = Integer.valueOf(parentid).toString() + "1";
-                    parentBId2 = Integer.valueOf(parentid).toString() + "0";
+                    parentBId1 = Integer.valueOf(parentid).toString() + "-1";
+                    parentBId2 = Integer.valueOf(parentid).toString() + "-0";
                     map.put(parentBId1, count1);
                     map.put(parentBId2, count2);
                 }

@@ -178,8 +178,8 @@ public class AlarmScanner implements Closeable {
             synchronized (manageThread) {
                 manageThread.notify();
             }
+            pool.shutdown();
         }
-        pool.shutdown();
     }
 
     /**
@@ -275,8 +275,9 @@ public class AlarmScanner implements Closeable {
                             e.printStackTrace();
                         }
                     }
+                    if(!closing) pool.submit(new ScanThread(AlarmScanner.this.queries.poll(), nextid));
+                    else return;
                 }
-                pool.submit(new ScanThread(AlarmScanner.this.queries.poll(), nextid));
                 nextid++;
                 currentThreads.incrementAndGet();
             }
