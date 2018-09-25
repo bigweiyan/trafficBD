@@ -56,30 +56,56 @@ public class AlarmScanner implements Closeable {
     public int totalImei;
 
     public AlarmScanner(int sortType) {
-        if (sortType == HbaseSearch.SORT_BY_CREATE_TIME) {
-            cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
-                    (e1, e2) -> e1.getValue().getCreateTime().compareTo(e2.getValue().getCreateTime()));
-        }else if (sortType == HbaseSearch.SORT_BY_IMEI) {
-            cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
-                    (e1, e2) -> Long.compare(e2.getValue().getImei(), e1.getValue().getImei()));
-        }else{
-            cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
-                    (e1, e2) -> Integer.compare(e2.getKey(), e1.getKey()));
+        int sortField = sortType & HbaseSearch.FIELD_MASK;
+        int sortOrder = sortType & HbaseSearch.ORDER_MASK;
+        switch (sortField) {
+            case HbaseSearch.SORT_BY_CREATE_TIME:
+                if (sortOrder == HbaseSearch.SORT_ASC) {
+                    cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
+                            (e1, e2) -> e1.getValue().getCreateTime().compareTo(e2.getValue().getCreateTime()));
+                }else {
+                    cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
+                            (e1, e2) -> e2.getValue().getCreateTime().compareTo(e1.getValue().getCreateTime()));
+                }
+                break;
+            case HbaseSearch.SORT_BY_PUSH_TIME:
+                if (sortOrder == HbaseSearch.SORT_ASC) {
+                    cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
+                            (e1, e2) -> e1.getValue().getPushTime().compareTo(e2.getValue().getPushTime()));
+                }else {
+                    cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
+                            (e1, e2) -> e2.getValue().getPushTime().compareTo(e1.getValue().getPushTime()));
+                }
+                break;
+            case HbaseSearch.SORT_BY_IMEI:
+                if (sortOrder == HbaseSearch.SORT_ASC) {
+                    cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
+                            (e1, e2) -> Long.compare(e1.getValue().getImei(), e2.getValue().getImei()));
+                }else {
+                    cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
+                            (e1, e2) -> Long.compare(e2.getValue().getImei(), e1.getValue().getImei()));
+                }
+                break;
+            case HbaseSearch.SORT_BY_USER_ID:
+            case HbaseSearch.NO_SORT:
+                if (sortOrder == HbaseSearch.SORT_ASC) {
+                    cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
+                            (e1, e2) -> Integer.compare(e1.getKey(), e2.getKey()));
+                }else {
+                    cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
+                            (e1, e2) -> Integer.compare(e2.getKey(), e1.getKey()));
+                }
+                break;
+            default:
+                cacheAlarms = new PriorityBlockingQueue<>();
+                throw new IllegalArgumentException("undefined sortType");
         }
     }
 
     public AlarmScanner(int sortType, Connection connection) {
+        this(sortType);
         this.connection = connection;
-        if (sortType == HbaseSearch.SORT_BY_CREATE_TIME) {
-            cacheAlarms = new PriorityBlockingQueue<>(1000,
-                    (e1, e2) -> e2.getValue().getCreateTime().compareTo(e1.getValue().getCreateTime()));
-        }else if (sortType == HbaseSearch.SORT_BY_IMEI) {
-            cacheAlarms = new PriorityBlockingQueue<>(1000,
-                    (e1, e2) -> Long.compare(e2.getValue().getImei(), e1.getValue().getImei()));
-        }else{
-            cacheAlarms = new PriorityBlockingQueue<>(1000,
-                    (e1, e2) -> Integer.compare(e2.getKey(), e1.getKey()));
-        }
+
     }
 
     public void setFilter(QueryFilter filter){
