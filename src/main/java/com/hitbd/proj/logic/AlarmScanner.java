@@ -242,9 +242,10 @@ public class AlarmScanner implements Closeable {
                     end = sb.toString();
                     Scan scan = new Scan(start.getBytes(),end.getBytes());
                     scan.addFamily("r".getBytes());
-                    // 设置字段Filter
-                    List<Filter> filters = new ArrayList<>();
+                    // 设置字段的Filter，其中filterLists是总逻辑，filters是字段的逻辑
+                    List<Filter> filterLists = new ArrayList<>();
                     if (filter.getAllowAlarmType() != null && filter.getAllowAlarmType().size() != 0){
+                        List<Filter> filters = new ArrayList<>();
                         for (String alarmType : filter.getAllowAlarmType()) {
                             SingleColumnValueFilter filter = new SingleColumnValueFilter(
                                     Bytes.toBytes("r"),
@@ -256,8 +257,11 @@ public class AlarmScanner implements Closeable {
                             filter.setLatestVersionOnly(true);
                             filters.add(filter);
                         }
+                        FilterList filterList = new FilterList(FilterList.Operator.MUST_PASS_ONE, filters);
+                        filterLists.add(filterList);
                     }
                     if (filter.getAllowAlarmStatus() != null && filter.getAllowAlarmType().size() != 0){
+                        List<Filter> filters = new ArrayList<>();
                         for (String alarmStatus : filter.getAllowAlarmStatus()) {
                             SingleColumnValueFilter filter = new SingleColumnValueFilter(
                                     Bytes.toBytes("r"),
@@ -269,8 +273,11 @@ public class AlarmScanner implements Closeable {
                             filter.setLatestVersionOnly(true);
                             filters.add(filter);
                         }
+                        FilterList filterList = new FilterList(FilterList.Operator.MUST_PASS_ONE, filters);
+                        filterLists.add(filterList);
                     }
                     if (filter.getAllowReadStatus() != null && filter.getAllowAlarmType().size() != 0){
+                        List<Filter> filters = new ArrayList<>();
                         for (String readStatus : filter.getAllowReadStatus()) {
                             SingleColumnValueFilter filter = new SingleColumnValueFilter(
                                     Bytes.toBytes("r"),
@@ -282,9 +289,11 @@ public class AlarmScanner implements Closeable {
                             filter.setLatestVersionOnly(true);
                             filters.add(filter);
                         }
+                        FilterList filterList = new FilterList(FilterList.Operator.MUST_PASS_ONE, filters);
+                        filterLists.add(filterList);
                     }
-                    if (!filters.isEmpty()) {
-                        FilterList fList = new FilterList(FilterList.Operator.MUST_PASS_ALL, filters);
+                    if (!filterLists.isEmpty()) {
+                        FilterList fList = new FilterList(FilterList.Operator.MUST_PASS_ALL, filterLists);
                         scan.setFilter(fList);
                     }
 

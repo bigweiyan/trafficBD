@@ -151,6 +151,16 @@ public class Shell {
         HashMap<Integer, List<Long>> map = new HashMap<>();
         map.put(0, imeis);
         QueryFilter filter = new QueryFilter();
+//        HashSet<String> type = new HashSet<>();
+//        type.add("other");
+//        HashSet<String> stat = new HashSet<>();
+//        stat.add("ACC_ON");
+//        stat.add("ACC_OFF");
+//        HashSet<String> viewed = new HashSet<>();
+//        viewed.add("1");
+//        filter.setAllowAlarmStatus(stat);
+//        filter.setAllowAlarmType(type);
+//        filter.setAllowReadStatus(viewed);
         filter.setAllowTimeRange(new Pair<>(startTime, endTime));
         AlarmScanner result = HbaseSearch.getInstance().queryAlarmByImei(map,
                 order |HbaseSearch.SORT_BY_CREATE_TIME, filter);
@@ -169,6 +179,7 @@ public class Shell {
                 IAlarm alarm = pair.getValue();
                 System.out.println(no +" : imei-"+ alarm.getImei() + " " +
                         sdf.format(alarm.getCreateTime()) + " " + alarm.getAddress());
+                System.out.println("\t + type:" + alarm.getType() + " stat:" + alarm.getStatus() + " viewed:" + alarm.getViewed());
                 no++;
                 total++;
             }
@@ -201,6 +212,7 @@ public class Shell {
                 IAlarm alarm = pair.getValue();
                 System.out.println(no +" : userid-"+ pair.getKey() + " imei-" + alarm.getImei() +
                         " " + sdf.format(alarm.getCreateTime()) + " " + alarm.getAddress());
+                System.out.println("\t + type:" + alarm.getType() + " stat:" + alarm.getStatus() + " viewed:" + alarm.getViewed());
                 no++;
                 total++;
             }
