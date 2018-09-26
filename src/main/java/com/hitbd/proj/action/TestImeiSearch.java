@@ -17,7 +17,6 @@ import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class TestImeiSearch {
     private BlockingQueue<Long> query;
@@ -72,11 +71,11 @@ public class TestImeiSearch {
             }catch (InterruptedException e){
                 e.printStackTrace();
             }
-            System.out.println("\nQuery finished");
+
             Date end = new Date();
             logWriter.write("Test end at " + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(end) + "\n");
             logWriter.write("Total time:" + (end.getTime() - start.getTime()) + "ms\n");
-            logWriter.write("Average Time:" + (end.getTime() - start.getTime()) / imeis + "ms\n");
+            logWriter.write(String.format("Average Time:%.2fms\n" , (end.getTime() - start.getTime()) * 1.0f / imeis));
             logWriter.write(String.format("Average response time:%.2fms\n", responseTime.get() * 1.0f / responseCount.get()));
             if (Settings.Test.WAIT_UNTIL_FINISH) {
                 logWriter.write(String.format("Average finish time:%dms\n", finishedTime.get() / responseCount.get()));
@@ -85,6 +84,7 @@ public class TestImeiSearch {
         }catch (IOException e){
             e.printStackTrace();
         }
+        System.out.println("\nQuery finished");
     }
 
     class SearchThread extends Thread{
@@ -121,7 +121,7 @@ public class TestImeiSearch {
                     result.setConnection(connection);
                     int queryCount = result.queries.size();
                     long response = 0;
-                    int resultBatchSize = 200;
+                    int resultBatchSize = Settings.Test.RESULT_SIZE;
                     int get = Settings.Test.SHOW_ALL_RESULT ? resultBatchSize : 5;
                     if (result.notFinished()) {
                         List<Pair<Integer, IAlarm>> top = result.next(resultBatchSize);

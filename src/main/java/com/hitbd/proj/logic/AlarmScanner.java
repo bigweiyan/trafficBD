@@ -56,30 +56,56 @@ public class AlarmScanner implements Closeable {
     public int totalImei;
 
     public AlarmScanner(int sortType) {
-        if (sortType == HbaseSearch.SORT_BY_CREATE_TIME) {
-            cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
-                    (e1, e2) -> e1.getValue().getCreateTime().compareTo(e2.getValue().getCreateTime()));
-        }else if (sortType == HbaseSearch.SORT_BY_IMEI) {
-            cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
-                    (e1, e2) -> Long.compare(e2.getValue().getImei(), e1.getValue().getImei()));
-        }else{
-            cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
-                    (e1, e2) -> Integer.compare(e2.getKey(), e1.getKey()));
+        int sortField = sortType & HbaseSearch.FIELD_MASK;
+        int sortOrder = sortType & HbaseSearch.ORDER_MASK;
+        switch (sortField) {
+            case HbaseSearch.SORT_BY_CREATE_TIME:
+                if (sortOrder == HbaseSearch.SORT_ASC) {
+                    cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
+                            (e1, e2) -> e1.getValue().getCreateTime().compareTo(e2.getValue().getCreateTime()));
+                }else {
+                    cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
+                            (e1, e2) -> e2.getValue().getCreateTime().compareTo(e1.getValue().getCreateTime()));
+                }
+                break;
+            case HbaseSearch.SORT_BY_PUSH_TIME:
+                if (sortOrder == HbaseSearch.SORT_ASC) {
+                    cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
+                            (e1, e2) -> e1.getValue().getPushTime().compareTo(e2.getValue().getPushTime()));
+                }else {
+                    cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
+                            (e1, e2) -> e2.getValue().getPushTime().compareTo(e1.getValue().getPushTime()));
+                }
+                break;
+            case HbaseSearch.SORT_BY_IMEI:
+                if (sortOrder == HbaseSearch.SORT_ASC) {
+                    cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
+                            (e1, e2) -> Long.compare(e1.getValue().getImei(), e2.getValue().getImei()));
+                }else {
+                    cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
+                            (e1, e2) -> Long.compare(e2.getValue().getImei(), e1.getValue().getImei()));
+                }
+                break;
+            case HbaseSearch.SORT_BY_USER_ID:
+            case HbaseSearch.NO_SORT:
+                if (sortOrder == HbaseSearch.SORT_ASC) {
+                    cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
+                            (e1, e2) -> Integer.compare(e1.getKey(), e2.getKey()));
+                }else {
+                    cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
+                            (e1, e2) -> Integer.compare(e2.getKey(), e1.getKey()));
+                }
+                break;
+            default:
+                cacheAlarms = new PriorityBlockingQueue<>();
+                throw new IllegalArgumentException("undefined sortType");
         }
     }
 
     public AlarmScanner(int sortType, Connection connection) {
+        this(sortType);
         this.connection = connection;
-        if (sortType == HbaseSearch.SORT_BY_CREATE_TIME) {
-            cacheAlarms = new PriorityBlockingQueue<>(1000,
-                    (e1, e2) -> e2.getValue().getCreateTime().compareTo(e1.getValue().getCreateTime()));
-        }else if (sortType == HbaseSearch.SORT_BY_IMEI) {
-            cacheAlarms = new PriorityBlockingQueue<>(1000,
-                    (e1, e2) -> Long.compare(e2.getValue().getImei(), e1.getValue().getImei()));
-        }else{
-            cacheAlarms = new PriorityBlockingQueue<>(1000,
-                    (e1, e2) -> Integer.compare(e2.getKey(), e1.getKey()));
-        }
+
     }
 
     public void setFilter(QueryFilter filter){
@@ -178,8 +204,8 @@ public class AlarmScanner implements Closeable {
             synchronized (manageThread) {
                 manageThread.notify();
             }
+            pool.shutdown();
         }
-        pool.shutdown();
     }
 
     /**
@@ -216,12 +242,10 @@ public class AlarmScanner implements Closeable {
                     end = sb.toString();
                     Scan scan = new Scan(start.getBytes(),end.getBytes());
                     scan.addFamily("r".getBytes());
-                    // scan.setBatch(100);
+                    // 设置字段的Filter，其中filterLists是总逻辑，filters是字段的逻辑
+                    List<Filter> filterLists = new ArrayList<>();
                     if (filter.getAllowAlarmType() != null && filter.getAllowAlarmType().size() != 0){
-                        // Create a list of filters.
                         List<Filter> filters = new ArrayList<>();
-
-                        // Add specific filter to list.
                         for (String alarmType : filter.getAllowAlarmType()) {
                             SingleColumnValueFilter filter = new SingleColumnValueFilter(
                                     Bytes.toBytes("r"),
@@ -230,12 +254,46 @@ public class AlarmScanner implements Closeable {
                                     new SubstringComparator(alarmType)
                             );
                             filter.setFilterIfMissing(false);
-                            filter.setLatestVersionOnly(false);
+                            filter.setLatestVersionOnly(true);
                             filters.add(filter);
                         }
-
-                        // Create combined filter.
-                        FilterList fList = new FilterList(FilterList.Operator.MUST_PASS_ONE, filters);
+                        FilterList filterList = new FilterList(FilterList.Operator.MUST_PASS_ONE, filters);
+                        filterLists.add(filterList);
+                    }
+                    if (filter.getAllowAlarmStatus() != null && filter.getAllowAlarmType().size() != 0){
+                        List<Filter> filters = new ArrayList<>();
+                        for (String alarmStatus : filter.getAllowAlarmStatus()) {
+                            SingleColumnValueFilter filter = new SingleColumnValueFilter(
+                                    Bytes.toBytes("r"),
+                                    Bytes.toBytes("stat"),
+                                    CompareFilter.CompareOp.EQUAL,
+                                    new SubstringComparator(alarmStatus)
+                            );
+                            filter.setFilterIfMissing(false);
+                            filter.setLatestVersionOnly(true);
+                            filters.add(filter);
+                        }
+                        FilterList filterList = new FilterList(FilterList.Operator.MUST_PASS_ONE, filters);
+                        filterLists.add(filterList);
+                    }
+                    if (filter.getAllowReadStatus() != null && filter.getAllowAlarmType().size() != 0){
+                        List<Filter> filters = new ArrayList<>();
+                        for (String readStatus : filter.getAllowReadStatus()) {
+                            SingleColumnValueFilter filter = new SingleColumnValueFilter(
+                                    Bytes.toBytes("r"),
+                                    Bytes.toBytes("viewed"),
+                                    CompareFilter.CompareOp.EQUAL,
+                                    new SubstringComparator(readStatus)
+                            );
+                            filter.setFilterIfMissing(false);
+                            filter.setLatestVersionOnly(true);
+                            filters.add(filter);
+                        }
+                        FilterList filterList = new FilterList(FilterList.Operator.MUST_PASS_ONE, filters);
+                        filterLists.add(filterList);
+                    }
+                    if (!filterLists.isEmpty()) {
+                        FilterList fList = new FilterList(FilterList.Operator.MUST_PASS_ALL, filterLists);
                         scan.setFilter(fList);
                     }
 
@@ -244,6 +302,7 @@ public class AlarmScanner implements Closeable {
                     scanner.close();
                 }
                 table.close();
+                if (closing) return;
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -274,8 +333,9 @@ public class AlarmScanner implements Closeable {
                             e.printStackTrace();
                         }
                     }
+                    if(!closing) pool.submit(new ScanThread(AlarmScanner.this.queries.poll(), nextid));
+                    else return;
                 }
-                pool.submit(new ScanThread(AlarmScanner.this.queries.poll(), nextid));
                 nextid++;
                 currentThreads.incrementAndGet();
             }

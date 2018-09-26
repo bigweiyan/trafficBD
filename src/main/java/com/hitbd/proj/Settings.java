@@ -33,5 +33,6 @@ public class Settings {
         public static long END_TIME = 1534089600000L; // 2018-08-13 00:00:00
         public static boolean SHOW_TOP_RESULT = false;
         public static boolean SHOW_ALL_RESULT = false;
+        public static int RESULT_SIZE = 100;
     }
 }
