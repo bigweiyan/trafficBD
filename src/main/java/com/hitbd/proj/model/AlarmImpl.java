@@ -111,6 +111,9 @@ public class AlarmImpl implements IAlarm {
         this.viewed = viewed;
     }
 
+    @Override
+    public boolean getViewed() { return viewed; }
+
     public String getEncId() {
         return this.encId;
     }

@@ -5,17 +5,21 @@ import com.hitbd.proj.exception.ForeignKeyException;
 import com.hitbd.proj.exception.NotExistException;
 import com.hitbd.proj.exception.TimeException;
 import com.hitbd.proj.model.*;
-import com.hitbd.proj.model.UserC;
 import com.hitbd.proj.util.Serialization;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.logger.log4j.Log4JLogger;
+import org.apache.log4j.Level;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.*;
-import java.util.Date;
 
 public class IgniteSearch implements IIgniteSearch {
     static Ignite ignite;
@@ -23,6 +27,11 @@ public class IgniteSearch implements IIgniteSearch {
     static IgniteCache<Long, Integer> viewedCCache;
     static IgniteSearch search = null;
 	static {
+		IgniteConfiguration configuration = new IgniteConfiguration();
+		configuration.setClientMode(true);
+        Log4JLogger log4JLogger = new Log4JLogger();
+        log4JLogger.setLevel(Level.ERROR);
+		configuration.setGridLogger(log4JLogger);
         Ignition.setClientMode(true);
         ignite = Ignition.start();
         CacheConfiguration<Long, Integer> cfg = new CacheConfiguration<Long, Integer>();
