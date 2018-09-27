@@ -1,17 +1,17 @@
 package com.hitbd.proj.logic;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.hitbd.proj.HbaseSearch;
+import com.hitbd.proj.QueryFilter;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Connection;
-import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.Table;
@@ -20,19 +20,21 @@ import com.hitbd.proj.Settings;
 import com.hitbd.proj.logic.hbase.AlarmSearchUtils;
 import com.hitbd.proj.model.IAlarm;
 import com.hitbd.proj.model.Pair;
+import org.apache.hadoop.hbase.filter.*;
+import org.apache.hadoop.hbase.util.Bytes;
 
 /**
  * 对象创建时，开启线程调度器及工作线程
  * 工作线程生产数据，直到查询告警缓存满时，工作线程阻塞
  * 如果一个工作线程结束时，查询没有处理完，则启动另一个工作线程
  */
-public class AlarmScanner {
+public class AlarmScanner implements Closeable {
     public Queue<Query> queries;
     // 查询告警缓存 当缓存满导致无法添加时工作线程进入wait, 缓存有空位时主线程进行notify
     private final PriorityBlockingQueue<Pair<Integer, IAlarm>> cacheAlarms;
     // 用于判断是否应该增加线程
     private AtomicInteger currentThreads = new AtomicInteger();
-    private ThreadPoolExecutor pool = (ThreadPoolExecutor) Executors.newFixedThreadPool(Settings.MAX_THREAD + 4);
+    private ThreadPoolExecutor pool = (ThreadPoolExecutor) Executors.newFixedThreadPool(Settings.MAX_WORKER_THREAD + 4);
     private Connection connection;
     // 调度线程。其上会进行加锁，当不能开始新查询时调度线程进入wait，当某个查询结束时工作线程进行notify
     private ManageThread manageThread;
@@ -45,35 +47,69 @@ public class AlarmScanner {
     private int resultPrepared = 0;
     // 已获取多少有序结果。每次取结果时更新此变量
     private int resultTaken = 0;
-
+    // 下一个可以运行的id
     private int nextWaitId = 0;
-
+    private QueryFilter filter = null;
+    private boolean closing = false;
+    private boolean queryAdded = false;
+    // TEST
+    public int totalImei;
 
     public AlarmScanner(int sortType) {
-        if (sortType == HbaseSearch.SORT_BY_CREATE_TIME) {
-            cacheAlarms = new PriorityBlockingQueue<>(1000,
-                    (e1, e2) -> e2.getValue().getCreateTime().compareTo(e1.getValue().getCreateTime()));
-        }else if (sortType == HbaseSearch.SORT_BY_IMEI) {
-            cacheAlarms = new PriorityBlockingQueue<>(1000,
-                    (e1, e2) -> Long.compare(e2.getValue().getImei(), e1.getValue().getImei()));
-        }else{
-            cacheAlarms = new PriorityBlockingQueue<>(1000,
-                    (e1, e2) -> Integer.compare(e2.getKey(), e1.getKey()));
+        int sortField = sortType & HbaseSearch.FIELD_MASK;
+        int sortOrder = sortType & HbaseSearch.ORDER_MASK;
+        switch (sortField) {
+            case HbaseSearch.SORT_BY_CREATE_TIME:
+                if (sortOrder == HbaseSearch.SORT_ASC) {
+                    cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
+                            (e1, e2) -> e1.getValue().getCreateTime().compareTo(e2.getValue().getCreateTime()));
+                }else {
+                    cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
+                            (e1, e2) -> e2.getValue().getCreateTime().compareTo(e1.getValue().getCreateTime()));
+                }
+                break;
+            case HbaseSearch.SORT_BY_PUSH_TIME:
+                if (sortOrder == HbaseSearch.SORT_ASC) {
+                    cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
+                            (e1, e2) -> e1.getValue().getPushTime().compareTo(e2.getValue().getPushTime()));
+                }else {
+                    cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
+                            (e1, e2) -> e2.getValue().getPushTime().compareTo(e1.getValue().getPushTime()));
+                }
+                break;
+            case HbaseSearch.SORT_BY_IMEI:
+                if (sortOrder == HbaseSearch.SORT_ASC) {
+                    cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
+                            (e1, e2) -> Long.compare(e1.getValue().getImei(), e2.getValue().getImei()));
+                }else {
+                    cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
+                            (e1, e2) -> Long.compare(e2.getValue().getImei(), e1.getValue().getImei()));
+                }
+                break;
+            case HbaseSearch.SORT_BY_USER_ID:
+            case HbaseSearch.NO_SORT:
+                if (sortOrder == HbaseSearch.SORT_ASC) {
+                    cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
+                            (e1, e2) -> Integer.compare(e1.getKey(), e2.getKey()));
+                }else {
+                    cacheAlarms = new PriorityBlockingQueue<>(Settings.MAX_CACHE_ALARM,
+                            (e1, e2) -> Integer.compare(e2.getKey(), e1.getKey()));
+                }
+                break;
+            default:
+                cacheAlarms = new PriorityBlockingQueue<>();
+                throw new IllegalArgumentException("undefined sortType");
         }
     }
 
     public AlarmScanner(int sortType, Connection connection) {
+        this(sortType);
         this.connection = connection;
-        if (sortType == HbaseSearch.SORT_BY_CREATE_TIME) {
-            cacheAlarms = new PriorityBlockingQueue<>(1000,
-                    (e1, e2) -> e2.getValue().getCreateTime().compareTo(e1.getValue().getCreateTime()));
-        }else if (sortType == HbaseSearch.SORT_BY_IMEI) {
-            cacheAlarms = new PriorityBlockingQueue<>(1000,
-                    (e1, e2) -> Long.compare(e2.getValue().getImei(), e1.getValue().getImei()));
-        }else{
-            cacheAlarms = new PriorityBlockingQueue<>(1000,
-                    (e1, e2) -> Integer.compare(e2.getKey(), e1.getKey()));
-        }
+
+    }
+
+    public void setFilter(QueryFilter filter){
+        this.filter = filter;
     }
 
     public void setConnection(Connection connection) {
@@ -81,9 +117,12 @@ public class AlarmScanner {
     }
 
     public void setQueries(Queue<Query> queries) {
+        if (queryAdded) throw new RuntimeException("setQueries should only run once!");
+        queryAdded = true;
         this.queries = queries;
         queryCompleteMark = new boolean[queries.size()];
         queryCompleteCount = new int[queries.size()];
+        if (queries == null || queries.size() < 1) finish = true;
     }
 
     // 线程提交结果
@@ -93,10 +132,12 @@ public class AlarmScanner {
             try {
                 while (cacheAlarms.size() > Settings.MAX_CACHE_ALARM && tid != nextWaitId) {
                     cacheAlarms.wait();
+                    if (closing) return;
                 }
             }catch (InterruptedException e) {
                 e.printStackTrace();
             }
+
             cacheAlarms.addAll(alarms); // 等同于for each : offer
         }
 
@@ -121,7 +162,7 @@ public class AlarmScanner {
     }
 
     public boolean notFinished() {
-        return !finish;
+        return !finish || resultPrepared > resultTaken;
     }
 
     public List<Pair<Integer, IAlarm>> next(int count) {
@@ -132,7 +173,7 @@ public class AlarmScanner {
             manageThread = new ManageThread(queries.size());
             pool.execute(manageThread);
         }
-        if (finish && resultTaken < resultPrepared) return null;
+        if (finish && resultTaken >= resultPrepared) return null;
         // 是否准备足够有序结果
         synchronized (this) {
             while (resultPrepared < resultTaken + count && !finish) {
@@ -141,7 +182,6 @@ public class AlarmScanner {
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
-
             }
         }
         List<Pair<Integer, IAlarm>> result = new ArrayList<>();
@@ -152,6 +192,20 @@ public class AlarmScanner {
         }
         resultTaken += result.size();
         return result;
+    }
+
+    @Override
+    public void close(){
+        closing = true;
+        synchronized (cacheAlarms) {
+            cacheAlarms.notifyAll();
+        }
+        if (manageThread != null) {
+            synchronized (manageThread) {
+                manageThread.notify();
+            }
+            pool.shutdown();
+        }
     }
 
     /**
@@ -188,16 +242,67 @@ public class AlarmScanner {
                     end = sb.toString();
                     Scan scan = new Scan(start.getBytes(),end.getBytes());
                     scan.addFamily("r".getBytes());
-                    scan.setBatch(100);
+                    // 设置字段的Filter，其中filterLists是总逻辑，filters是字段的逻辑
+                    List<Filter> filterLists = new ArrayList<>();
+                    if (filter.getAllowAlarmType() != null && filter.getAllowAlarmType().size() != 0){
+                        List<Filter> filters = new ArrayList<>();
+                        for (String alarmType : filter.getAllowAlarmType()) {
+                            SingleColumnValueFilter filter = new SingleColumnValueFilter(
+                                    Bytes.toBytes("r"),
+                                    Bytes.toBytes("type"),
+                                    CompareFilter.CompareOp.EQUAL,
+                                    new SubstringComparator(alarmType)
+                            );
+                            filter.setFilterIfMissing(false);
+                            filter.setLatestVersionOnly(true);
+                            filters.add(filter);
+                        }
+                        FilterList filterList = new FilterList(FilterList.Operator.MUST_PASS_ONE, filters);
+                        filterLists.add(filterList);
+                    }
+                    if (filter.getAllowAlarmStatus() != null && filter.getAllowAlarmType().size() != 0){
+                        List<Filter> filters = new ArrayList<>();
+                        for (String alarmStatus : filter.getAllowAlarmStatus()) {
+                            SingleColumnValueFilter filter = new SingleColumnValueFilter(
+                                    Bytes.toBytes("r"),
+                                    Bytes.toBytes("stat"),
+                                    CompareFilter.CompareOp.EQUAL,
+                                    new SubstringComparator(alarmStatus)
+                            );
+                            filter.setFilterIfMissing(false);
+                            filter.setLatestVersionOnly(true);
+                            filters.add(filter);
+                        }
+                        FilterList filterList = new FilterList(FilterList.Operator.MUST_PASS_ONE, filters);
+                        filterLists.add(filterList);
+                    }
+                    if (filter.getAllowReadStatus() != null && filter.getAllowAlarmType().size() != 0){
+                        List<Filter> filters = new ArrayList<>();
+                        for (String readStatus : filter.getAllowReadStatus()) {
+                            SingleColumnValueFilter filter = new SingleColumnValueFilter(
+                                    Bytes.toBytes("r"),
+                                    Bytes.toBytes("viewed"),
+                                    CompareFilter.CompareOp.EQUAL,
+                                    new SubstringComparator(readStatus)
+                            );
+                            filter.setFilterIfMissing(false);
+                            filter.setLatestVersionOnly(true);
+                            filters.add(filter);
+                        }
+                        FilterList filterList = new FilterList(FilterList.Operator.MUST_PASS_ONE, filters);
+                        filterLists.add(filterList);
+                    }
+                    if (!filterLists.isEmpty()) {
+                        FilterList fList = new FilterList(FilterList.Operator.MUST_PASS_ALL, filterLists);
+                        scan.setFilter(fList);
+                    }
+
                     ResultScanner scanner = table.getScanner(scan);
                     AlarmSearchUtils.addToList(scanner, result, pair.getKey(),query.tableName);
-                    Result[] results = scanner.next(100);
-                    while (results.length != 0) {   // this method never return null
-                        results = scanner.next(100);
-                    }
                     scanner.close();
                 }
                 table.close();
+                if (closing) return;
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -220,15 +325,17 @@ public class AlarmScanner {
             while(nextid < queries) {
                 // 取得本对象的锁。锁的目的是等待空闲线程
                 synchronized (this) {
-                    while (currentThreads.get() >= Settings.MAX_THREAD) {
+                    while (currentThreads.get() >= Settings.MAX_WORKER_THREAD) {
                         try {
                             this.wait(50);
+                            if (closing) return;
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }
                     }
+                    if(!closing) pool.submit(new ScanThread(AlarmScanner.this.queries.poll(), nextid));
+                    else return;
                 }
-                pool.submit(new ScanThread(AlarmScanner.this.queries.poll(), nextid));
                 nextid++;
                 currentThreads.incrementAndGet();
             }

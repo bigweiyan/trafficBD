@@ -27,7 +27,7 @@ public class HbaseUpload {
     private static int copies = 1;
     public static void main(String args[]) {
         if (args.length < 3) {
-            System.out.println("usage: ImportAlarm filename hbaseConfFile");
+            System.out.println("usage: ImportAlarm filename hbaseConfFile [copies]");
             return;
         }
         if (args.length >= 4) {
@@ -39,7 +39,7 @@ public class HbaseUpload {
         alarmC = new HashMap<>();
         viewedC = new HashMap<>();
         try (Connection connection = ConnectionFactory.createConnection(config);
-             FileWriter writer = new FileWriter(new File(Settings.logDir, "import" + args[1] + ".log"))){
+             FileWriter writer = new FileWriter(new File(Settings.LOG_DIR, "import" + args[1] + ".log"))){
             System.out.println("Connect Success");
             File src = new File(args[1]);
             if (src.isFile()) {
@@ -55,28 +55,29 @@ public class HbaseUpload {
         }catch (FileNotFoundException e) {
             System.out.println("File Not found: " + args[1]);
             e.printStackTrace();
-        }catch (Exception e2) {
+        }catch (IOException e2) {
             e2.printStackTrace();
         }
 
         for (Map.Entry<Long, Integer> count: alarmC.entrySet()) {
-            IgniteSearch.getInstance().setAlarmCount(count.getKey(), count.getValue());
+            int value = IgniteSearch.getInstance().getAlarmCount(count.getKey());
+            IgniteSearch.getInstance().setAlarmCount(count.getKey(), count.getValue() + value);
         }
         for (Map.Entry<Long, Integer> count: alarmC.entrySet()) {
-            IgniteSearch.getInstance().setAlarmCount(count.getKey(), count.getValue());
+            int value = IgniteSearch.getInstance().getAlarmCount(count.getKey());
+            IgniteSearch.getInstance().setAlarmCount(count.getKey(), count.getValue() + value);
         }
     }
 
     public static void uploadFile(File file, Connection connection, HashMap<String, List<Put>> putMap, FileWriter logWriter)
-            throws IOException, ParseException {
-        int timeRange = (int) ((Settings.END_TIME - Settings.START_TIME) / 1000);
+            throws IOException {
         long totalLength = file.length();
         long lineEstimate = totalLength / 230;
         long lineRead = 0;
         int percentage = 0;
         CSVParser parser = new CSVParser(new FileReader(file), CSVFormat.DEFAULT);
         Iterator<CSVRecord> records = parser.iterator();
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         records.next();
         Random random = new Random();
         logWriter.write("start " + file.getName() + ": \n");
@@ -91,6 +92,7 @@ public class HbaseUpload {
                 System.out.println("TimeFormat: " + record.toString());
                 continue;
             }
+            createDate.setTime(createDate.getTime() - Settings.IMPORT_TIME_SHIFT);
             String tableName = Utils.getTableName(createDate);
             List<Put> putList;
             if (putMap.containsKey(tableName)) {
@@ -113,7 +115,7 @@ public class HbaseUpload {
                 try {
                     imeiLong = Long.parseLong(imei);
                 }catch (NumberFormatException e) {
-                    System.out.println("imei" + record.toString() + " at " + i + "th copy");
+                    System.out.println("imei " + record.toString() + " at " + i + "th copy");
                     continue;
                 }
                 StringBuilder sb = new StringBuilder();
@@ -125,8 +127,17 @@ public class HbaseUpload {
 
                 // 获取Record
                 sb.setLength(0);
-                sb.append('\"').append(record.get(0)).append("\",").append(record.get(3)).append(',').append(record.get(4)).append(',');
-                sb.append(record.get(6)).append(',').append(record.get(7)).append(',').append(record.get(8)).append(',').append(record.get(10));
+                Date pushTime;
+                try {
+                     pushTime = sdf.parse(record.get(8));
+                }catch (ParseException e) {
+                    System.out.println("push time " + record.toString() + " at " + i + "th copy");
+                    continue;
+                }
+                pushTime.setTime(pushTime.getTime() - Settings.IMPORT_TIME_SHIFT);
+                sb.append('\"').append(record.get(0)).append("\",").append(record.get(3)).append(',');
+                sb.append(record.get(4)).append(',').append(record.get(6)).append(',');
+                sb.append(record.get(7)).append(',').append(sdf.format(pushTime)).append(',').append(record.get(10));
                 String rowRecord = sb.toString();
 
                 // 更新AlarmC和ViewedC

@@ -28,7 +28,7 @@ public class DeviceUpload {
     private static int[] userIdShift = {0, 1000000, 2000000, 3000000, 4000000};
     public static void main(String args[]){
         if (args.length < 2) {
-            System.out.println("usage: ImportDevice [filename/folder]");
+            System.out.println("usage: ImportDevice filename/folder [copies]");
             return;
         }
         if (args.length >=3) {
@@ -37,7 +37,7 @@ public class DeviceUpload {
         File src = new File(args[1]);
         if (src.exists()) {
             try (Connection connection = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1/");
-                 FileWriter writer = new FileWriter(new File(Settings.logDir, "import" + args[1] + ".log"))){
+                 FileWriter writer = new FileWriter(new File(Settings.LOG_DIR, "import" + args[1] + ".log"))){
                 System.out.println("Connect Success");
                 if (src.isFile()) {
                     uploadFile(connection, src, writer);
@@ -90,7 +90,7 @@ public class DeviceUpload {
         while (records.hasNext()){
             CSVRecord record = records.next();
             for (int i = 0; i < copies; i++) {
-                String appid = "undefined";
+                String appid = record.get(0);
                 int enabled = record.get(1).equals("Y") ? 1 : 0;
                 long imei;
                 if (i == 0) {

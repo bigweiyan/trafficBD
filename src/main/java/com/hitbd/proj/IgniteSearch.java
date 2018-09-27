@@ -1,43 +1,50 @@
 package com.hitbd.proj;
 
-import com.hitbd.proj.Exception.DuplicatedPKException;
-import com.hitbd.proj.Exception.ForeignKeyException;
-import com.hitbd.proj.Exception.NotExistException;
-import com.hitbd.proj.Exception.TimeException;
+import com.hitbd.proj.exception.DuplicatedPKException;
+import com.hitbd.proj.exception.ForeignKeyException;
+import com.hitbd.proj.exception.NotExistException;
+import com.hitbd.proj.exception.TimeException;
 import com.hitbd.proj.model.*;
-import com.hitbd.proj.model.UserC;
 import com.hitbd.proj.util.Serialization;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.logger.log4j.Log4JLogger;
+import org.apache.log4j.Level;
 
-import javax.annotation.Nullable;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.*;
-import java.util.Date;
 
 public class IgniteSearch implements IIgniteSearch {
     static Ignite ignite;
     static IgniteCache<Long, Integer> alarmCCache;
     static IgniteCache<Long, Integer> viewedCCache;
-    Connection connection;
     static IgniteSearch search = null;
-//	static {
-//        Ignition.setClientMode(true);
-//        ignite = Ignition.start();
-//        CacheConfiguration<Long, Integer> cfg = new CacheConfiguration<Long, Integer>();
-//        cfg.setName("alarm_c");
-//        cfg.setCacheMode(CacheMode.PARTITIONED);// 存储方式 PARTITIONED适合分布式存储
-//        cfg.setIndexedTypes(Long.class, Integer.class); // 必须设置索引类否则只能以key-value方式查询
-//        alarmCCache = ignite.getOrCreateCache(cfg);// 根据配置创建缓存
-//        cfg = new CacheConfiguration<Long, Integer>();
-//        cfg.setName("viewed_c");
-//        cfg.setCacheMode(CacheMode.PARTITIONED);// 存储方式 PARTITIONED适合分布式存储
-//        cfg.setIndexedTypes(Long.class, Integer.class); // 必须设置索引类否则只能以key-value方式查询
-//        viewedCCache = ignite.getOrCreateCache(cfg);// 根据配置创建缓存
-//	}
+	static {
+		IgniteConfiguration configuration = new IgniteConfiguration();
+		configuration.setClientMode(true);
+        Log4JLogger log4JLogger = new Log4JLogger();
+        log4JLogger.setLevel(Level.ERROR);
+		configuration.setGridLogger(log4JLogger);
+        Ignition.setClientMode(true);
+        ignite = Ignition.start();
+        CacheConfiguration<Long, Integer> cfg = new CacheConfiguration<Long, Integer>();
+        cfg.setName("alarm_c");
+        cfg.setCacheMode(CacheMode.PARTITIONED);// 存储方式 PARTITIONED适合分布式存储
+        cfg.setIndexedTypes(Long.class, Integer.class); // 必须设置索引类否则只能以key-value方式查询
+        alarmCCache = ignite.getOrCreateCache(cfg);// 根据配置创建缓存
+        cfg = new CacheConfiguration<Long, Integer>();
+        cfg.setName("viewed_c");
+        cfg.setCacheMode(CacheMode.PARTITIONED);// 存储方式 PARTITIONED适合分布式存储
+        cfg.setIndexedTypes(Long.class, Integer.class); // 必须设置索引类否则只能以key-value方式查询
+        viewedCCache = ignite.getOrCreateCache(cfg);// 根据配置创建缓存
+	}
 
     private IgniteSearch(){};
 
@@ -47,32 +54,6 @@ public class IgniteSearch implements IIgniteSearch {
         }
         return search;
     }
-
-	@Override
-	public boolean connect() {
-		try {
-			if(connection == null || connection.isClosed()) {
-				connection = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1/");
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return false;
-		}
-		return true;
-	}
-
-	@Override
-	public boolean connect(String hostname, int port) {
-		try {
-			if(connection == null || connection.isClosed()) {
-			connection = DriverManager.getConnection("jdbc:ignite:thin://" + hostname + ":" + port + "/");
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return false;
-		}
-		return true;
-	}
 
 	@Override
 	public int getAlarmCount(long imei) {
@@ -103,7 +84,7 @@ public class IgniteSearch implements IIgniteSearch {
 	}
 
 	@Override
-	public IUserB getUserB(int userBId) throws NotExistException {
+	public IUserB getUserB(Connection connection, int userBId) throws NotExistException {
 		try(PreparedStatement pstmt = connection.prepareStatement("SELECT user_id FROM UserB WHERE user_id = ?")) {
 			pstmt.setInt(1, userBId);
 			ResultSet rs = pstmt.executeQuery();
@@ -122,7 +103,7 @@ public class IgniteSearch implements IIgniteSearch {
 	}
 
 	@Override
-	public IDevice getDevice(int imei) throws NotExistException {
+	public IDevice getDevice(Connection connection, int imei) throws NotExistException {
 		try(PreparedStatement pstmt = connection.prepareStatement("SELECT imei FROM Device WHERE imei = ?")) {
 			pstmt.setLong(1, imei);
 			ResultSet rs = pstmt.executeQuery();
@@ -147,7 +128,7 @@ public class IgniteSearch implements IIgniteSearch {
 	}
 
 	@Override
-	public IUserC getUserC(int userCId) throws NotExistException {
+	public IUserC getUserC(Connection connection, int userCId) throws NotExistException {
 		try(PreparedStatement pstmt = connection.prepareStatement("SELECT user_id FROM UserC WHERE imei = ?")) {
 			pstmt.setInt(1, userCId);
 			ResultSet rs = pstmt.executeQuery();
@@ -167,7 +148,7 @@ public class IgniteSearch implements IIgniteSearch {
 	}
 
 	@Override
-	public int createUserB(int parentId) {
+	public int createUserB(Connection connection, int parentId) {
 		try(PreparedStatement pstmt = connection.prepareStatement("SELECT user_id FROM UserB WHERE user_id = ?");
 				PreparedStatement pstmt2 = connection.prepareStatement("SELECT user_id FROM UserB ")) {
 			pstmt.setInt(1, parentId);
@@ -191,19 +172,18 @@ public class IgniteSearch implements IIgniteSearch {
 		return -1;
 	}
 
-	private int addUserBData(UserB usr, Connection conn) throws SQLException {
+	private void addUserBData(UserB usr, Connection conn) throws SQLException {
 		String sql = "insert into user_b values(?,?,?)";
 		PreparedStatement pstmt = conn.prepareStatement(sql);
 		pstmt.setInt(1, usr.getUserBId());
 		pstmt.setInt(2, usr.getParentId());
 		pstmt.setString(3, "");
-		int result = pstmt.executeUpdate();
+		pstmt.executeUpdate();
 		pstmt.close();
-		return result;
 	}
 
 	@Override
-	public int createUserC() {
+	public int createUserC(Connection connection) {
 		int newid = -1;
 		try (PreparedStatement pstmt = connection.prepareStatement("SELECT user_id FROM UserC ")){
 			ResultSet rs = pstmt.executeQuery();
@@ -217,20 +197,20 @@ public class IgniteSearch implements IIgniteSearch {
 		return newid;
 	}
 
-	public int addUserCData(UserC usr, Connection conn) throws SQLException {
+	private void addUserCData(UserC usr, Connection conn) throws SQLException {
 		String sql = "insert into UserC values(?,?,?,?)";
 		PreparedStatement pstmt = conn.prepareStatement(sql);
 		pstmt.setInt(1, usr.getUserCId());
 		pstmt.setString(2, usr.getDevicesText());
 		pstmt.setString(3, usr.getAuthedDevicesText());
 		pstmt.setString(4, usr.getAuthUserIdsText());
-		int result = pstmt.executeUpdate();
+		pstmt.executeUpdate();
 		pstmt.close();
-		return result;
 	}
 
 	@Override
-	public void createDevice(long imei, int userBId) throws DuplicatedPKException, ForeignKeyException {
+	public void createDevice(Connection connection, long imei, int userBId)
+			throws DuplicatedPKException, ForeignKeyException {
 		try (PreparedStatement pstmt = connection.prepareStatement("SELECT user_id FROM UserB WHERE user_id = ?");
 				PreparedStatement pstmtimei = connection.prepareStatement("SELECT imei FROM Device WHERE imei = ?")){
 			pstmt.setInt(1, userBId);
@@ -256,7 +236,8 @@ public class IgniteSearch implements IIgniteSearch {
 	}
 
 	@Override
-	public void setNewParent(int childBId, int parentBId) throws ForeignKeyException, NotExistException {
+	public void setNewParent(Connection connection, int childBId, int parentBId)
+            throws ForeignKeyException, NotExistException {
 		try {
 			String sql = "select parent_id from user_b where user_id=?";
 			PreparedStatement pstmt = connection.prepareStatement(sql);
@@ -296,17 +277,17 @@ public class IgniteSearch implements IIgniteSearch {
 	}
 
 	@Override
-	public void addUserCDevice(int userCId, long imei) throws ForeignKeyException, NotExistException {
+	public void addUserCDevice(Connection connection, int userCId, long imei) throws ForeignKeyException, NotExistException {
 
 	}
 
 	@Override
-	public void authorizeCDevice(long imei, int toCId) throws ForeignKeyException, NotExistException {
+	public void authorizeCDevice(Connection connection, long imei, int toCId) throws ForeignKeyException, NotExistException {
 
 	}
 
 	@Override
-	public void updateDevice(long imei, String deviceType, String deviceName, String projectId, boolean enabled,
+	public void updateDevice(Connection connection, long imei, String deviceType, String deviceName, String projectId, boolean enabled,
 			boolean repayment, String isupdate) throws SQLException {
 		String sql = "update Device set ";
 		int i;
@@ -326,7 +307,7 @@ public class IgniteSearch implements IIgniteSearch {
 	}
 
 	@Override
-	public void deleteParentLink(int childBId) throws SQLException, NotExistException {
+	public void deleteParentLink(Connection connection, int childBId) throws SQLException, NotExistException {
 		String sql = "select parent_id from user_b where user_id = " + String.valueOf(childBId);
 		PreparedStatement pstmt = connection.prepareStatement(sql);
 		ResultSet rs = pstmt.executeQuery();
@@ -406,7 +387,7 @@ public class IgniteSearch implements IIgniteSearch {
 	}
 
 	@Override
-	public void relocateDevice(long imei, int toBid, String[] parentIds, Date[] expireDates)
+	public void relocateDevice(Connection connection, long imei, int toBid, String[] parentIds, Date[] expireDates)
 			throws SQLException, TimeException {
 		// is toBid exist
 		String sql = "select * from user_b where user_id = " + String.valueOf(toBid);
@@ -428,7 +409,7 @@ public class IgniteSearch implements IIgniteSearch {
 	}
 
 	@Override
-	public void deleteDevice(long imei) throws SQLException {
+	public void deleteDevice(Connection connection, long imei) throws SQLException {
 		int usrid;
 		// find user_c
 		String sql = "select user_c_id from Device where imei=" + Long.toString(imei);
@@ -500,7 +481,7 @@ public class IgniteSearch implements IIgniteSearch {
 	}
 
 	@Override
-	public void deleteAuthorization(long imei, int userCId) throws SQLException {
+	public void deleteAuthorization(Connection connection, long imei, int userCId) throws SQLException {
 		// update authed list
 		String sql = "select authed_device from user_c where user_id = " + Integer.toString(userCId);
 		PreparedStatement pstmt = connection.prepareStatement(sql);
@@ -546,7 +527,7 @@ public class IgniteSearch implements IIgniteSearch {
 	}
 
 	@Override
-	public void updateExpireDate(long imei, int userBId, Date expireDate) throws TimeException, NotExistException {
+	public void updateExpireDate(Connection connection, long imei, int userBId, Date expireDate) throws TimeException, NotExistException {
 		try {
 			long day = (expireDate.getTime() - Settings.BASETIME) / (24 * 60 * 60 * 1000);
 			if (day < 0) { // 日期不合法
@@ -566,7 +547,7 @@ public class IgniteSearch implements IIgniteSearch {
 					break;
 				}
 				if (i % 2 == 1) {
-					if (expireDate.compareTo(Settings.MAXTIME) > 0)
+					if (expireDate.compareTo(Settings.MAX_TIME) > 0)
 						time = 0;
 					else
 						time = (int) (day - list.get(i));
@@ -587,7 +568,7 @@ public class IgniteSearch implements IIgniteSearch {
 	}
 
 	@Override
-	public void removeCDevice(long imei) throws SQLException {
+	public void removeCDevice(Connection connection, long imei) throws SQLException {
 		String sql = "select user_c_id from Device where imei = " + String.valueOf(imei);
 		PreparedStatement pstmt = connection.prepareStatement(sql);
 		ResultSet rs = pstmt.executeQuery();
@@ -649,20 +630,6 @@ public class IgniteSearch implements IIgniteSearch {
 		}
 	}
 
-	@Override
-	public boolean close() {
-		if (connection == null) {
-			return false;
-		}
-		try {
-			connection.close();
-			return true;
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return false;
-		}
-	}
-
     /**
      * 补充代码1
      * 根据用户id查找直接设备
@@ -671,8 +638,7 @@ public class IgniteSearch implements IIgniteSearch {
      * @param useExpire 是否使用过期时间对设备进行过滤
      * @return 直属设备列表
      */
-    public List<Long> getDirectDevices(int userBId, int relativeId, boolean useExpire) {
-        if (connection == null) connect();
+    public List<Long> getDirectDevices(Connection connection, int userBId, int relativeId, boolean useExpire) {
         List<Long> result = new ArrayList<>();
         Date now = new Date();
         try (PreparedStatement pstmt = connection.prepareStatement("SELECT imei, expire_list FROM Device WHERE user_b_id = ?;")){
@@ -709,8 +675,7 @@ public class IgniteSearch implements IIgniteSearch {
      * @param userBId
      * @return 孩子的bid列表
      */
-    public List<Integer> getChildren(int userBId) {
-        if (connection == null) connect();
+    public List<Integer> getChildren(Connection connection, int userBId) {
         List<Integer> children = new ArrayList<>();
         try (PreparedStatement pst = connection.prepareStatement("SELECT children_ids from user_b where user_id = ?;")){
             pst.setInt(1, userBId);
@@ -725,8 +690,8 @@ public class IgniteSearch implements IIgniteSearch {
         return children;
     }
 
-    public HashMap<Integer, List<Long>> getChildrenDevicesOfUserB(int userBId){
-        return getChildrenDevicesOfUserB(userBId, true);
+    public HashMap<Integer, List<Long>> getChildrenDevicesOfUserB(Connection connection, int userBId){
+        return getChildrenDevicesOfUserB(connection, userBId, true);
     }
 
     /**
@@ -736,18 +701,18 @@ public class IgniteSearch implements IIgniteSearch {
 	 * @param useExpire 如果为true，则过滤掉过期设备
      * @return
      */
-    public HashMap<Integer, List<Long>> getChildrenDevicesOfUserB(int userBId, boolean useExpire){
+    public HashMap<Integer, List<Long>> getChildrenDevicesOfUserB(Connection connection, int userBId, boolean useExpire){
         HashMap<Integer, List<Long>> userImeiMap = new HashMap<>();
         Queue<Integer> queue = new LinkedList<>();
         queue.offer(userBId);
         while (!queue.isEmpty()) {
             int user = queue.poll();
-            List<Integer> children_list = getChildren(user);
+            List<Integer> children_list = getChildren(connection, user);
             for (Integer element : children_list) {
                 queue.offer(element);
             }
 
-            List<Long> directDevices = getDirectDevices(user, userBId, useExpire);
+            List<Long> directDevices = getDirectDevices(connection, user, userBId, useExpire);
             userImeiMap.put(user, directDevices);
         }
         return userImeiMap;
@@ -760,7 +725,7 @@ public class IgniteSearch implements IIgniteSearch {
      * @return
      * @throws SQLException 
      */
-    public HashMap<Integer, List<Long>> getLevelOrderChildrenDevicesOfUserB(int userBId, boolean useExpire){
+    public HashMap<Integer, List<Long>> getLevelOrderChildrenDevicesOfUserB(Connection connection, int userBId, boolean useExpire){
         HashMap<Integer, List<Long>> userImeiMap = new HashMap<>();
 		ArrayList<Integer> childqueue = new ArrayList<Integer>();
 		ArrayList<Long> imeis = new ArrayList<Long>();
@@ -828,5 +793,8 @@ public class IgniteSearch implements IIgniteSearch {
         }
         return userImeiMap;
     }
-    
+
+    public void stop(){
+        if(ignite != null) Ignition.stop(true);
+    }
 }

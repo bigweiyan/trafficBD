@@ -1,8 +1,8 @@
 package com.hitbd.proj;
 
-import com.hitbd.proj.Exception.ForeignKeyException;
-import com.hitbd.proj.Exception.NotExistException;
-import com.hitbd.proj.Exception.TimeException;
+import com.hitbd.proj.exception.ForeignKeyException;
+import com.hitbd.proj.exception.NotExistException;
+import com.hitbd.proj.exception.TimeException;
 import com.hitbd.proj.logic.AlarmScanner;
 import com.hitbd.proj.model.IAlarm;
 import com.hitbd.proj.model.Pair;
@@ -18,10 +18,15 @@ import java.util.Map;
  * 本文件不允许擅自修改，有修改需求请联系负责人
  */
 public interface IHbaseSearch {
-    int NO_SORT = 0;
-    int SORT_BY_CREATE_TIME = 1;
-    int SORT_BY_USER_ID = 2;
-    int SORT_BY_IMEI = 3;
+    int NO_SORT = 0x00;
+    int SORT_BY_CREATE_TIME = 0x01;
+    int SORT_BY_USER_ID = 0x02;
+    int SORT_BY_IMEI = 0x03;
+    int SORT_BY_PUSH_TIME = 0x04;
+    int SORT_ASC = 0x00;
+    int SORT_DESC = 0x10;
+    int FIELD_MASK = 0x0f;
+    int ORDER_MASK = 0x10;
     /**
      * A5.1
      * 连接到Hbase集群
@@ -92,7 +97,8 @@ public interface IHbaseSearch {
      * @param filter 筛选类型
      * @return
      */
-    AlarmScanner queryAlarmByUser(int queryUser, List<Integer> userBIds, boolean recursive, int sortType, QueryFilter filter);
+    AlarmScanner queryAlarmByUser(java.sql.Connection connection, int queryUser,
+                                  List<Integer> userBIds, boolean recursive, int sortType, QueryFilter filter);
 
     /**
      * 5.1-5.3a
@@ -132,7 +138,7 @@ public interface IHbaseSearch {
      * @param sortType 排序类型
      * @return
      */
-    List<IAlarm> queryAlarmByUserC(int userCId, int sortType);
+    AlarmScanner queryAlarmByUserC(java.sql.Connection connection, int userCId, int sortType, QueryFilter filter);
 
     /**
      * 5.5
@@ -140,7 +146,7 @@ public interface IHbaseSearch {
      * @param parentBId
      * @param recursive 是否递归查询所有设备
      */
-    Map<String, Integer> groupCountByImeiStatus(int parentBId, boolean recursive);
+    Map<String, Integer> groupCountByImeiStatus(java.sql.Connection connection, int parentBId, boolean recursive);
 
     /**
      * 5.5 按照用户和已读标记分组Count查询
@@ -148,7 +154,8 @@ public interface IHbaseSearch {
      * @param recursive 是否递归查询所有用户
      * @return
      */
-    Map<String, Integer> groupCountByUserIdViewed(ArrayList<Integer> parentBIds, boolean recursive);
+    Map<String, Integer> groupCountByUserIdViewed(java.sql.Connection connection, ArrayList<Integer> parentBIds,
+                                                  boolean recursive);
 
     /**
      * 5.5 按照用户Count查询，只要求前K个结果
@@ -157,7 +164,8 @@ public interface IHbaseSearch {
      * @param topK
      * @return
      */
-    Map<Integer, Integer> groupCountByUserId(ArrayList<Integer> parentBIds, boolean recursive, int topK);
+    Map<Integer, Integer> groupCountByUserId(java.sql.Connection connection, ArrayList<Integer> parentBIds,
+                                             boolean recursive, int topK);
 
     /**
      * A5.3
