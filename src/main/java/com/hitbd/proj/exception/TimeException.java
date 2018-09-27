@@ -1,4 +1,4 @@
-package com.hitbd.proj.Exception;
+package com.hitbd.proj.exception;
 
 public class TimeException extends Exception {
 }

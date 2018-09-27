@@ -4,42 +4,36 @@ import com.hitbd.proj.model.Pair;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 
 public class QueryFilter {
-    public List<Integer> getAllowUserIds() {
-        return allowUserIds;
-    }
+    private Set<String> allowReadStatus;
+    private Set<String> allowAlarmStatus;
+    private Set<String> allowAlarmType;
+    private Pair<Date, Date> allowTimeRange;
 
-    public void setAllowUserIds(List<Integer> allowUserIds) {
-        this.allowUserIds = allowUserIds;
-    }
-
-    public List<Long> getAllowIMEIs() {
-        return allowIMEIs;
-    }
-
-    public void setAllowIMEIs(List<Long> allowIMEIs) {
-        this.allowIMEIs = allowIMEIs;
-    }
-
-    public List<String> getAllowAlarmType() {
+    public Set<String> getAllowAlarmType() {
         return allowAlarmType;
     }
-
-    public void setAllowAlarmType(List<String> allowAlarmType) {
+    public void setAllowAlarmType(Set<String> allowAlarmType) {
         this.allowAlarmType = allowAlarmType;
     }
-
     public Pair<Date, Date> getAllowTimeRange() {
         return allowTimeRange;
     }
-
     public void setAllowTimeRange(Pair<Date, Date> allowTimeRange) {
         this.allowTimeRange = allowTimeRange;
     }
-
-    private List<Integer> allowUserIds;
-    private List<Long> allowIMEIs;
-    private List<String> allowAlarmType;
-    private Pair<Date, Date> allowTimeRange;
+    public Set<String> getAllowAlarmStatus() {
+        return allowAlarmStatus;
+    }
+    public void setAllowAlarmStatus(Set<String> allowAlarmStatus) {
+        this.allowAlarmStatus = allowAlarmStatus;
+    }
+    public Set<String> getAllowReadStatus() {
+        return allowReadStatus;
+    }
+    public void setAllowReadStatus(Set<String> allowReadStatus) {
+        this.allowReadStatus = allowReadStatus;
+    }
 }
