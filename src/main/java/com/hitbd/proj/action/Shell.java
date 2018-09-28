@@ -18,18 +18,19 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 
 public class Shell {
-    java.sql.Connection ignite;
-    Connection connection;
+    private java.sql.Connection ignite;
+    private Connection connection;
     private static final int QUERY_IMEI = 0;
     private static final int QUERY_USER_ID = 1;
-    int queryType = QUERY_USER_ID;
-    List<Integer> userIDs;
-    int queryUserId = 1;
-    List<Long> imeis;
-    Date startTime;
-    Date endTime;
-    int resultSize = 5;
-    SimpleDateFormat sdf;
+    private int order = HbaseSearch.SORT_ASC;
+    private int queryType = QUERY_USER_ID;
+    private List<Integer> userIDs;
+    private int queryUserId = 1;
+    private List<Long> imeis;
+    private Date startTime;
+    private Date endTime;
+    private int resultSize = 5;
+    private SimpleDateFormat sdf;
     public void main(){
         System.out.println("初始化Ignite");
         IgniteSearch.getInstance();
@@ -126,6 +127,11 @@ public class Shell {
                         imeis.clear();
                         userIDs.clear();
                         break;
+                    case "order":
+                        if (order == HbaseSearch.SORT_ASC) order = HbaseSearch.SORT_DESC;
+                        else order = HbaseSearch.SORT_ASC;
+                        System.out.println("排序顺序为：" +(order == HbaseSearch.SORT_ASC ? "升序" : "降序"));
+                        break;
                     default:
                         System.out.println("unknown command: " + cmd);
                 }
@@ -145,8 +151,19 @@ public class Shell {
         HashMap<Integer, List<Long>> map = new HashMap<>();
         map.put(0, imeis);
         QueryFilter filter = new QueryFilter();
+//        HashSet<String> type = new HashSet<>();
+//        type.add("other");
+//        HashSet<String> stat = new HashSet<>();
+//        stat.add("ACC_ON");
+//        stat.add("ACC_OFF");
+//        HashSet<String> viewed = new HashSet<>();
+//        viewed.add("1");
+//        filter.setAllowAlarmStatus(stat);
+//        filter.setAllowAlarmType(type);
+//        filter.setAllowReadStatus(viewed);
         filter.setAllowTimeRange(new Pair<>(startTime, endTime));
-        AlarmScanner result = HbaseSearch.getInstance().queryAlarmByImei(map, HbaseSearch.SORT_BY_CREATE_TIME, filter);
+        AlarmScanner result = HbaseSearch.getInstance().queryAlarmByImei(map,
+                order |HbaseSearch.SORT_BY_CREATE_TIME, filter);
         result.setConnection(connection);
         int no = 1;
         int total = 0;
@@ -162,6 +179,7 @@ public class Shell {
                 IAlarm alarm = pair.getValue();
                 System.out.println(no +" : imei-"+ alarm.getImei() + " " +
                         sdf.format(alarm.getCreateTime()) + " " + alarm.getAddress());
+                System.out.println("\t + type:" + alarm.getType() + " stat:" + alarm.getStatus() + " viewed:" + alarm.getViewed());
                 no++;
                 total++;
             }
@@ -177,7 +195,8 @@ public class Shell {
         filter.setAllowTimeRange(new Pair<>(startTime, endTime));
         Date startTime = new Date();
         AlarmScanner result = HbaseSearch.getInstance().
-                queryAlarmByUser(ignite, queryUserId, userIDs,false, HbaseSearch.SORT_BY_CREATE_TIME, filter);
+                queryAlarmByUser(ignite, queryUserId, userIDs,false,
+                        order | HbaseSearch.SORT_BY_CREATE_TIME, filter);
         result.setConnection(connection);
         System.out.println("imei query finished in" + (new Date().getTime() - startTime.getTime()) + "ms, "
                 + result.totalImei + "result found");
@@ -193,6 +212,7 @@ public class Shell {
                 IAlarm alarm = pair.getValue();
                 System.out.println(no +" : userid-"+ pair.getKey() + " imei-" + alarm.getImei() +
                         " " + sdf.format(alarm.getCreateTime()) + " " + alarm.getAddress());
+                System.out.println("\t + type:" + alarm.getType() + " stat:" + alarm.getStatus() + " viewed:" + alarm.getViewed());
                 no++;
                 total++;
             }

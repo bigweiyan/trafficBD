@@ -48,6 +48,8 @@ public interface IAlarm {
 
   void setViewed(boolean viewed);
 
+  boolean getViewed();
+
   String getEncId();
 
   void setEncId(String encId);
