@@ -64,6 +64,9 @@ public class Main {
                 new Shell().main();
                 IgniteSearch.getInstance().stop();
                 break;
+            case "CountAlarm":
+                CountAlarmByDay.main(args);
+                break;
             default:
                 System.out.println("Usage: trafficBD Action [Parameter]");
                 System.out.println("Actions:");
