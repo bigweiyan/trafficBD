@@ -60,6 +60,10 @@ public class Main {
                 new TestUserSearch().main(args);
                 IgniteSearch.getInstance().stop();
                 break;
+            case "TestHbaseSearch":
+                new TestUserSearch().main(args);
+                IgniteSearch.getInstance().stop();
+                break;
             case "shell":
                 new Shell().main();
                 IgniteSearch.getInstance().stop();
@@ -114,6 +118,12 @@ public class Main {
                                 break;
                             case "test.wait_until_finish":
                                 Settings.Test.WAIT_UNTIL_FINISH = value.equals("true");
+                                break;
+                            case "test.start_time_default":
+                                Settings.Test.START_TIME_DEFAULT = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").parse(value).getTime();
+                                break;
+                            case "test.start_time_option":
+                                Settings.Test.START_TIME_OPTION = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").parse(value).getTime();
                                 break;
                             case "test.start_time":
                                 Settings.Test.START_TIME = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").parse(value).getTime();
