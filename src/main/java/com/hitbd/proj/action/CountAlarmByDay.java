@@ -46,6 +46,7 @@ public class CountAlarmByDay {
                 map.put(imei,count);
             }
         }
+        parser.close();
     }
 
     public static void output(PrintWriter out){
