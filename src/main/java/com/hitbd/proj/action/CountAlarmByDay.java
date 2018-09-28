@@ -52,6 +52,7 @@ public class CountAlarmByDay {
     public static void output(PrintWriter out){
         StringBuilder sb = new StringBuilder();
         for (Map.Entry<Long, Map<String, Integer>> entry : map.entrySet()) {
+            sb.setLength(0);
             sb.append(entry.getKey()).append(',');
             for (Map.Entry<String, Integer> entry2 : entry.getValue().entrySet()) {
                 sb.append(entry2.getKey()).append(':').append(entry2.getValue()).append(',');
@@ -59,8 +60,8 @@ public class CountAlarmByDay {
             sb.setLength(sb.length() - 1);
             sb.append("\n");
             out.print(sb.toString());
-            out.flush();
         }
+        out.flush();
     }
 
     public static void main(String[] args){

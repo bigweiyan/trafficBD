@@ -336,8 +336,6 @@ public class AlarmScanner implements Closeable {
                     if(!closing) pool.submit(new ScanThread(AlarmScanner.this.queries.poll(), nextid));
                     else return;
                 }
-                if(closing) return;
-                pool.submit(new ScanThread(AlarmScanner.this.queries.poll(), nextid));
                 nextid++;
                 currentThreads.incrementAndGet();
             }
