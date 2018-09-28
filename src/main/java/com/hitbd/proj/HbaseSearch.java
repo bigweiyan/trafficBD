@@ -550,6 +550,7 @@ public class HbaseSearch implements IHbaseSearch {
             for (Long imei : imeis) {
                 Get get = new Get(Bytes.toBytes(Long.toString(imei)));
                 get.addFamily(Bytes.toBytes("a"));
+                getList.add(get);
             }
             Result[] results = table.get(getList);
 

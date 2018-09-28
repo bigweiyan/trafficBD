@@ -2,6 +2,7 @@ package com.hitbd.proj.action;
 
 import com.hitbd.proj.HbaseSearch;
 import com.hitbd.proj.Settings;
+import com.hitbd.proj.model.Pair;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 
@@ -20,9 +21,12 @@ public class TestAlarmCount {
         longs.add(Long.parseLong(args[1]));
         try (Connection connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG)){
             Date date = new Date();
-            System.out.println(HbaseSearch.getInstance().getAlarmCount(connection, args[3],
-                    args[2], longs));
-            System.out.println("Use Time:" + (date.getTime() - new Date().getTime()) + " ms");
+            List<Pair<Long, Integer>> result = HbaseSearch.getInstance().getAlarmCount(connection, args[2],
+                    args[3], longs);
+            for (Pair<Long, Integer> pair: result) {
+                System.out.println(pair.getKey() + ": " + pair.getValue());
+            }
+            System.out.println("Use Time:" + (new Date().getTime() - date.getTime()) + " ms");
         }catch (IOException|NumberFormatException e){
             e.printStackTrace();
         }
