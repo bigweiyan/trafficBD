@@ -341,7 +341,95 @@ public class HbaseSearch implements IHbaseSearch {
             for (int user : userBIds) userAndDevice
                     .put(user, IgniteSearch.getInstance().getDirectDevices(ignite, user, queryUser, false));
         }
+        pruning(hbase, filter, userAndDevice);
         return queryAlarmByImei(hbase, userAndDevice, sortType, filter);
+    }
+
+    private void pruning(Connection hbase, QueryFilter filter, HashMap<Integer, List<Long>> userAndDevice){
+        Date date = new Date();
+
+        Date start = filter.getAllowTimeRange().getKey();
+        Date end = filter.getAllowTimeRange().getValue();
+        String startDateInt, endDateInt;
+        if (start == null) start = new Date(Settings.START_TIME);
+        if (end == null) end = new Date(Settings.END_TIME);
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(start);
+        startDateInt = "" + ((calendar.get(Calendar.MONTH) + 1) * 100 + calendar.get(Calendar.DAY_OF_MONTH));
+        calendar.setTime(end);
+        endDateInt = "" + ((calendar.get(Calendar.MONTH) + 1) * 100 + calendar.get(Calendar.DAY_OF_MONTH));
+        List<Long> imeis = new ArrayList<>();
+        for (Map.Entry<Integer, List<Long>> entry : userAndDevice.entrySet()) {
+            imeis.addAll(entry.getValue());
+        }
+        Map<Long, Map<String, Integer>> statusPruningMap = null;
+        Map<Long, Map<String, Integer>> readPruningMap = null;
+        Map<Long, Integer> totalPruningMap = HbaseSearch.getInstance().getAlarmCount(hbase, startDateInt, endDateInt, imeis);
+        if (filter.getAllowReadStatus() != null && filter.getAllowReadStatus().size() != 0) {
+            readPruningMap = HbaseSearch.getInstance().getAlarmCountByRead(hbase, startDateInt, endDateInt, imeis);
+        }
+        if (filter.getAllowAlarmStatus() != null && filter.getAllowAlarmStatus().size() != 0) {
+            statusPruningMap = HbaseSearch.getInstance().getAlarmCountByStatus(hbase, startDateInt, endDateInt, imeis);
+        }
+
+        if (Thread.currentThread().getId() % 5 == 0){
+            System.out.println("getMapTime:" + (new Date().getTime() - date.getTime()));
+        }
+        date = new Date();
+
+        Set<Long> pruned = new HashSet<>();
+        for (Long l : imeis) {
+            if (totalPruningMap != null && totalPruningMap.getOrDefault(l, 0) == 0) {
+                pruned.add(l);
+                continue;
+            }
+            // 如果用户没有对某一列进行筛选，那么这一列的剪枝也没有意义，相当于直接求和也就是上一步的结果。
+            // 因此此时断言pruningMap存在，则allowSet存在
+            if (readPruningMap != null) {
+                int sum = 0;
+                Map<String, Integer> imeiMap = readPruningMap.getOrDefault(l, null);
+                if (imeiMap == null || imeiMap.size() == 0) continue;
+                for (String read: filter.getAllowReadStatus()) {
+                    sum += imeiMap.getOrDefault(read, 0);
+                }
+                if (sum == 0) {
+                    pruned.add(l);
+                    continue;
+                }
+            }
+            if (statusPruningMap != null) {
+                int sum = 0;
+                Map<String, Integer> imeiMap = statusPruningMap.getOrDefault(l, null);
+                if (imeiMap == null || imeiMap.size() == 0) continue;
+                for (String status : filter.getAllowAlarmStatus()) {
+                    sum += imeiMap.getOrDefault(status, 0);
+                }
+                if (sum == 0) {
+                    pruned.add(l);
+                }
+            }
+        }
+        if (Thread.currentThread().getId() % 5 == 0){
+            System.out.println("find pruned time:" + (new Date().getTime() - date.getTime()));
+        }
+        date = new Date();
+
+        if (pruned.size() == 0) return;
+        for (Map.Entry<Integer, List<Long>> entry : userAndDevice.entrySet()) {
+            List<Long> longs = entry.getValue();
+            int len = longs.size();
+            for (int i = 0; i < len; i++) {
+                if (pruned.contains(longs.get(i))) {
+                    longs.remove(i);
+                    i--;
+                    len--;
+                }
+            }
+        }
+        if (Thread.currentThread().getId() % 5 == 0){
+            System.out.println("prune time:" + (new Date().getTime() - date.getTime()));
+        }
+
     }
 
     @Override
@@ -568,6 +656,7 @@ public class HbaseSearch implements IHbaseSearch {
 
             for (Result result : results) {
                 List<Cell> cells = result.listCells();
+                if (cells == null) continue;
                 for (Cell cell : cells) {
                     String row = Bytes.toString(cell.getRowArray(), cell.getRowOffset(), cell.getRowLength());
                     String date = Bytes.toString(cell.getQualifierArray(), cell.getQualifierOffset(), cell.getQualifierLength());
@@ -612,6 +701,7 @@ public class HbaseSearch implements IHbaseSearch {
 
             for (Result result : results) {
                 List<Cell> cells = result.listCells();
+                if (cells == null) continue;
                 for (Cell cell : cells) {
                     String row = Bytes.toString(cell.getRowArray(), cell.getRowOffset(), cell.getRowLength());
                     String date = Bytes.toString(cell.getQualifierArray(), cell.getQualifierOffset(), cell.getQualifierLength());
@@ -664,6 +754,7 @@ public class HbaseSearch implements IHbaseSearch {
 
             for (Result result : results) {
                 List<Cell> cells = result.listCells();
+                if (cells == null) continue;
                 for (Cell cell : cells) {
                     String row = Bytes.toString(cell.getRowArray(), cell.getRowOffset(), cell.getRowLength());
                     String date = Bytes.toString(cell.getQualifierArray(), cell.getQualifierOffset(), cell.getQualifierLength());

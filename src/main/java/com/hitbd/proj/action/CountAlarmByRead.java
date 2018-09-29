@@ -27,7 +27,7 @@ public class CountAlarmByRead {
             CSVRecord record = records.next();
             long imei;
             String push_time = record.get(8).substring(5,7) + record.get(8).substring(8,10);
-            String read = record.get(9).equals("0") ? "1" : "0";
+            String read = record.get(9).equals("0") ? "0" : "1";
 
             // 校验行是否符合规范
             try {

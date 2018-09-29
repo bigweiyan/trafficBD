@@ -136,32 +136,48 @@ public class AlarmScanner implements Closeable {
     // 线程提交结果
     private void commitQueryResult(int tid, List<Pair<Integer,IAlarm>> alarms) {
         // 同步块保证一次只能有一个线程在addAll
-        synchronized (cacheAlarms) {
-            try {
-                while (cacheAlarms.size() > Settings.MAX_CACHE_ALARM && tid != nextWaitId) {
-                    cacheAlarms.wait();
-                    if (closing) return;
+        if (alarms.size() > 0) {
+            synchronized (cacheAlarms) {
+                try {
+                    while (cacheAlarms.size() > Settings.MAX_CACHE_ALARM && tid != nextWaitId) {
+                        cacheAlarms.wait();
+                        if (closing) return;
+                    }
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
                 }
-            }catch (InterruptedException e) {
-                e.printStackTrace();
+
+                cacheAlarms.addAll(alarms); // 等同于for each : offer
             }
 
-            cacheAlarms.addAll(alarms); // 等同于for each : offer
-        }
-
-        // 计算累积共有多少有序结果
-        synchronized (this) {
+            // 计算累积共有多少有序结果
+            synchronized (this) {
+                queryCompleteMark[tid] = true;
+                queryCompleteCount[tid] = alarms.size();
+                finish = true;
+                resultPrepared = 0;
+                for (int i = 0; i < queryCompleteMark.length; i++) {
+                    finish = finish && queryCompleteMark[i];
+                    nextWaitId = i;
+                    if (!queryCompleteMark[i]) break;
+                    resultPrepared += queryCompleteCount[i];
+                }
+                this.notify();
+            }
+        } else {
             queryCompleteMark[tid] = true;
-            queryCompleteCount[tid] = alarms.size();
-            finish = true;
-            resultPrepared = 0;
-            for (int i = 0; i < queryCompleteMark.length; i++) {
-                finish = finish && queryCompleteMark[i];
-                nextWaitId = i;
-                if (!queryCompleteMark[i]) break;
-                resultPrepared += queryCompleteCount[i];
+            if (currentThreads.get() == 1) {
+                synchronized (this) {
+                    finish = true;
+                    for (int i = 0; i < queryCompleteMark.length; i++) {
+                        finish = finish && queryCompleteMark[i];
+                        nextWaitId = i;
+                        if (!queryCompleteMark[i]) break;
+                        resultPrepared += queryCompleteCount[i];
+                    }
+                    this.notify();
+                }
             }
-            this.notify();
         }
     }
 
@@ -236,7 +252,9 @@ public class AlarmScanner implements Closeable {
                 for (Pair<Integer, Long> pair: query.imeis) {
                     // 判断是否进行剪枝，如需要剪枝在本地进行剪枝
                     if (enablePruning) {
-                        if (totalPruningMap != null && totalPruningMap.getOrDefault(pair.getValue(), 0) == 0) continue;
+                        if (totalPruningMap != null && totalPruningMap.getOrDefault(pair.getValue(), 0) == 0) {
+                            continue;
+                        }
                         // 如果用户没有对某一列进行筛选，那么这一列的剪枝也没有意义，相当于直接求和也就是上一步的结果。
                         // 因此此时断言pruningMap存在，则allowSet存在
                         if (readPruningMap != null) {
@@ -246,7 +264,9 @@ public class AlarmScanner implements Closeable {
                             for (String read: filter.getAllowReadStatus()) {
                                 sum += imeiMap.getOrDefault(read, 0);
                             }
-                            if (sum == 0) continue;
+                            if (sum == 0) {
+                                continue;
+                            }
                         }
                         if (statusPruningMap != null) {
                             int sum = 0;
@@ -296,7 +316,7 @@ public class AlarmScanner implements Closeable {
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            AlarmScanner.this.commitQueryResult(tid, result);
+            commitQueryResult(tid, result);
             currentThreads.decrementAndGet();
         }
 
@@ -411,7 +431,7 @@ public class AlarmScanner implements Closeable {
                 readPruningMap = HbaseSearch.getInstance().getAlarmCountByRead(connection, startDateInt, endDateInt, imeis);
             }
             if (filter.getAllowAlarmStatus() != null && filter.getAllowAlarmStatus().size() != 0) {
-                readPruningMap = HbaseSearch.getInstance().getAlarmCountByStatus(connection, startDateInt, endDateInt, imeis);
+                statusPruningMap = HbaseSearch.getInstance().getAlarmCountByStatus(connection, startDateInt, endDateInt, imeis);
             }
             enablePruning = true;
         }

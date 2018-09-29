@@ -39,6 +39,16 @@ public class TestAlarmCount {
                 }
             }
             System.out.println("Use Time:" + (new Date().getTime() - date.getTime()) + " ms");
+
+            result2 = HbaseSearch.getInstance().getAlarmCountByRead(connection, args[2],
+                    args[3], longs);
+            for (Map.Entry<Long, Map<String, Integer>> entry : result2.entrySet()) {
+                System.out.println(entry.getKey());
+                for (Map.Entry<String, Integer> entry1 : entry.getValue().entrySet()) {
+                    System.out.println("\t" + entry1.getKey() + " " + entry1.getValue());
+                }
+            }
+            System.out.println("Use Time:" + (new Date().getTime() - date.getTime()) + " ms");
         }catch (IOException|NumberFormatException e){
             e.printStackTrace();
         }
