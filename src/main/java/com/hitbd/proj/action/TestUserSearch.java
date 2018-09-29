@@ -119,9 +119,8 @@ public class TestUserSearch {
                     filter.setAllowTimeRange(new Pair<>(new Date(Settings.Test.START_TIME), new Date(Settings.Test.END_TIME)));
                     // start work
                     AlarmScanner result = HbaseSearch.getInstance()
-                            .queryAlarmByUser(ignite, userBatch.get(0), userBatch, false, HbaseSearch.NO_SORT, filter);
+                            .queryAlarmByUser(connection, ignite, userBatch.get(0), userBatch, false, HbaseSearch.NO_SORT, filter);
                     Long igniteTime = new Date().getTime() - date.getTime();
-                    result.setConnection(connection);
                     int imeiCount = result.totalImei;
                     int queryCount = result.queries.size();
                     long response = 0;

@@ -162,8 +162,7 @@ public class TestHbaseSearch {
                     filter.setAllowReadStatus(viewed);
                     // start work
                     AlarmScanner result = HbaseSearch.getInstance()
-                            .queryAlarmByImei(batch, HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
-                    result.setConnection(connection);
+                            .queryAlarmByImei(connection, batch, HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
                     int queryCount = result.queries.size();
                     long response = 0;
                     int resultBatchSize = Settings.Test.RESULT_SIZE;
@@ -236,9 +235,8 @@ public class TestHbaseSearch {
                     filter.setAllowReadStatus(viewed);
                     // start work
                     AlarmScanner result = HbaseSearch.getInstance()
-                            .queryAlarmByUser(ignite, userBatch.get(0), userBatch, true, HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
+                            .queryAlarmByUser(connection, ignite, userBatch.get(0), userBatch, true, HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
                     Long igniteTime = new Date().getTime() - date.getTime();
-                    result.setConnection(connection);
                     int imeiCount = result.totalImei;
                     int queryCount = result.queries.size();
                     long response = 0;
@@ -313,9 +311,8 @@ public class TestHbaseSearch {
                     filter.setAllowReadStatus(viewed);
                     // start work
                     AlarmScanner result = HbaseSearch.getInstance()
-                            .queryAlarmByUser(ignite, userBatch.get(0), userBatch, false, HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
+                            .queryAlarmByUser(connection, ignite, userBatch.get(0), userBatch, false, HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
                     Long igniteTime = new Date().getTime() - date.getTime();
-                    result.setConnection(connection);
                     int imeiCount = result.totalImei;
                     int queryCount = result.queries.size();
                     long response = 0;

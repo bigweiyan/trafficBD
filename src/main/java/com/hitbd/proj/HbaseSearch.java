@@ -327,7 +327,7 @@ public class HbaseSearch implements IHbaseSearch {
     }
 
     @Override
-    public AlarmScanner queryAlarmByUser(java.sql.Connection connection, int queryUser, List<Integer> userBIds,
+    public AlarmScanner queryAlarmByUser(Connection hbase, java.sql.Connection ignite, int queryUser, List<Integer> userBIds,
                                          boolean recursive, int sortType, QueryFilter filter) {
         if (filter == null) throw new IllegalArgumentException("filter could not be null");
         // 存放用户及其对应设备
@@ -335,19 +335,32 @@ public class HbaseSearch implements IHbaseSearch {
         // 读取用户及其对应设备imei,这些设备将被过期时间进行过滤
         if (recursive) {
             userAndDevice = IgniteSearch.getInstance()
-                    .getLevelOrderChildrenDevicesOfUserB(connection, queryUser, false);
+                    .getLevelOrderChildrenDevicesOfUserB(ignite, queryUser, false);
         } else {
             userAndDevice = new HashMap<>();
             for (int user : userBIds) userAndDevice
-                    .put(user, IgniteSearch.getInstance().getDirectDevices(connection, user, queryUser, false));
+                    .put(user, IgniteSearch.getInstance().getDirectDevices(ignite, user, queryUser, false));
         }
-        return queryAlarmByImei(userAndDevice, sortType, filter);
+        return queryAlarmByImei(hbase, userAndDevice, sortType, filter);
     }
 
     @Override
-    public AlarmScanner queryAlarmByImei(HashMap<Integer, List<Long>> userAndDevices, int sortType, QueryFilter filter) {
+    public AlarmScanner queryAlarmByImei(Connection hbase,
+                                         HashMap<Integer, List<Long>> userAndDevices,
+                                         int sortType,
+                                         QueryFilter filter) {
         if (filter == null) throw new IllegalArgumentException("filter could not be null");
         AlarmScanner result = new AlarmScanner(sortType);
+        result.setFilter(filter);
+        result.setConnection(hbase);
+        // 如果需要提前剪枝，则此时开始剪枝线程
+        if (Settings.ENABLE_PRUNING) {
+            List<Long> imeis = new ArrayList<>();
+            for (Map.Entry<Integer, List<Long>> entry : userAndDevices.entrySet()) {
+                imeis.addAll(entry.getValue());
+            }
+            result.startPreparePruning(imeis, filter.getAllowTimeRange().getKey(), filter.getAllowTimeRange().getValue());
+        }
 
         // 计算需要在哪些表中进行查询
         List<String> usedTable;
@@ -531,7 +544,6 @@ public class HbaseSearch implements IHbaseSearch {
             throw new IllegalArgumentException("sort type should be defined in IHbaseSearch");
         }
         result.setQueries(queries);
-        result.setFilter(filter);
         return result;
     }
 
@@ -631,11 +643,63 @@ public class HbaseSearch implements IHbaseSearch {
         return imeiMap;
     }
 
+    public Map<Long, Map<String, Integer>> getAlarmCountByRead(Connection connection, String start,
+                                                                 String end, List<Long> imeis) {
+        int startInt, endInt;
+        try {
+            endInt = Integer.parseInt(end);
+            startInt = Integer.parseInt(start);
+        }catch (NumberFormatException e){
+            throw new IllegalArgumentException("start, end should like mmdd");
+        }
+        Map<Long, Map<String, Integer>> imeiMap = new HashMap<>();
+        try (Table table = connection.getTable(TableName.valueOf("alarm_count"))){
+            List<Get> getList = new ArrayList<>();
+            for (Long imei : imeis) {
+                Get get = new Get(Bytes.toBytes(Long.toString(imei)));
+                get.addFamily(Bytes.toBytes("r"));
+                getList.add(get);
+            }
+            Result[] results = table.get(getList);
+
+            for (Result result : results) {
+                List<Cell> cells = result.listCells();
+                for (Cell cell : cells) {
+                    String row = Bytes.toString(cell.getRowArray(), cell.getRowOffset(), cell.getRowLength());
+                    String date = Bytes.toString(cell.getQualifierArray(), cell.getQualifierOffset(), cell.getQualifierLength());
+                    String statusList = Bytes.toString(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength());
+                    try {
+                        int dateInt = Integer.parseInt(date);
+                        if (Utils.dateBetween(startInt, dateInt, endInt)) {
+                            long imei = Long.parseLong(row);
+                            if (! imeiMap.containsKey(imei)) {
+                                imeiMap.put(imei, new HashMap<>());
+                            }
+                            Map<String, Integer> statusMap = imeiMap.get(imei);
+                            String[] statusKV = statusList.split(",");
+                            for (String kv : statusKV) {
+                                String k = kv.split(":")[0];
+                                int v = Integer.parseInt(kv.split(":")[1]);
+                                statusMap.put(k, statusMap.getOrDefault(k, 0) + v);
+                            }
+                        }
+                    } catch (NumberFormatException e) {
+                        System.out.println(e.getMessage());
+                    }
+                }
+            }
+        }catch (IOException e){
+            e.printStackTrace();
+            return null;
+        }
+        return imeiMap;
+    }
+
     @Override
-    public AlarmScanner queryAlarmByUserC(java.sql.Connection connection, int userCId, int sortType, QueryFilter filter) {
+    public AlarmScanner queryAlarmByUserC(Connection hbase, java.sql.Connection ignite, int userCId, int sortType, QueryFilter filter) {
         HashMap<Integer, List<Long>> map = null;
         // TODO 找到userCID可以访问的所有IMEI，以及他直接相关的C端用户id
-        return queryAlarmByImei(map, sortType, filter);
+        return queryAlarmByImei(hbase, map, sortType, filter);
     }
 
 	@Override

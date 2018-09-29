@@ -17,7 +17,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.*;
 
-public class CountAlarmByStatus {
+public class CountAlarmByRead {
     static Map<Long, Map<String, List<Pair<String, Integer>>>> map = new HashMap<>();
     public static void spilt(File file) throws IOException {
         CSVParser parser = new CSVParser(new FileReader(file), CSVFormat.DEFAULT);
@@ -27,7 +27,7 @@ public class CountAlarmByStatus {
             CSVRecord record = records.next();
             long imei;
             String push_time = record.get(8).substring(5,7) + record.get(8).substring(8,10);
-            String status = record.get(11);
+            String read = record.get(9).equals("0") ? "1" : "0";
 
             // 校验行是否符合规范
             try {
@@ -48,16 +48,16 @@ public class CountAlarmByStatus {
                 dateMap.put(push_time, statusList);
             }
             List<Pair<String, Integer>> statusList = dateMap.get(push_time);
-            // 找到status对应的pair
+            // 找到readStatus对应的pair
             Pair<String, Integer> pair = null;
             for (Pair<String, Integer> candidate : statusList) {
-                if (candidate.getKey().equals(status)) {
+                if (candidate.getKey().equals(read)) {
                     pair = candidate;
                     break;
                 }
             }
             if (pair == null) {
-                pair = new Pair<>(status, 1);
+                pair = new Pair<>(read, 1);
                 statusList.add(pair);
             }else {
                 pair.setValue(pair.getValue() + 1);
@@ -82,7 +82,7 @@ public class CountAlarmByStatus {
                 }
                 sb.setLength(sb.length() - 1);
                 Put put = new Put(Bytes.toBytes(imei.toString()));
-                put.addColumn(Bytes.toBytes("s"), Bytes.toBytes(date), Bytes.toBytes(sb.toString()));
+                put.addColumn(Bytes.toBytes("r"), Bytes.toBytes(date), Bytes.toBytes(sb.toString()));
                 putList.add(put);
 
                 if (putList.size() > 10000) {
@@ -101,7 +101,7 @@ public class CountAlarmByStatus {
 
     public static void main(String[] args){
         try (Connection connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
-            Table table = connection.getTable(TableName.valueOf("alarm_count"))) {
+             Table table = connection.getTable(TableName.valueOf("alarm_count"))) {
             File src=new File(args[1]);
             if (src.exists()) {
                 if (src.isFile()) {
