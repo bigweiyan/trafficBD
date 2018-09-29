@@ -324,7 +324,7 @@ public class AlarmScanner implements Closeable {
             int nextid = 0; //下一个分配的线程id
             while(nextid < queries) {
                 // 取得本对象的锁。锁的目的是等待空闲线程
-                synchronized (this) {
+                synchronized (ManageThread.this) {
                     while (currentThreads.get() >= Settings.MAX_WORKER_THREAD) {
                         try {
                             this.wait(50);

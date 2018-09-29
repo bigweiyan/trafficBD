@@ -600,6 +600,11 @@ public class HbaseSearch implements IHbaseSearch {
         return result;
     }
 
+    public List<Pair<Long, List<Pair<String, Integer>>>> getAlarmCountByStatus(Connection connection, String start,
+                                                                               String end, List<Long> imeis) {
+        return null;
+    }
+
     @Override
     public AlarmScanner queryAlarmByUserC(java.sql.Connection connection, int userCId, int sortType, QueryFilter filter) {
         HashMap<Integer, List<Long>> map = null;

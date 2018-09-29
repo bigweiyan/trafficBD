@@ -71,7 +71,7 @@ public class Main {
                 new ImportAlarmCount().main(args);
                 break;
             case "CountAlarm":
-                CountAlarmByDay.main(args);
+                CountAlarmByStatus.main(args);
                 break;
             default:
                 System.out.println("Usage: trafficBD Action [Parameter]");

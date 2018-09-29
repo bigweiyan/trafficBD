@@ -157,6 +157,17 @@ public interface IHbaseSearch {
     List<Pair<Long, Integer>> getAlarmCount(Connection connection, String start, String end, List<Long> imeis);
 
     /**
+     * 找到imei在一定时间范围内的分类告警数目
+     * @param connection
+     * @param start String like mmdd
+     * @param end String like mmdd
+     * @param imeis imei list
+     * @return 每个pair是一个imei-分类信息的键值对，其中每个分类信息是一个类别-个数的键值对
+     */
+    List<Pair<Long, List<Pair<String, Integer>>>> getAlarmCountByStatus(Connection connection, String start,
+                                                                        String end, List<Long> imeis);
+
+    /**
      * A5.3
      * 关闭连接
      * @return
