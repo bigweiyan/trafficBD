@@ -164,6 +164,7 @@ public class TestHbaseSearch {
                         List<Pair<Integer, IAlarm>> top = result.next(resultBatchSize);
                         if (Settings.Test.SHOW_TOP_RESULT || Settings.Test.SHOW_ALL_RESULT) {
                             for (int i = 0; i < get; i++) {
+                                if (i == top.size()) break;
                                 IAlarm alarm = top.get(i).getValue();
                                 logWriter.write(alarm.getCreateTime() + "," + alarm.getImei() + "," + alarm.getType() + "\n");
                             }
@@ -301,6 +302,7 @@ public class TestHbaseSearch {
                         List<Pair<Integer, IAlarm>> top = result.next(resultBatchSize);
                         if (Settings.Test.SHOW_TOP_RESULT || Settings.Test.SHOW_ALL_RESULT) {
                             for (int i = 0; i < get; i++) {
+                                if (i == top.size()) break;
                                 IAlarm alarm = top.get(i).getValue();
                                 logWriter.write(alarm.getCreateTime() + "," + alarm.getImei() + "," + alarm.getType() + "\n");
                             }

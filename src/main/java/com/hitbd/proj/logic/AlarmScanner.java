@@ -166,18 +166,16 @@ public class AlarmScanner implements Closeable {
             }
         } else {
             queryCompleteMark[tid] = true;
-            if (currentThreads.get() == 1) {
-                synchronized (this) {
-                    finish = true;
-                    for (int i = 0; i < queryCompleteMark.length; i++) {
-                        finish = finish && queryCompleteMark[i];
-                        nextWaitId = i;
-                        if (!queryCompleteMark[i]) break;
-                        resultPrepared += queryCompleteCount[i];
-                    }
-                    this.notify();
+            synchronized (this) {
+                finish = true;
+                for (int i = 0; i < queryCompleteMark.length; i++) {
+                    finish = finish && queryCompleteMark[i];
+                    nextWaitId = i;
+                    if (!queryCompleteMark[i]) break;
                 }
+                this.notify();
             }
+
         }
     }
 

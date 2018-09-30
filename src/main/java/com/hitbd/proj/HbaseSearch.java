@@ -346,8 +346,6 @@ public class HbaseSearch implements IHbaseSearch {
     }
 
     private void pruning(Connection hbase, QueryFilter filter, HashMap<Integer, List<Long>> userAndDevice){
-        Date date = new Date();
-
         Date start = filter.getAllowTimeRange().getKey();
         Date end = filter.getAllowTimeRange().getValue();
         String startDateInt, endDateInt;
@@ -371,11 +369,6 @@ public class HbaseSearch implements IHbaseSearch {
         if (filter.getAllowAlarmStatus() != null && filter.getAllowAlarmStatus().size() != 0) {
             statusPruningMap = HbaseSearch.getInstance().getAlarmCountByStatus(hbase, startDateInt, endDateInt, imeis);
         }
-
-        if (Thread.currentThread().getId() % 5 == 0){
-            System.out.println("getMapTime:" + (new Date().getTime() - date.getTime()));
-        }
-        date = new Date();
 
         Set<Long> pruned = new HashSet<>();
         for (Long l : imeis) {
@@ -409,10 +402,6 @@ public class HbaseSearch implements IHbaseSearch {
                 }
             }
         }
-        if (Thread.currentThread().getId() % 5 == 0){
-            System.out.println("find pruned time:" + (new Date().getTime() - date.getTime()));
-        }
-        date = new Date();
 
         if (pruned.size() == 0) return;
         for (Map.Entry<Integer, List<Long>> entry : userAndDevice.entrySet()) {
@@ -426,10 +415,6 @@ public class HbaseSearch implements IHbaseSearch {
                 }
             }
         }
-        if (Thread.currentThread().getId() % 5 == 0){
-            System.out.println("prune time:" + (new Date().getTime() - date.getTime()));
-        }
-
     }
 
     @Override

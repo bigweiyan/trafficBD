@@ -113,9 +113,6 @@ public class Main {
                             case "max_devices_per_worker":
                                 Settings.MAX_DEVICES_PER_WORKER = Integer.valueOf(value);
                                 break;
-                            case "enable_pruning" :
-                                Settings.ENABLE_PRUNING = Boolean.valueOf(value);
-                                break;
                             case "test.imei_per_query":
                                 Settings.Test.IMEI_PER_QUERY = Integer.valueOf(value);
                                 break;
