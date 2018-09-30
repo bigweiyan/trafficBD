@@ -60,7 +60,8 @@ public class Main {
                 IgniteSearch.getInstance().stop();
                 break;
             case "TestHbaseSearch":
-                new TestUserSearch().main(args);
+                IgniteSearch.getInstance();
+                new TestHbaseSearch().main(args);
                 IgniteSearch.getInstance().stop();
                 break;
             case "shell":
@@ -71,7 +72,7 @@ public class Main {
                 new ImportAlarmCount().main(args);
                 break;
             case "CountAlarm":
-                CountAlarmByDay.main(args);
+                CountAlarmByRead.main(args);
                 break;
             default:
                 System.out.println("Usage: trafficBD Action [Parameter]");

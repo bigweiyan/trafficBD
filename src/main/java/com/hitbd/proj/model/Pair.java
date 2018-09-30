@@ -35,5 +35,9 @@ public class Pair<K,V> implements Serializable{
         }
         return false;
     }
+
+    public void setValue(V value) {
+        this.value = value;
+    }
 }
 

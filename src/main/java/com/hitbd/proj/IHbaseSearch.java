@@ -98,8 +98,13 @@ public interface IHbaseSearch {
      * @param filter 筛选类型
      * @return
      */
-    AlarmScanner queryAlarmByUser(java.sql.Connection connection, int queryUser,
-                                  List<Integer> userBIds, boolean recursive, int sortType, QueryFilter filter);
+    AlarmScanner queryAlarmByUser(Connection hbase,
+                                  java.sql.Connection ignite,
+                                  int queryUser,
+                                  List<Integer> userBIds,
+                                  boolean recursive,
+                                  int sortType,
+                                  QueryFilter filter);
 
     /**
      * 5.1-5.3a
@@ -109,7 +114,10 @@ public interface IHbaseSearch {
      * @param filter 筛选类型
      * @return
      */
-    AlarmScanner queryAlarmByImei(HashMap<Integer, List<Long>> userAndDevices, int sortType, QueryFilter filter);
+    AlarmScanner queryAlarmByImei(Connection hbase,
+                                  HashMap<Integer, List<Long>> userAndDevices,
+                                  int sortType,
+                                  QueryFilter filter);
 
     /**
      * 5.4
@@ -118,7 +126,11 @@ public interface IHbaseSearch {
      * @param sortType 排序类型
      * @return
      */
-    AlarmScanner queryAlarmByUserC(java.sql.Connection connection, int userCId, int sortType, QueryFilter filter);
+    AlarmScanner queryAlarmByUserC(Connection hbase,
+                                   java.sql.Connection connection,
+                                   int userCId,
+                                   int sortType,
+                                   QueryFilter filter);
 
     /**
      * 5.5
@@ -154,7 +166,29 @@ public interface IHbaseSearch {
      * @param imeis 待查询的imei列表
      * @return imei与对应的告警计数
      */
-    List<Pair<Long, Integer>> getAlarmCount(Connection connection, String start, String end, List<Long> imeis);
+    Map<Long, Integer> getAlarmCount(Connection connection, String start, String end, List<Long> imeis);
+
+    /**
+     * 找到imei在一定时间范围内的分类告警数目
+     * @param connection
+     * @param start String like mmdd
+     * @param end String like mmdd
+     * @param imeis imei list
+     * @return 每个pair是一个imei-分类信息的键值对，其中每个分类信息是一个类别-个数的键值对
+     */
+    Map<Long, Map<String, Integer>> getAlarmCountByStatus(Connection connection, String start,
+                                                                        String end, List<Long> imeis);
+
+    /**
+     * 找到imei在一定时间范围内的已读未读告警数目
+     * @param connection
+     * @param start String like mmdd
+     * @param end String like mmdd
+     * @param imeis imei list
+     * @return 每个pair是一个imei-分类信息的键值对，其中每个分类信息是一个类别-个数的键值对
+     */
+    Map<Long, Map<String, Integer>> getAlarmCountByRead(Connection connection, String start,
+                                                          String end, List<Long> imeis);
 
     /**
      * A5.3
