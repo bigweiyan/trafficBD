@@ -10,6 +10,9 @@ import org.apache.hadoop.hbase.HBaseConfiguration;
 
 import java.io.File;
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Scanner;
@@ -63,6 +66,9 @@ public class Main {
             case "shell":
                 new Shell().main();
                 IgniteSearch.getInstance().stop();
+                break;
+            case "baba":
+
                 break;
             default:
                 System.out.println("Usage: trafficBD Action [Parameter]");

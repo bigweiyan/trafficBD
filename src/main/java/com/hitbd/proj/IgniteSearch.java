@@ -15,6 +15,7 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.logger.log4j.Log4JLogger;
 import org.apache.log4j.Level;
 
+import java.io.*;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -797,4 +798,187 @@ public class IgniteSearch implements IIgniteSearch {
     public void stop(){
         if(ignite != null) Ignition.stop(true);
     }
+	/**
+	 * 补充代码5
+	 * 层序遍历获取用户的所有孩子和层数
+	 * @return
+	 */
+	public void getLevelAndChilds(Connection connection) {
+
+		String temp = "/data1/yy/userdata.csv";
+		String treefile = "/data1/yy/tree.csv";
+		BufferedWriter bw = null;
+		try {
+			bw = new BufferedWriter(new FileWriter(new File(treefile), true));
+		} catch (IOException e1) {
+			e1.printStackTrace();
+		}
+		BufferedReader buffer = null;
+		try {
+			buffer = new BufferedReader(new InputStreamReader(new FileInputStream(new File(temp))));
+		} catch (FileNotFoundException e1) {
+			e1.printStackTrace();
+		}
+		String linetxt ;
+		try {
+			while((linetxt = buffer.readLine())!=null) {
+				String[] items = linetxt.split(",");
+				List<Long> userAndDevice;
+				Date date = new Date();
+				userAndDevice = getDirectDevices(connection, Integer.valueOf(items[0]), 0, false);
+				long time = new Date().getTime() - date.getTime();
+				int totalImei = userAndDevice.size();
+				bw.write(items[0]+","+totalImei+","+time);
+				bw.newLine();
+				bw.flush();
+			}
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+	}
+	public void queryUsers(Connection connection){
+		String temp = "/data1/yy/imeiCase";
+		String treefile = "/data1/yy/user";
+		BufferedWriter bw = null;
+		try {
+			bw = new BufferedWriter(new FileWriter(new File(treefile), true));
+		} catch (IOException e1) {
+			e1.printStackTrace();
+		}
+		BufferedReader buffer = null;
+		try {
+			buffer = new BufferedReader(new InputStreamReader(new FileInputStream(new File(temp))));
+		} catch (FileNotFoundException e1) {
+			e1.printStackTrace();
+		}
+		String linetxt ;
+		try {
+			while((linetxt = buffer.readLine())!=null) {
+				String sql = "select user_b_id from device where imei = " + linetxt;
+				try(PreparedStatement pstmt = connection.prepareStatement(sql)) {
+					ResultSet rs;
+					rs = pstmt.executeQuery();
+					if (rs.next()){
+						Integer userid;
+						userid = rs.getInt("user_b_id");
+						bw.write(userid.toString());
+						bw.newLine();
+						bw.flush();
+					}
+					rs.close();
+				} catch (SQLException e) {
+					e.printStackTrace();
+				}
+			}
+			if (bw != null) bw.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	/**
+	 *
+	 * 补充代码6 获取未读告警总数
+	 */
+	public void getCountAlarm(String imei,String userid , String userparentid){
+
+	}
+    /**
+     * 1、统计某段时间内的超速告警次数
+     *
+     */
+    public  void countOverSpeedTimes(Date starttime,Date endtime,Connection connection,String imei,String userid){
+        //先找到满足所有条件的imei号
+        ArrayList<Long> tempimeilist = Serialization.longToList(imei);
+        ArrayList<Long> imeilist = new ArrayList<Long>();
+        ArrayList<Integer> userlist = Serialization.strToList(userid);
+        for(int i = 0;i<userlist.size();i++){
+            List<Long> userimeilist;
+            userimeilist = getDirectDevices(connection,userlist.get(i), 0, false);
+            for(Long id:tempimeilist){
+                for(Long ui:userimeilist){
+                    if(ui.equals(id))
+                        imeilist.add(ui);
+                }
+            }
+        }
+        //根据imei和过滤条件进行查询
+        QueryFilter filter = new QueryFilter();
+        HashSet<String> stat = new HashSet<>();
+        stat.add("6");
+        stat.add("OverSpeed");
+        filter.setAllowAlarmStatus(stat);
+        filter.setAllowTimeRange(new Pair<>(starttime, endtime));
+
+    }
+	/**
+	 * 3、按照imei和告警状态统计
+	 */
+	public void countImeiStatus(Connection connection,String imei,String userid,String parentid,String status){
+		//首先得到要查询的imei号
+		ArrayList<Integer> tempuserlist = Serialization.strToList(userid);
+		ArrayList<Integer> userlist = new ArrayList<>();
+		ArrayList<Long> tempimeilist = Serialization.longToList(imei);
+		ArrayList<Long> imeilist = new ArrayList<>();
+		String sql = "select user_id from user_b where parent_id like "+parentid;
+		try {
+			PreparedStatement pstmt = connection.prepareStatement(sql);
+			ResultSet userrs = pstmt.executeQuery();
+			while (userrs.next()){
+				Integer temp = userrs.getInt("user_id");
+				if(tempuserlist.contains(temp))
+					userlist.add(temp);
+			}
+			pstmt.close();
+			userrs.close();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		for(int i = 0;i<userlist.size();i++){
+			List<Long> userimeilist;
+			userimeilist = getDirectDevices(connection,userlist.get(i), 0, false);
+			for(Long id:tempimeilist){
+				for(Long ui:userimeilist){
+					if(ui.equals(id))
+						imeilist.add(ui);
+				}
+			}
+		}
+		//根据imei和状态进行过滤
+
+	}
+	/**
+	 * 4、获取用户告警记录排行前十的设备
+	 */
+	public void getTopTen(String userid,Date starttimt,Date endtime,String parentid,Connection connection){
+		//首先得到要查询的imei号
+		ArrayList<Integer> tempuserlist = Serialization.strToList(userid);
+		ArrayList<Integer> userlist = new ArrayList<>();
+		ArrayList<Long> imeilist = new ArrayList<>();
+		String sql = "select user_id from user_b where parent_id like "+parentid;
+		try {
+			PreparedStatement pstmt = connection.prepareStatement(sql);
+			ResultSet userrs = pstmt.executeQuery();
+			while (userrs.next()){
+				Integer temp = userrs.getInt("user_id");
+				if(tempuserlist.contains(temp))
+					userlist.add(temp);
+			}
+			pstmt.close();
+			userrs.close();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		for(int i = 0;i<userlist.size();i++){
+			List<Long> userimeilist;
+			userimeilist = getDirectDevices(connection,userlist.get(i), 0, false);
+			for(Long id:userimeilist){
+				imeilist.add(id);
+			}
+		}
+	}
+
+
 }

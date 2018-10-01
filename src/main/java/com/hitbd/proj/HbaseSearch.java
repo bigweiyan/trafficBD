@@ -14,6 +14,7 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.*;
@@ -535,13 +536,68 @@ public class HbaseSearch implements IHbaseSearch {
     }
 
     @Override
-    public void asyncQueryAlarmByUser(int qid, List<Integer> userBIds, boolean recursive, int sortType, QueryFilter filter) {
-        // TODO
-    }
+    public List<Pair<Long, Integer>> getAlarmCount(Connection connection, String start, String end, List<Long> imeis) {
+        int startInt, endInt;
+        try {
+            endInt = Integer.parseInt(end);
+            startInt = Integer.parseInt(start);
+        }catch (NumberFormatException e){
+            throw new IllegalArgumentException("start, end should like mmdd");
+        }
+        Map<Long, List<Pair<Integer, Integer>>> countMap = new HashMap<>();
+        try (Table table = connection.getTable(TableName.valueOf("alarm_count"))){
+            List<Get> getList = new ArrayList<>();
+            for (Long imei : imeis) {
+                Get get = new Get(Bytes.toBytes(Long.toString(imei)));
+                get.addFamily(Bytes.toBytes("a"));
+                getList.add(get);
+            }
+            Result[] results = table.get(getList);
 
-    @Override
-    public void asyncQueryAlarmByImei(int qid, List<Long> imeis, int sortType, QueryFilter filter) {
-        // TODO
+            for (Result result : results) {
+                List<Cell> cells = result.listCells();
+                for (Cell cell : cells) {
+                    String row = Bytes.toString(cell.getRowArray(), cell.getRowOffset(), cell.getRowLength());
+                    String date = Bytes.toString(cell.getQualifierArray(), cell.getQualifierOffset(), cell.getQualifierLength());
+                    String count = Bytes.toString(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength());
+                    try {
+                        long imei = Long.parseLong(row);
+                        if (! countMap.containsKey(imei)) {
+                            countMap.put(imei, new ArrayList<>());
+                        }
+                        countMap.get(imei).add(new Pair<>(Integer.parseInt(date), Integer.parseInt(count)));
+                    } catch (NumberFormatException e) {
+                        System.out.println(e.getMessage());
+                    }
+                }
+            }
+        }catch (IOException e){
+            e.printStackTrace();
+            return null;
+        }
+
+        List<Pair<Long, Integer>> result = new ArrayList<>();
+
+        for (Map.Entry<Long, List<Pair<Integer, Integer>>> entry : countMap.entrySet()) {
+            List<Pair<Integer, Integer>> row = entry.getValue();
+            int count = 0;
+            if (startInt <= endInt) {
+                for (Pair<Integer, Integer> pair : row) {
+                    if (pair.getKey() >= startInt && pair.getKey() <= endInt) {
+                        count += pair.getValue();
+                    }
+                }
+            }else {
+                for (Pair<Integer, Integer>pair : row) {
+                    if ((pair.getKey() >= startInt && pair.getKey() <= 1231 )
+                            || (pair.getKey() >= 101 && pair.getKey() <= endInt)) {
+                        count += pair.getValue();
+                    }
+                }
+            }
+            result.add(new Pair<>(entry.getKey(), count));
+        }
+        return result;
     }
 
     @Override

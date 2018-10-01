@@ -7,6 +7,7 @@ import com.hitbd.proj.logic.AlarmScanner;
 import com.hitbd.proj.model.IAlarm;
 import com.hitbd.proj.model.Pair;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.client.Connection;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -111,27 +112,6 @@ public interface IHbaseSearch {
     AlarmScanner queryAlarmByImei(HashMap<Integer, List<Long>> userAndDevices, int sortType, QueryFilter filter);
 
     /**
-     * 5.1-5.3b
-     * 在新线程中按照指定用户查询告警，查询结果录入查询日志。
-     * @param qid 查询编号
-     * @param userBIds 待查询的用户
-     * @param recursive 是否递归查询其所有子用户
-     * @param sortType 排序类型
-     * @param filter 筛选类型
-     */
-    void asyncQueryAlarmByUser(int qid, List<Integer> userBIds, boolean recursive, int sortType, QueryFilter filter);
-
-    /**
-     * 5.1-5.3b
-     * 在新线程中按照指定设备查询告警，查询结果录入查询日志。
-     * @param qid 查询编号
-     * @param imeis 待查询的设备
-     * @param sortType 排序类型
-     * @param filter 筛选类型
-     */
-    void asyncQueryAlarmByImei(int qid, List<Long> imeis, int sortType, QueryFilter filter);
-
-    /**
      * 5.4
      * 按照用户C查询设备
      * @param userCId C端用户id
@@ -166,6 +146,15 @@ public interface IHbaseSearch {
      */
     Map<Integer, Integer> groupCountByUserId(java.sql.Connection connection, ArrayList<Integer> parentBIds,
                                              boolean recursive, int topK);
+
+    /**
+     * 找到imei在一定时间范围内的全部告警数目
+     * @param start String like mmdd
+     * @param end String like mmdd
+     * @param imeis 待查询的imei列表
+     * @return imei与对应的告警计数
+     */
+    List<Pair<Long, Integer>> getAlarmCount(Connection connection, String start, String end, List<Long> imeis);
 
     /**
      * A5.3
