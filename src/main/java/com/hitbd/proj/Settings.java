@@ -24,11 +24,15 @@ public class Settings {
     public static int MAX_CACHE_ALARM = 1000;
     public static long IMPORT_TIME_SHIFT = 0L;
 
+    public static boolean ENABLE_PRUNING = false;
+
     public static class Test{
         public static int IMEI_PER_QUERY = 100;
-        public static int USER_PER_QUERY = 10;
+        public static int USER_PER_QUERY = 1;
         public static int QUERY_THREAD_PER_TEST = 3;
         public static boolean WAIT_UNTIL_FINISH = false;
+        public static long START_TIME_DEFAULT = 1532880000000L; // 2018-07-30 00:00:00
+        public static long START_TIME_OPTION = 1532880000000L; // 2018-07-30 00:00:00
         public static long START_TIME = 1532880000000L; // 2018-07-30 00:00:00
         public static long END_TIME = 1534089600000L; // 2018-08-13 00:00:00
         public static boolean SHOW_TOP_RESULT = false;

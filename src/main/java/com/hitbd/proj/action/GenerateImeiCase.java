@@ -63,6 +63,7 @@ public class GenerateImeiCase {
                 }
                 if (count >= imeiPerFile) break;
             }
+            parser.close();
         }catch (IOException e){
             e.printStackTrace();
         }

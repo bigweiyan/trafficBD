@@ -117,8 +117,7 @@ public class TestImeiSearch {
                     filter.setAllowTimeRange(new Pair<>(new Date(Settings.Test.START_TIME), new Date(Settings.Test.END_TIME)));
                     // start work
                     AlarmScanner result = HbaseSearch.getInstance()
-                            .queryAlarmByImei(batch, HbaseSearch.NO_SORT, filter);
-                    result.setConnection(connection);
+                            .queryAlarmByImei(connection, batch, HbaseSearch.NO_SORT, filter);
                     int queryCount = result.queries.size();
                     long response = 0;
                     int resultBatchSize = Settings.Test.RESULT_SIZE;
