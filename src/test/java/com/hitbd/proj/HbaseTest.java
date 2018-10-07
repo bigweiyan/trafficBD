@@ -103,11 +103,11 @@ public class HbaseTest {
             }
 
             Date date = new Date();
-            AlarmScanner scanner = HbaseSearch.getInstance().queryAlarmByUser(igniteConnection, queryUser, userBIds, true, HbaseSearch.NO_SORT, queryFilter);
+            AlarmScanner scanner = HbaseSearch.getInstance().queryAlarmByUser(connection, igniteConnection, queryUser,
+                    userBIds, true, HbaseSearch.NO_SORT, queryFilter);
             long igniteQueryTime = new Date().getTime() - date.getTime();
             int queryCount = scanner.queries.size();
             sb.append("Ignite query Time: ").append(igniteQueryTime).append("ms;\n");
-            scanner.setConnection(connection);
             date = new Date();
             if (scanner.notFinished()) {
                 List<Pair<Integer, IAlarm>> result = scanner.next(50);

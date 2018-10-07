@@ -24,6 +24,8 @@ public class Settings {
     public static int MAX_CACHE_ALARM = 1000;
     public static long IMPORT_TIME_SHIFT = 0L;
 
+    public static boolean ENABLE_PRUNING = false;
+
     public static class Test{
         public static int IMEI_PER_QUERY = 100;
         public static int USER_PER_QUERY = 1;

@@ -46,9 +46,8 @@ public class Main {
                 CreateIgniteTable.main(args);
                 IgniteSearch.getInstance().stop();
                 break;
-            case "AlarmC":
-                new TestAlarmC().main(args);
-                IgniteSearch.getInstance().stop();
+            case "TestAlarmCount":
+                new TestAlarmCount().main(args);
                 break;
             case "GenerateImeiCase":
                 new GenerateImeiCase().main(args);
@@ -74,6 +73,12 @@ public class Main {
             case "shell":
                 new Shell().main();
                 IgniteSearch.getInstance().stop();
+                break;
+            case "ImportAlarmCount":
+                new ImportAlarmCount().main(args);
+                break;
+            case "CountAlarm":
+                CountAlarmByRead.main(args);
                 break;
             default:
                 System.out.println("Usage: trafficBD Action [Parameter]");

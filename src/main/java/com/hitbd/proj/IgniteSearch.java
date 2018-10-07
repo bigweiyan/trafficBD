@@ -10,6 +10,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.CachePeekMode;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.logger.log4j.Log4JLogger;
@@ -803,4 +804,9 @@ public class IgniteSearch implements IIgniteSearch {
     public void stop(){
         if(ignite != null) Ignition.stop(true);
     }
+
+    public void showInfo(){
+    	System.out.println("alarm c used space " + alarmCCache.size(CachePeekMode.ALL));
+		System.out.println("viewed c used space " + viewedCCache.size(CachePeekMode.ALL));
+	}
 }

@@ -183,6 +183,7 @@ public class HbaseUpload {
                 logWriter.flush();
             }
         }
+        parser.close();
         // 上传最后未成批的部分
         for (Map.Entry<String, List<Put>> entry: putMap.entrySet()) {
             String tableName = entry.getKey();
