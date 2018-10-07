@@ -60,4 +60,11 @@ public class UtilsTest {
 //        end = new Date(1528127999000L); // 2018-06-04 23:59:59
 //        Assert.assertEquals(Utils.getUseTable(start, end).size(), 0);
     }
+
+    @Test
+    public void testNextThreeDay(){
+        Assert.assertArrayEquals(new int[]{1229, 1230, 1231, 101}, Utils.getNextThreeDay(1229));
+        Assert.assertArrayEquals(new int[]{227, 228, 301, 302}, Utils.getNextThreeDay(227));
+        Assert.assertArrayEquals(new int[]{926, 927, 928, 929}, Utils.getNextThreeDay(926));
+    }
 }

@@ -162,9 +162,8 @@ public class Shell {
 //        filter.setAllowAlarmType(type);
 //        filter.setAllowReadStatus(viewed);
         filter.setAllowTimeRange(new Pair<>(startTime, endTime));
-        AlarmScanner result = HbaseSearch.getInstance().queryAlarmByImei(map,
+        AlarmScanner result = HbaseSearch.getInstance().queryAlarmByImei(connection, map,
                 order |HbaseSearch.SORT_BY_CREATE_TIME, filter);
-        result.setConnection(connection);
         int no = 1;
         int total = 0;
         Date startTime;
@@ -195,9 +194,8 @@ public class Shell {
         filter.setAllowTimeRange(new Pair<>(startTime, endTime));
         Date startTime = new Date();
         AlarmScanner result = HbaseSearch.getInstance().
-                queryAlarmByUser(ignite, queryUserId, userIDs,false,
+                queryAlarmByUser(connection, ignite, queryUserId, userIDs,false,
                         order | HbaseSearch.SORT_BY_CREATE_TIME, filter);
-        result.setConnection(connection);
         System.out.println("imei query finished in" + (new Date().getTime() - startTime.getTime()) + "ms, "
                 + result.totalImei + "result found");
         int no = 1;

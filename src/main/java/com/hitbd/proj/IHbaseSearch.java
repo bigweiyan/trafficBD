@@ -7,6 +7,7 @@ import com.hitbd.proj.logic.AlarmScanner;
 import com.hitbd.proj.model.IAlarm;
 import com.hitbd.proj.model.Pair;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.client.Connection;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -97,8 +98,13 @@ public interface IHbaseSearch {
      * @param filter 筛选类型
      * @return
      */
-    AlarmScanner queryAlarmByUser(java.sql.Connection connection, int queryUser,
-                                  List<Integer> userBIds, boolean recursive, int sortType, QueryFilter filter);
+    AlarmScanner queryAlarmByUser(Connection hbase,
+                                  java.sql.Connection ignite,
+                                  int queryUser,
+                                  List<Integer> userBIds,
+                                  boolean recursive,
+                                  int sortType,
+                                  QueryFilter filter);
 
     /**
      * 5.1-5.3a
@@ -108,28 +114,10 @@ public interface IHbaseSearch {
      * @param filter 筛选类型
      * @return
      */
-    AlarmScanner queryAlarmByImei(HashMap<Integer, List<Long>> userAndDevices, int sortType, QueryFilter filter);
-
-    /**
-     * 5.1-5.3b
-     * 在新线程中按照指定用户查询告警，查询结果录入查询日志。
-     * @param qid 查询编号
-     * @param userBIds 待查询的用户
-     * @param recursive 是否递归查询其所有子用户
-     * @param sortType 排序类型
-     * @param filter 筛选类型
-     */
-    void asyncQueryAlarmByUser(int qid, List<Integer> userBIds, boolean recursive, int sortType, QueryFilter filter);
-
-    /**
-     * 5.1-5.3b
-     * 在新线程中按照指定设备查询告警，查询结果录入查询日志。
-     * @param qid 查询编号
-     * @param imeis 待查询的设备
-     * @param sortType 排序类型
-     * @param filter 筛选类型
-     */
-    void asyncQueryAlarmByImei(int qid, List<Long> imeis, int sortType, QueryFilter filter);
+    AlarmScanner queryAlarmByImei(Connection hbase,
+                                  HashMap<Integer, List<Long>> userAndDevices,
+                                  int sortType,
+                                  QueryFilter filter);
 
     /**
      * 5.4
@@ -138,7 +126,11 @@ public interface IHbaseSearch {
      * @param sortType 排序类型
      * @return
      */
-    AlarmScanner queryAlarmByUserC(java.sql.Connection connection, int userCId, int sortType, QueryFilter filter);
+    AlarmScanner queryAlarmByUserC(Connection hbase,
+                                   java.sql.Connection connection,
+                                   int userCId,
+                                   int sortType,
+                                   QueryFilter filter);
 
     /**
      * 5.5
@@ -166,6 +158,37 @@ public interface IHbaseSearch {
      */
     Map<Integer, Integer> groupCountByUserId(java.sql.Connection connection, ArrayList<Integer> parentBIds,
                                              boolean recursive, int topK);
+
+    /**
+     * 找到imei在一定时间范围内的全部告警数目
+     * @param start String like mmdd
+     * @param end String like mmdd
+     * @param imeis 待查询的imei列表
+     * @return imei与对应的告警计数
+     */
+    Map<Long, Integer> getAlarmCount(Connection connection, String start, String end, List<Long> imeis);
+
+    /**
+     * 找到imei在一定时间范围内的分类告警数目
+     * @param connection
+     * @param start String like mmdd
+     * @param end String like mmdd
+     * @param imeis imei list
+     * @return 每个pair是一个imei-分类信息的键值对，其中每个分类信息是一个类别-个数的键值对
+     */
+    Map<Long, Map<String, Integer>> getAlarmCountByStatus(Connection connection, String start,
+                                                                        String end, List<Long> imeis);
+
+    /**
+     * 找到imei在一定时间范围内的已读未读告警数目
+     * @param connection
+     * @param start String like mmdd
+     * @param end String like mmdd
+     * @param imeis imei list
+     * @return 每个pair是一个imei-分类信息的键值对，其中每个分类信息是一个类别-个数的键值对
+     */
+    Map<Long, Map<String, Integer>> getAlarmCountByRead(Connection connection, String start,
+                                                          String end, List<Long> imeis);
 
     /**
      * A5.3

@@ -3,10 +3,7 @@ package com.hitbd.proj.util;
 import com.hitbd.proj.Settings;
 
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.Formatter;
+import java.util.*;
 
 public class Utils {
     /**
@@ -76,6 +73,34 @@ public class Utils {
         ArrayList<String> result = new ArrayList<>();
         for (; startPos < endPos; startPos++) {
             result.add(Settings.TABLES[startPos]);
+        }
+        return result;
+    }
+
+    /**
+     * return if dateInt a <= b <= c
+     * @param a
+     * @param b
+     * @param c
+     * @return
+     */
+    public static boolean dateBetween(int a, int b, int c) {
+        return (a <= b && b <= c) || ((a > c) && ((a <= b && b <= 1231) || (101 <= b && b <= c)));
+    }
+
+    public static int[] getNextThreeDay(int dateInt) {
+        int month = dateInt / 100;
+        int day = dateInt % 100;
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.MONTH, month - 1);
+        calendar.set(Calendar.DAY_OF_MONTH, day);
+        int[] result = new int[4];
+        result[0] = dateInt;
+        for (int i = 1; i <= 3; i++) {
+            calendar.setTime(new Date(calendar.getTime().getTime() + 24 * 3600 * 1000));
+            month = calendar.get(Calendar.MONTH) + 1;
+            day = calendar.get(Calendar.DAY_OF_MONTH);
+            result[i] = month * 100 + day;
         }
         return result;
     }
