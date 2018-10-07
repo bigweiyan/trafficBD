@@ -28,6 +28,7 @@ public class TestUserSearch {
     private AtomicInteger responseCount = new AtomicInteger();
     private AtomicLong finishedTime = new AtomicLong();
     private AtomicInteger alarmScanned = new AtomicInteger();
+    private AtomicLong igniteTotalTime = new AtomicLong();
     private Connection connection;
     public void main(String[] args) {
         // verify input
@@ -78,8 +79,9 @@ public class TestUserSearch {
             Date end = new Date();
             logWriter.write("Test end at " + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(end) + "\n");
             logWriter.write("Total time:" + (end.getTime() - start.getTime()) + "ms\n");
-            logWriter.write("Average Time:" + (end.getTime() - start.getTime()) / users + "ms\n");
-            logWriter.write("Average response time:" + responseTime.get() / responseCount.get() + "\n");
+            logWriter.write(String.format("Average Time:%.2fms\n" , (end.getTime() - start.getTime()) * 1.0f / users));
+            logWriter.write(String.format("Average response time:%.2fms\n", responseTime.get() * 1.0f / responseCount.get()));
+            logWriter.write(String.format("Ignite average Time:%.2fms\n" , igniteTotalTime.get() * 1.0f / users));
             if (Settings.Test.WAIT_UNTIL_FINISH) {
                 logWriter.write("Average finish time:" + finishedTime.get() / responseCount.get() + "ms\n");
             }
@@ -119,7 +121,7 @@ public class TestUserSearch {
                     filter.setAllowTimeRange(new Pair<>(new Date(Settings.Test.START_TIME), new Date(Settings.Test.END_TIME)));
                     // start work
                     AlarmScanner result = HbaseSearch.getInstance()
-                            .queryAlarmByUser(ignite, userBatch.get(0), userBatch, false, HbaseSearch.NO_SORT, filter);
+                            .queryAlarmByUser(ignite, userBatch.get(0), userBatch, true, HbaseSearch.NO_SORT, filter);
                     Long igniteTime = new Date().getTime() - date.getTime();
                     result.setConnection(connection);
                     int imeiCount = result.totalImei;
@@ -151,6 +153,7 @@ public class TestUserSearch {
                     }
                     long totalTime = new Date().getTime() - date.getTime();
                     responseCount.incrementAndGet();
+                    igniteTotalTime.addAndGet(igniteTime);
                     responseTime.addAndGet(response);
                     finishedTime.addAndGet(totalTime);
                     alarmScanned.addAndGet(result.getTotalAlarm());

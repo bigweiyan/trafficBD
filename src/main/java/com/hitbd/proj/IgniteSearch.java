@@ -742,9 +742,7 @@ public class IgniteSearch implements IIgniteSearch {
             		sql = "select user_b_id,imei,expire_list from Device where user_b_id in (" + Serialization.listToStr(childqueue) + ")";
             	pstmt = connection.prepareStatement(sql);
                 ResultSet imeiset = pstmt.executeQuery();
-                sql = "select children_ids from User_B where user_id in (" + Serialization.listToStr(childqueue) + ")";
-                pstmt = connection.prepareStatement(sql);
-                ResultSet childrenset = pstmt.executeQuery();
+
                 // refresh imeis and childqueue
                 imeis.clear();
                 childqueue.clear();
@@ -780,14 +778,22 @@ public class IgniteSearch implements IIgniteSearch {
                     	}
             		}
                 }
+                pstmt.close();
+                imeiset.close();
+                
+                sql = "select children_ids from User_B where user_id in (" + Serialization.listToStr(childqueue) + ")";
+                pstmt = connection.prepareStatement(sql);
+                ResultSet childrenset = pstmt.executeQuery();
                 while (childrenset.next()) {
                     ArrayList<Integer> temp = Serialization.strToList(childrenset.getString("children_ids"));
                     for (int i = 0; i < temp.size(); i++) {
                         childqueue.add(temp.get(i));
                     }
                 }
+                pstmt.close();
+                childrenset.close();
             }
-            pstmt.close();
+            
         }catch (SQLException e){
 		    e.printStackTrace();
         }

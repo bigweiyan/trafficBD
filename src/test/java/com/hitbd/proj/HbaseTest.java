@@ -1,8 +1,23 @@
 package com.hitbd.proj;
 
-import com.hitbd.proj.logic.AlarmScanner;
-import com.hitbd.proj.model.IAlarm;
-import com.hitbd.proj.model.Pair;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.client.Connection;
@@ -10,23 +25,19 @@ import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.junit.Ignore;
 import org.junit.Test;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.util.*;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
+import com.hitbd.proj.logic.AlarmScanner;
+import com.hitbd.proj.model.IAlarm;
+import com.hitbd.proj.model.Pair;
 
 public class HbaseTest {
     
     private String fileName = "/home/hadoop/case.txt" ; //测试用例文件
     private int MAX_QUERY = 2 ;  //查询并发个数
     private ThreadPoolExecutor pool = (ThreadPoolExecutor) Executors.newFixedThreadPool(MAX_QUERY); //指定并发个数
-    private AtomicInteger currentThreads = new AtomicInteger();
+    private AtomicInteger currentThreads = new AtomicInteger();   
+    
+    private int testTimes = 10000;
+    
 
     @Ignore
     @Test
@@ -119,5 +130,54 @@ public class HbaseTest {
             System.out.println(sb.toString());
             currentThreads.decrementAndGet();
         }
+    }
+
+    public void sqlQueryTest() throws IOException {
+        Connection connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
+        AlarmScanner result = null;
+        QueryFilter filter = new QueryFilter();
+        HashSet<String> stat = new HashSet<>();
+        stat.add("1");stat.add("10");stat.add("11");stat.add("12");stat.add("128");stat.add("13");stat.add("14");stat.add("15");stat.add("16");
+        stat.add("17");stat.add("18");stat.add("19");stat.add("192");stat.add("194");stat.add("195");stat.add("2");stat.add("20");stat.add("22");
+        stat.add("23");stat.add("24");stat.add("25");stat.add("3");stat.add("32");stat.add("4");stat.add("5");stat.add("6");stat.add("9");
+        stat.add("90");stat.add("ACC_OFF");stat.add("ACC_ON");stat.add("in");stat.add("offline");stat.add("out");stat.add("overSpeed");stat.add("riskPointAlarm");stat.add("sensitiveAreasFence");
+        stat.add("stayAlert");stat.add("stayTimeIn");stat.add("stayTimeOut");
+        HashSet<String> viewed = new HashSet<>();
+        viewed.add("0");
+        HashSet<String> type = new HashSet<>();
+        type.add("other"); //指定告警类型？？
+        
+        filter.setAllowAlarmStatus(stat);
+        filter.setAllowAlarmType(type);
+        filter.setAllowReadStatus(viewed);
+        
+        Calendar calendar = Calendar.getInstance();
+        Date endTime = calendar.getTime();
+        calendar.add(Calendar.DATE, -3);
+        Date threeDaysAgo = calendar.getTime();
+        calendar.add(Calendar.DATE, 3);
+        calendar.add(Calendar.MONTH, -1);
+        Date monthAgo = calendar.getTime();
+        
+        List<Long> imeis = Arrays.asList(1L,2L); //imei列表
+        //1.imei列表length 是否每次都用固定的imei列表
+        
+        for(int i = 0;i < testTimes;i++) {
+            if(Math.random()<0.25)
+                filter.setAllowTimeRange(new Pair<>(threeDaysAgo, endTime));
+            else
+                filter.setAllowTimeRange(new Pair<>(monthAgo, endTime));
+            
+            if(i<0.3*testTimes) {
+                HashMap<Integer, List<Long>> map = new HashMap<>();
+                map.put(0, imeis);
+                result = HbaseSearch.getInstance().queryAlarmByImei(map,
+                        HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
+                result.setConnection(connection);
+            }else if(i<0.33*testTimes) {
+                
+            }
+        }
+        
     }
 }

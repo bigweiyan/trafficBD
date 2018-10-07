@@ -61,7 +61,14 @@ public class Main {
                 IgniteSearch.getInstance().stop();
                 break;
             case "TestHbaseSearch":
-                new TestUserSearch().main(args);
+                new TestHbaseSearch().main(args);
+                IgniteSearch.getInstance().stop();
+                break;
+            case "TestUpdate":
+                new TestUpdate().main(args);
+                break;
+            case "TestOverSpeedSearch":
+                new TestOverSpeedSearch().main(args);
                 IgniteSearch.getInstance().stop();
                 break;
             case "shell":

@@ -296,7 +296,7 @@ public class AlarmScanner implements Closeable {
                         FilterList fList = new FilterList(FilterList.Operator.MUST_PASS_ALL, filterLists);
                         scan.setFilter(fList);
                     }
-
+                    
                     ResultScanner scanner = table.getScanner(scan);
                     AlarmSearchUtils.addToList(scanner, result, pair.getKey(),query.tableName);
                     scanner.close();
@@ -324,7 +324,7 @@ public class AlarmScanner implements Closeable {
             int nextid = 0; //下一个分配的线程id
             while(nextid < queries) {
                 // 取得本对象的锁。锁的目的是等待空闲线程
-                synchronized (this) {
+                synchronized (ManageThread.this) {
                     while (currentThreads.get() >= Settings.MAX_WORKER_THREAD) {
                         try {
                             this.wait(50);
@@ -336,8 +336,6 @@ public class AlarmScanner implements Closeable {
                     if(!closing) pool.submit(new ScanThread(AlarmScanner.this.queries.poll(), nextid));
                     else return;
                 }
-                if(closing) return;
-                pool.submit(new ScanThread(AlarmScanner.this.queries.poll(), nextid));
                 nextid++;
                 currentThreads.incrementAndGet();
             }
