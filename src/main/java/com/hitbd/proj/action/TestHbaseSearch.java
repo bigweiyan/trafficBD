@@ -153,9 +153,8 @@ public class TestHbaseSearch {
                     filter.setAllowReadStatus(viewed);
                     // start work
                     AlarmScanner result = HbaseSearch.getInstance()
-                            .queryAlarmByImei(connection, batch, HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
+                            .queryAlarmByUser(connection, ignite, userBatch.get(0), userBatch, false, HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
 					Long igniteTime = new Date().getTime() - date.getTime();
-                    result.setConnection(connection);
                     int imeiCount = result.totalImei;
                     int queryCount = result.queries.size();
                     long response = 0;
@@ -295,7 +294,7 @@ public class TestHbaseSearch {
                     filter.setAllowReadStatus(viewed);
                     // start work
                     AlarmScanner result = HbaseSearch.getInstance()
-                            .queryAlarmByUser(connection, ignite, userBatch.get(0), userBatch, false, HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
+                            .queryAlarmByImei(connection, batch, HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
                     Long igniteTime = new Date().getTime() - date.getTime();
                     int imeiCount = result.totalImei;
                     int queryCount = result.queries.size();

@@ -80,8 +80,7 @@ public class TestUpdate {
                 QueryFilter filter = new QueryFilter();
                 //filter.setAllowTimeRange(new Pair<>(new Date(startTime), new Date(endTime)));
                 AlarmScanner result = HbaseSearch.getInstance()
-                        .queryAlarmByImei(batch, HbaseSearch.NO_SORT, filter);
-                result.setConnection(connection);
+                        .queryAlarmByImei(connection,batch, HbaseSearch.NO_SORT, filter);
                 List<Pair<String, String>> rowKeys = new ArrayList<>();
                 while(result.notFinished()) {
                     List<Pair<Integer, IAlarm>> resultList = result.next(100);

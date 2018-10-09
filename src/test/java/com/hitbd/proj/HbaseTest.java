@@ -162,22 +162,7 @@ public class HbaseTest {
         List<Long> imeis = Arrays.asList(1L,2L); //imei列表
         //1.imei列表length 是否每次都用固定的imei列表
         
-        for(int i = 0;i < testTimes;i++) {
-            if(Math.random()<0.25)
-                filter.setAllowTimeRange(new Pair<>(threeDaysAgo, endTime));
-            else
-                filter.setAllowTimeRange(new Pair<>(monthAgo, endTime));
-            
-            if(i<0.3*testTimes) {
-                HashMap<Integer, List<Long>> map = new HashMap<>();
-                map.put(0, imeis);
-                result = HbaseSearch.getInstance().queryAlarmByImei(map,
-                        HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
-                result.setConnection(connection);
-            }else if(i<0.33*testTimes) {
-                
-            }
-        }
+        
         
     }
 }

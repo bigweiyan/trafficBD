@@ -39,7 +39,7 @@ public class TestOverSpeedSearch {
     private AtomicInteger alarmScanned = new AtomicInteger();
     Connection connection;
     
-    private int testCount = 100;
+    private int testCount = 1000;
     
     public void main(String[] args) {
         // verify input
@@ -160,10 +160,8 @@ public class TestOverSpeedSearch {
                     filter.setAllowAlarmStatus(stat);
                     // start work
                     AlarmScanner result = HbaseSearch.getInstance()
-                            .queryAlarmByUser(ignite, userBatch.get(0), userBatch, true, HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
-                    System.out.println("finish");
+                            .queryAlarmByUser(connection,ignite, userBatch.get(0), userBatch, true, HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
                     Long igniteTime = new Date().getTime() - date.getTime();
-                    result.setConnection(connection);
                     int imeiCount = result.totalImei;
                     int queryCount = result.queries.size();
                     long response = 0;
@@ -171,7 +169,6 @@ public class TestOverSpeedSearch {
                     List<Pair<Integer,IAlarm>> ret = new ArrayList<>();
                     while (result.notFinished()) {
                         List<Pair<Integer, IAlarm>> top = result.next(resultBatchSize);
-                        System.out.println("loop");
                         for(Pair<Integer,IAlarm> alarm:top) {
                             if(alarm.getValue().getVelocity()>0)
                                 ret.add(alarm);
@@ -191,7 +188,7 @@ public class TestOverSpeedSearch {
                     logWriter.write("Finish time: " + totalTime + " ms\n");
                     logWriter.write("Query created: " + queryCount + "\n");
                     logWriter.write("Alarm scanned: " + result.getTotalAlarm() + "\n");
-                    logWriter.write("Time used per IMEI: " + totalTime / imeiCount + " ms\n");
+//                    logWriter.write("Time used per IMEI: " + totalTime / imeiCount + " ms\n");
                     result.close();
                     System.out.print(".");
                 }
@@ -222,9 +219,8 @@ public class TestOverSpeedSearch {
                     filter.setAllowAlarmStatus(stat);
                     // start work
                     AlarmScanner result = HbaseSearch.getInstance()
-                            .queryAlarmByUser(ignite, userBatch.get(0), userBatch, false, HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
+                            .queryAlarmByUser(connection,ignite, userBatch.get(0), userBatch, false, HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
                     Long igniteTime = new Date().getTime() - date.getTime();
-                    result.setConnection(connection);
                     int imeiCount = result.totalImei;
                     int queryCount = result.queries.size();
                     long response = 0;
@@ -251,7 +247,7 @@ public class TestOverSpeedSearch {
                     logWriter.write("Finish time: " + totalTime + " ms\n");
                     logWriter.write("Query created: " + queryCount + "\n");
                     logWriter.write("Alarm scanned: " + result.getTotalAlarm() + "\n");
-                    logWriter.write("Time used per IMEI: " + totalTime / imeiCount + " ms\n");
+                    //logWriter.write("Time used per IMEI: " + totalTime / imeiCount + " ms\n");
                     result.close();
                     System.out.print(".");
                 }
@@ -284,8 +280,7 @@ public class TestOverSpeedSearch {
                     filter.setAllowAlarmStatus(stat);
                     // start work
                     AlarmScanner result = HbaseSearch.getInstance()
-                            .queryAlarmByImei(batch, HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
-                    result.setConnection(connection);
+                            .queryAlarmByImei(connection,batch, HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
                     int queryCount = result.queries.size();
                     long response = 0;
                     int resultBatchSize = Settings.Test.RESULT_SIZE;
