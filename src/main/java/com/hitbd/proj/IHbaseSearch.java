@@ -1,5 +1,13 @@
 package com.hitbd.proj;
 
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.hadoop.hbase.client.Connection;
+
 import com.hitbd.proj.exception.ForeignKeyException;
 import com.hitbd.proj.exception.NotExistException;
 import com.hitbd.proj.exception.TimeException;
@@ -28,20 +36,6 @@ public interface IHbaseSearch {
     int SORT_DESC = 0x10;
     int FIELD_MASK = 0x0f;
     int ORDER_MASK = 0x10;
-    /**
-     * A5.1
-     * 连接到Hbase集群
-     * @return
-     */
-    boolean connect();
-
-    /**
-     * A5.1
-     * 使用预定义的设置进行连接
-     * @param config
-     * @return
-     */
-    boolean connect(Configuration config);
 
     /**
      * A5.2
@@ -52,7 +46,7 @@ public interface IHbaseSearch {
      * @param endTime
      * @return 告警数据列表
      */
-    List<IAlarm> getAlarms(long startImei, long endImei, Date startTime, Date endTime);
+//    List<IAlarm> getAlarms(long startImei, long endImei, Date startTime, Date endTime);
 
     /**
      * No3.4
@@ -61,7 +55,7 @@ public interface IHbaseSearch {
      * @throws TimeException 告警的时间超过范围（小于2010年1月1日）时抛出此异常
      * @throws ForeignKeyException 告警的imei非法时抛出此异常
      */
-    void insertAlarm(List<IAlarm> alarms) throws TimeException, ForeignKeyException;
+    void insertAlarm(Connection connection,List<IAlarm> alarms) throws TimeException, ForeignKeyException;
 
     /**
      * No4.2
@@ -70,7 +64,7 @@ public interface IHbaseSearch {
      * @param pushTime
      * @throws NotExistException 行键不存在时抛出异常
      */
-    void setPushTime(List<Pair<String, String>> rowKeys, Date pushTime) throws NotExistException;
+    void setPushTime(Connection connection,List<Pair<String, String>> rowKeys, Date pushTime) throws NotExistException;
 
     /**
      * No4.2
@@ -79,7 +73,7 @@ public interface IHbaseSearch {
      * @param viewed
      * @throws NotExistException 行键不存在时抛出异常
      */
-    void setViewedFlag(List<Pair<String, String>> rowKeys, boolean viewed) throws NotExistException;
+    void setViewedFlag(Connection connection,List<Pair<String, String>> rowKeys, boolean viewed) throws NotExistException;
 
     /**
      * No4.5
@@ -87,7 +81,7 @@ public interface IHbaseSearch {
      * @param rowKeys
      * @throws NotExistException
      */
-    void deleteAlarm(List<Pair<String, String>> rowKeys) throws NotExistException;
+    void deleteAlarm(Connection connection,List<Pair<String, String>> rowKeys) throws NotExistException;
 
     /**
      * 5.1-5.3a
@@ -138,7 +132,7 @@ public interface IHbaseSearch {
      * @param parentBId
      * @param recursive 是否递归查询所有设备
      */
-    Map<String, Integer> groupCountByImeiStatus(java.sql.Connection connection, int parentBId, boolean recursive);
+//    Map<String, Integer> groupCountByImeiStatus(java.sql.Connection connection, int parentBId, boolean recursive);
 
     /**
      * 5.5 按照用户和已读标记分组Count查询
@@ -190,10 +184,4 @@ public interface IHbaseSearch {
     Map<Long, Map<String, Integer>> getAlarmCountByRead(Connection connection, String start,
                                                           String end, List<Long> imeis);
 
-    /**
-     * A5.3
-     * 关闭连接
-     * @return
-     */
-    boolean close();
 }

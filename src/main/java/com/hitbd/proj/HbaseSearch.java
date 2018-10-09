@@ -1,11 +1,36 @@
 package com.hitbd.proj;
 
+import java.io.IOException;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
+import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.client.Connection;
+import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.Get;
+import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.client.Table;
+import org.apache.hadoop.hbase.util.Bytes;
+
 import com.hitbd.proj.exception.ForeignKeyException;
 import com.hitbd.proj.exception.NotExistException;
 import com.hitbd.proj.exception.TimeException;
 import com.hitbd.proj.logic.AlarmScanner;
 import com.hitbd.proj.logic.Query;
-import com.hitbd.proj.model.AlarmImpl;
 import com.hitbd.proj.model.IAlarm;
 import com.hitbd.proj.model.Pair;
 import com.hitbd.proj.util.Serialization;
@@ -30,7 +55,6 @@ import java.util.*;
 
 public class HbaseSearch implements IHbaseSearch {
 
-    private static Connection connection;
     private static HbaseSearch search;
 
     private HbaseSearch(){};
@@ -38,36 +62,7 @@ public class HbaseSearch implements IHbaseSearch {
         if (search == null) search = new HbaseSearch();
         return search;
     }
-
-    @Override
-    public boolean connect() {
-        if (connection == null || connection.isClosed()) {
-            try {
-                if (Settings.HBASE_CONFIG == null)
-                    Settings.HBASE_CONFIG = HBaseConfiguration.create();
-                connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
-            } catch (IOException e) {
-                e.printStackTrace();
-                return false;
-            }
-        }
-        return true;
-    }
-
-    @Override
-    public boolean connect(Configuration config) {
-        if (connection == null || connection.isClosed()){
-            try {
-                Settings.HBASE_CONFIG = config;
-                connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
-            } catch (IOException e) {
-                e.printStackTrace();
-                return false;
-            }
-        }
-        return true;
-    }
-
+/*
     @Override
     public List<IAlarm> getAlarms(long startImei, long endImei, Date startTime, Date endTime) {
         List<IAlarm> ret = new ArrayList<>();
@@ -218,9 +213,9 @@ public class HbaseSearch implements IHbaseSearch {
         }
         results.close();
     }
-
+*/
     @Override
-    public void insertAlarm(List<IAlarm> alarms) throws TimeException, ForeignKeyException {
+    public void insertAlarm(Connection connection,List<IAlarm> alarms) throws TimeException, ForeignKeyException {
         for(IAlarm alarm:alarms) {
             //异常抛出
             String tableName = alarm.getTableName();
@@ -254,7 +249,7 @@ public class HbaseSearch implements IHbaseSearch {
     }
 
     @Override
-    public void setPushTime(List<Pair<String, String>> rowKeys, Date pushTime) throws NotExistException {
+    public void setPushTime(Connection connection,List<Pair<String, String>> rowKeys, Date pushTime) throws NotExistException {
         for(Pair<String,String> tableRowKey:rowKeys) {
             //异常抛出
             String tableName = tableRowKey.getKey();
@@ -286,7 +281,7 @@ public class HbaseSearch implements IHbaseSearch {
     }
 
     @Override
-    public void setViewedFlag(List<Pair<String, String>> rowKeys, boolean viewed) throws NotExistException {
+    public void setViewedFlag(Connection connection,List<Pair<String, String>> rowKeys, boolean viewed) throws NotExistException {
         for(Pair<String,String> rowKey:rowKeys) {
             //异常抛出
             String tablename = rowKey.getKey();
@@ -307,7 +302,7 @@ public class HbaseSearch implements IHbaseSearch {
     }
 
     @Override
-    public void deleteAlarm(List<Pair<String, String>> rowKeys) throws NotExistException {
+    public void deleteAlarm(Connection connection,List<Pair<String, String>> rowKeys) throws NotExistException {
         for(Pair<String,String> rowKey:rowKeys) {
             //异常抛出
             String tablename = rowKey.getKey();
@@ -777,7 +772,7 @@ public class HbaseSearch implements IHbaseSearch {
         // TODO 找到userCID可以访问的所有IMEI，以及他直接相关的C端用户id
         return queryAlarmByImei(hbase, map, sortType, filter);
     }
-
+/*
 	@Override
 	public Map<String, Integer> groupCountByImeiStatus(java.sql.Connection connection, int parentBId, boolean recursive) {
 		Map<String, Integer> map = new HashMap<>();
@@ -813,7 +808,7 @@ public class HbaseSearch implements IHbaseSearch {
 
 		return map;
 	}
-
+*/
 	@Override
 	public Map<String, Integer> groupCountByUserIdViewed(java.sql.Connection connection, ArrayList<Integer> parentBIds,
                                                          boolean recursive) {
@@ -919,17 +914,4 @@ public class HbaseSearch implements IHbaseSearch {
         }
 		return null;
 	}
-
-    @Override
-    public boolean close() {
-        if(connection!=null) {
-            try {
-                connection.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-                return false;
-            }
-        }
-        return true;
-    }
 }
