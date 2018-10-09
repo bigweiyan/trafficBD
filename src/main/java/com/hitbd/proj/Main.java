@@ -46,9 +46,8 @@ public class Main {
                 CreateIgniteTable.main(args);
                 IgniteSearch.getInstance().stop();
                 break;
-            case "AlarmC":
-                new TestAlarmC().main(args);
-                IgniteSearch.getInstance().stop();
+            case "TestAlarmCount":
+                new TestAlarmCount().main(args);
                 break;
             case "GenerateImeiCase":
                 new GenerateImeiCase().main(args);
@@ -60,9 +59,26 @@ public class Main {
                 new TestUserSearch().main(args);
                 IgniteSearch.getInstance().stop();
                 break;
+            case "TestHbaseSearch":
+                new TestHbaseSearch().main(args);
+                IgniteSearch.getInstance().stop();
+                break;
+            case "TestUpdate":
+                new TestUpdate().main(args);
+                break;
+            case "TestOverSpeedSearch":
+                new TestOverSpeedSearch().main(args);
+                IgniteSearch.getInstance().stop();
+                break;
             case "shell":
                 new Shell().main();
                 IgniteSearch.getInstance().stop();
+                break;
+            case "ImportAlarmCount":
+                new ImportAlarmCount().main(args);
+                break;
+            case "CountAlarm":
+                CountAlarmByRead.main(args);
                 break;
             default:
                 System.out.println("Usage: trafficBD Action [Parameter]");
@@ -111,6 +127,12 @@ public class Main {
                                 break;
                             case "test.wait_until_finish":
                                 Settings.Test.WAIT_UNTIL_FINISH = value.equals("true");
+                                break;
+                            case "test.start_time_default":
+                                Settings.Test.START_TIME_DEFAULT = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").parse(value).getTime();
+                                break;
+                            case "test.start_time_option":
+                                Settings.Test.START_TIME_OPTION = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").parse(value).getTime();
                                 break;
                             case "test.start_time":
                                 Settings.Test.START_TIME = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").parse(value).getTime();

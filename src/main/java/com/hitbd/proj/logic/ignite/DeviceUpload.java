@@ -130,6 +130,7 @@ public class DeviceUpload {
         pst.close();
         logWriter.append(" SUCCESS!\n");
         logWriter.flush();
+        parser.close();
     }
 
     private static void insertDevice(PreparedStatement pstmt, int userId, long imei, String deviceType, String appid,

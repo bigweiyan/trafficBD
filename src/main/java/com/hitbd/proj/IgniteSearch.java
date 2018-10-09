@@ -10,6 +10,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.CachePeekMode;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.logger.log4j.Log4JLogger;
@@ -742,9 +743,7 @@ public class IgniteSearch implements IIgniteSearch {
             		sql = "select user_b_id,imei,expire_list from Device where user_b_id in (" + Serialization.listToStr(childqueue) + ")";
             	pstmt = connection.prepareStatement(sql);
                 ResultSet imeiset = pstmt.executeQuery();
-                sql = "select children_ids from User_B where user_id in (" + Serialization.listToStr(childqueue) + ")";
-                pstmt = connection.prepareStatement(sql);
-                ResultSet childrenset = pstmt.executeQuery();
+
                 // refresh imeis and childqueue
                 imeis.clear();
                 childqueue.clear();
@@ -780,14 +779,22 @@ public class IgniteSearch implements IIgniteSearch {
                     	}
             		}
                 }
+                pstmt.close();
+                imeiset.close();
+                
+                sql = "select children_ids from User_B where user_id in (" + Serialization.listToStr(childqueue) + ")";
+                pstmt = connection.prepareStatement(sql);
+                ResultSet childrenset = pstmt.executeQuery();
                 while (childrenset.next()) {
                     ArrayList<Integer> temp = Serialization.strToList(childrenset.getString("children_ids"));
                     for (int i = 0; i < temp.size(); i++) {
                         childqueue.add(temp.get(i));
                     }
                 }
+                pstmt.close();
+                childrenset.close();
             }
-            pstmt.close();
+            
         }catch (SQLException e){
 		    e.printStackTrace();
         }
@@ -797,4 +804,9 @@ public class IgniteSearch implements IIgniteSearch {
     public void stop(){
         if(ignite != null) Ignition.stop(true);
     }
+
+    public void showInfo(){
+    	System.out.println("alarm c used space " + alarmCCache.size(CachePeekMode.ALL));
+		System.out.println("viewed c used space " + viewedCCache.size(CachePeekMode.ALL));
+	}
 }

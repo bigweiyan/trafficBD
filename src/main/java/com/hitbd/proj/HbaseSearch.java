@@ -1,11 +1,36 @@
 package com.hitbd.proj;
 
+import java.io.IOException;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
+import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.client.Connection;
+import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.Get;
+import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.client.Table;
+import org.apache.hadoop.hbase.util.Bytes;
+
 import com.hitbd.proj.exception.ForeignKeyException;
 import com.hitbd.proj.exception.NotExistException;
 import com.hitbd.proj.exception.TimeException;
 import com.hitbd.proj.logic.AlarmScanner;
 import com.hitbd.proj.logic.Query;
-import com.hitbd.proj.model.AlarmImpl;
 import com.hitbd.proj.model.IAlarm;
 import com.hitbd.proj.model.Pair;
 import com.hitbd.proj.util.Serialization;
@@ -14,6 +39,7 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.*;
@@ -29,7 +55,6 @@ import java.util.*;
 
 public class HbaseSearch implements IHbaseSearch {
 
-    private static Connection connection;
     private static HbaseSearch search;
 
     private HbaseSearch(){};
@@ -37,36 +62,7 @@ public class HbaseSearch implements IHbaseSearch {
         if (search == null) search = new HbaseSearch();
         return search;
     }
-
-    @Override
-    public boolean connect() {
-        if (connection == null || connection.isClosed()) {
-            try {
-                if (Settings.HBASE_CONFIG == null)
-                    Settings.HBASE_CONFIG = HBaseConfiguration.create();
-                connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
-            } catch (IOException e) {
-                e.printStackTrace();
-                return false;
-            }
-        }
-        return true;
-    }
-
-    @Override
-    public boolean connect(Configuration config) {
-        if (connection == null || connection.isClosed()){
-            try {
-                Settings.HBASE_CONFIG = config;
-                connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
-            } catch (IOException e) {
-                e.printStackTrace();
-                return false;
-            }
-        }
-        return true;
-    }
-
+/*
     @Override
     public List<IAlarm> getAlarms(long startImei, long endImei, Date startTime, Date endTime) {
         List<IAlarm> ret = new ArrayList<>();
@@ -217,9 +213,9 @@ public class HbaseSearch implements IHbaseSearch {
         }
         results.close();
     }
-
+*/
     @Override
-    public void insertAlarm(List<IAlarm> alarms) throws TimeException, ForeignKeyException {
+    public void insertAlarm(Connection connection,List<IAlarm> alarms) throws TimeException, ForeignKeyException {
         for(IAlarm alarm:alarms) {
             //异常抛出
             String tableName = alarm.getTableName();
@@ -253,7 +249,7 @@ public class HbaseSearch implements IHbaseSearch {
     }
 
     @Override
-    public void setPushTime(List<Pair<String, String>> rowKeys, Date pushTime) throws NotExistException {
+    public void setPushTime(Connection connection,List<Pair<String, String>> rowKeys, Date pushTime) throws NotExistException {
         for(Pair<String,String> tableRowKey:rowKeys) {
             //异常抛出
             String tableName = tableRowKey.getKey();
@@ -285,7 +281,7 @@ public class HbaseSearch implements IHbaseSearch {
     }
 
     @Override
-    public void setViewedFlag(List<Pair<String, String>> rowKeys, boolean viewed) throws NotExistException {
+    public void setViewedFlag(Connection connection,List<Pair<String, String>> rowKeys, boolean viewed) throws NotExistException {
         for(Pair<String,String> rowKey:rowKeys) {
             //异常抛出
             String tablename = rowKey.getKey();
@@ -306,7 +302,7 @@ public class HbaseSearch implements IHbaseSearch {
     }
 
     @Override
-    public void deleteAlarm(List<Pair<String, String>> rowKeys) throws NotExistException {
+    public void deleteAlarm(Connection connection,List<Pair<String, String>> rowKeys) throws NotExistException {
         for(Pair<String,String> rowKey:rowKeys) {
             //异常抛出
             String tablename = rowKey.getKey();
@@ -326,7 +322,7 @@ public class HbaseSearch implements IHbaseSearch {
     }
 
     @Override
-    public AlarmScanner queryAlarmByUser(java.sql.Connection connection, int queryUser, List<Integer> userBIds,
+    public AlarmScanner queryAlarmByUser(Connection hbase, java.sql.Connection ignite, int queryUser, List<Integer> userBIds,
                                          boolean recursive, int sortType, QueryFilter filter) {
         if (filter == null) throw new IllegalArgumentException("filter could not be null");
         // 存放用户及其对应设备
@@ -334,19 +330,105 @@ public class HbaseSearch implements IHbaseSearch {
         // 读取用户及其对应设备imei,这些设备将被过期时间进行过滤
         if (recursive) {
             userAndDevice = IgniteSearch.getInstance()
-                    .getLevelOrderChildrenDevicesOfUserB(connection, queryUser, false);
+                    .getLevelOrderChildrenDevicesOfUserB(ignite, queryUser, false);
         } else {
             userAndDevice = new HashMap<>();
             for (int user : userBIds) userAndDevice
-                    .put(user, IgniteSearch.getInstance().getDirectDevices(connection, user, queryUser, false));
+                    .put(user, IgniteSearch.getInstance().getDirectDevices(ignite, user, queryUser, false));
         }
-        return queryAlarmByImei(userAndDevice, sortType, filter);
+        pruning(hbase, filter, userAndDevice);
+        return queryAlarmByImei(hbase, userAndDevice, sortType, filter);
+    }
+
+    private void pruning(Connection hbase, QueryFilter filter, HashMap<Integer, List<Long>> userAndDevice){
+        Date start = filter.getAllowTimeRange().getKey();
+        Date end = filter.getAllowTimeRange().getValue();
+        String startDateInt, endDateInt;
+        if (start == null) start = new Date(Settings.START_TIME);
+        if (end == null) end = new Date(Settings.END_TIME);
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(start);
+        startDateInt = "" + ((calendar.get(Calendar.MONTH) + 1) * 100 + calendar.get(Calendar.DAY_OF_MONTH));
+        calendar.setTime(end);
+        endDateInt = "" + ((calendar.get(Calendar.MONTH) + 1) * 100 + calendar.get(Calendar.DAY_OF_MONTH));
+        List<Long> imeis = new ArrayList<>();
+        for (Map.Entry<Integer, List<Long>> entry : userAndDevice.entrySet()) {
+            imeis.addAll(entry.getValue());
+        }
+        Map<Long, Map<String, Integer>> statusPruningMap = null;
+        Map<Long, Map<String, Integer>> readPruningMap = null;
+        Map<Long, Integer> totalPruningMap = HbaseSearch.getInstance().getAlarmCount(hbase, startDateInt, endDateInt, imeis);
+        if (filter.getAllowReadStatus() != null && filter.getAllowReadStatus().size() != 0) {
+            readPruningMap = HbaseSearch.getInstance().getAlarmCountByRead(hbase, startDateInt, endDateInt, imeis);
+        }
+        if (filter.getAllowAlarmStatus() != null && filter.getAllowAlarmStatus().size() != 0) {
+            statusPruningMap = HbaseSearch.getInstance().getAlarmCountByStatus(hbase, startDateInt, endDateInt, imeis);
+        }
+
+        Set<Long> pruned = new HashSet<>();
+        for (Long l : imeis) {
+            if (totalPruningMap != null && totalPruningMap.getOrDefault(l, 0) == 0) {
+                pruned.add(l);
+                continue;
+            }
+            // 如果用户没有对某一列进行筛选，那么这一列的剪枝也没有意义，相当于直接求和也就是上一步的结果。
+            // 因此此时断言pruningMap存在，则allowSet存在
+            if (readPruningMap != null) {
+                int sum = 0;
+                Map<String, Integer> imeiMap = readPruningMap.getOrDefault(l, null);
+                if (imeiMap == null || imeiMap.size() == 0) continue;
+                for (String read: filter.getAllowReadStatus()) {
+                    sum += imeiMap.getOrDefault(read, 0);
+                }
+                if (sum == 0) {
+                    pruned.add(l);
+                    continue;
+                }
+            }
+            if (statusPruningMap != null) {
+                int sum = 0;
+                Map<String, Integer> imeiMap = statusPruningMap.getOrDefault(l, null);
+                if (imeiMap == null || imeiMap.size() == 0) continue;
+                for (String status : filter.getAllowAlarmStatus()) {
+                    sum += imeiMap.getOrDefault(status, 0);
+                }
+                if (sum == 0) {
+                    pruned.add(l);
+                }
+            }
+        }
+
+        if (pruned.size() == 0) return;
+        for (Map.Entry<Integer, List<Long>> entry : userAndDevice.entrySet()) {
+            List<Long> longs = entry.getValue();
+            int len = longs.size();
+            for (int i = 0; i < len; i++) {
+                if (pruned.contains(longs.get(i))) {
+                    longs.remove(i);
+                    i--;
+                    len--;
+                }
+            }
+        }
     }
 
     @Override
-    public AlarmScanner queryAlarmByImei(HashMap<Integer, List<Long>> userAndDevices, int sortType, QueryFilter filter) {
+    public AlarmScanner queryAlarmByImei(Connection hbase,
+                                         HashMap<Integer, List<Long>> userAndDevices,
+                                         int sortType,
+                                         QueryFilter filter) {
         if (filter == null) throw new IllegalArgumentException("filter could not be null");
         AlarmScanner result = new AlarmScanner(sortType);
+        result.setFilter(filter);
+        result.setConnection(hbase);
+        // 如果需要提前剪枝，则此时开始剪枝线程
+        if (Settings.ENABLE_PRUNING) {
+            List<Long> imeis = new ArrayList<>();
+            for (Map.Entry<Integer, List<Long>> entry : userAndDevices.entrySet()) {
+                imeis.addAll(entry.getValue());
+            }
+            result.startPreparePruning(imeis, filter.getAllowTimeRange().getKey(), filter.getAllowTimeRange().getValue());
+        }
 
         // 计算需要在哪些表中进行查询
         List<String> usedTable;
@@ -530,27 +612,167 @@ public class HbaseSearch implements IHbaseSearch {
             throw new IllegalArgumentException("sort type should be defined in IHbaseSearch");
         }
         result.setQueries(queries);
-        result.setFilter(filter);
         return result;
     }
 
     @Override
-    public void asyncQueryAlarmByUser(int qid, List<Integer> userBIds, boolean recursive, int sortType, QueryFilter filter) {
-        // TODO
+    public Map<Long, Integer> getAlarmCount(Connection connection, String start, String end, List<Long> imeis) {
+        int startInt, endInt;
+        try {
+            endInt = Integer.parseInt(end);
+            startInt = Integer.parseInt(start);
+        }catch (NumberFormatException e){
+            throw new IllegalArgumentException("start, end should like mmdd");
+        }
+        Map<Long, Integer> imeiMap = new HashMap<>();
+        try (Table table = connection.getTable(TableName.valueOf("alarm_count"))){
+            List<Get> getList = new ArrayList<>();
+            for (Long imei : imeis) {
+                Get get = new Get(Bytes.toBytes(Long.toString(imei)));
+                get.addFamily(Bytes.toBytes("a"));
+                getList.add(get);
+            }
+            Result[] results = table.get(getList);
+
+            for (Result result : results) {
+                List<Cell> cells = result.listCells();
+                if (cells == null) continue;
+                for (Cell cell : cells) {
+                    String row = Bytes.toString(cell.getRowArray(), cell.getRowOffset(), cell.getRowLength());
+                    String date = Bytes.toString(cell.getQualifierArray(), cell.getQualifierOffset(), cell.getQualifierLength());
+                    String count = Bytes.toString(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength());
+                    try {
+                        long imei = Long.parseLong(row);
+                        int dateInt = Integer.parseInt(date);
+                        if (Utils.dateBetween(startInt, dateInt, endInt)){
+                            imeiMap.put(imei, imeiMap.getOrDefault(imei, 0) + Integer.valueOf(count));
+                        }
+                    } catch (NumberFormatException e) {
+                        System.out.println(e.getMessage());
+                    }
+                }
+            }
+        }catch (IOException e){
+            e.printStackTrace();
+            return null;
+        }
+
+        return imeiMap;
+    }
+
+    public Map<Long, Map<String, Integer>> getAlarmCountByStatus(Connection connection, String start,
+                                                                               String end, List<Long> imeis) {
+        int startInt, endInt;
+        try {
+            endInt = Integer.parseInt(end);
+            startInt = Integer.parseInt(start);
+        }catch (NumberFormatException e){
+            throw new IllegalArgumentException("start, end should like mmdd");
+        }
+        Map<Long, Map<String, Integer>> imeiMap = new HashMap<>();
+        try (Table table = connection.getTable(TableName.valueOf("alarm_count"))){
+            List<Get> getList = new ArrayList<>();
+            for (Long imei : imeis) {
+                Get get = new Get(Bytes.toBytes(Long.toString(imei)));
+                get.addFamily(Bytes.toBytes("s"));
+                getList.add(get);
+            }
+            Result[] results = table.get(getList);
+
+            for (Result result : results) {
+                List<Cell> cells = result.listCells();
+                if (cells == null) continue;
+                for (Cell cell : cells) {
+                    String row = Bytes.toString(cell.getRowArray(), cell.getRowOffset(), cell.getRowLength());
+                    String date = Bytes.toString(cell.getQualifierArray(), cell.getQualifierOffset(), cell.getQualifierLength());
+                    String statusList = Bytes.toString(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength());
+                    try {
+                        int dateInt = Integer.parseInt(date);
+                        if (Utils.dateBetween(startInt, dateInt, endInt)) {
+                            long imei = Long.parseLong(row);
+                            if (! imeiMap.containsKey(imei)) {
+                                imeiMap.put(imei, new HashMap<>());
+                            }
+                            Map<String, Integer> statusMap = imeiMap.get(imei);
+                            String[] statusKV = statusList.split(",");
+                            for (String kv : statusKV) {
+                                String k = kv.split(":")[0];
+                                int v = Integer.parseInt(kv.split(":")[1]);
+                                statusMap.put(k, statusMap.getOrDefault(k, 0) + v);
+                            }
+                        }
+                    } catch (NumberFormatException e) {
+                        System.out.println(e.getMessage());
+                    }
+                }
+            }
+        }catch (IOException e){
+            e.printStackTrace();
+            return null;
+        }
+        return imeiMap;
+    }
+
+    public Map<Long, Map<String, Integer>> getAlarmCountByRead(Connection connection, String start,
+                                                                 String end, List<Long> imeis) {
+        int startInt, endInt;
+        try {
+            endInt = Integer.parseInt(end);
+            startInt = Integer.parseInt(start);
+        }catch (NumberFormatException e){
+            throw new IllegalArgumentException("start, end should like mmdd");
+        }
+        Map<Long, Map<String, Integer>> imeiMap = new HashMap<>();
+        try (Table table = connection.getTable(TableName.valueOf("alarm_count"))){
+            List<Get> getList = new ArrayList<>();
+            for (Long imei : imeis) {
+                Get get = new Get(Bytes.toBytes(Long.toString(imei)));
+                get.addFamily(Bytes.toBytes("r"));
+                getList.add(get);
+            }
+            Result[] results = table.get(getList);
+
+            for (Result result : results) {
+                List<Cell> cells = result.listCells();
+                if (cells == null) continue;
+                for (Cell cell : cells) {
+                    String row = Bytes.toString(cell.getRowArray(), cell.getRowOffset(), cell.getRowLength());
+                    String date = Bytes.toString(cell.getQualifierArray(), cell.getQualifierOffset(), cell.getQualifierLength());
+                    String statusList = Bytes.toString(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength());
+                    try {
+                        int dateInt = Integer.parseInt(date);
+                        if (Utils.dateBetween(startInt, dateInt, endInt)) {
+                            long imei = Long.parseLong(row);
+                            if (! imeiMap.containsKey(imei)) {
+                                imeiMap.put(imei, new HashMap<>());
+                            }
+                            Map<String, Integer> statusMap = imeiMap.get(imei);
+                            String[] statusKV = statusList.split(",");
+                            for (String kv : statusKV) {
+                                String k = kv.split(":")[0];
+                                int v = Integer.parseInt(kv.split(":")[1]);
+                                statusMap.put(k, statusMap.getOrDefault(k, 0) + v);
+                            }
+                        }
+                    } catch (NumberFormatException e) {
+                        System.out.println(e.getMessage());
+                    }
+                }
+            }
+        }catch (IOException e){
+            e.printStackTrace();
+            return null;
+        }
+        return imeiMap;
     }
 
     @Override
-    public void asyncQueryAlarmByImei(int qid, List<Long> imeis, int sortType, QueryFilter filter) {
-        // TODO
-    }
-
-    @Override
-    public AlarmScanner queryAlarmByUserC(java.sql.Connection connection, int userCId, int sortType, QueryFilter filter) {
+    public AlarmScanner queryAlarmByUserC(Connection hbase, java.sql.Connection ignite, int userCId, int sortType, QueryFilter filter) {
         HashMap<Integer, List<Long>> map = null;
         // TODO 找到userCID可以访问的所有IMEI，以及他直接相关的C端用户id
-        return queryAlarmByImei(map, sortType, filter);
+        return queryAlarmByImei(hbase, map, sortType, filter);
     }
-
+/*
 	@Override
 	public Map<String, Integer> groupCountByImeiStatus(java.sql.Connection connection, int parentBId, boolean recursive) {
 		Map<String, Integer> map = new HashMap<>();
@@ -586,7 +808,7 @@ public class HbaseSearch implements IHbaseSearch {
 
 		return map;
 	}
-
+*/
 	@Override
 	public Map<String, Integer> groupCountByUserIdViewed(java.sql.Connection connection, ArrayList<Integer> parentBIds,
                                                          boolean recursive) {
@@ -692,17 +914,4 @@ public class HbaseSearch implements IHbaseSearch {
         }
 		return null;
 	}
-
-    @Override
-    public boolean close() {
-        if(connection!=null) {
-            try {
-                connection.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-                return false;
-            }
-        }
-        return true;
-    }
 }
