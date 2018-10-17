@@ -10,9 +10,6 @@ import org.apache.hadoop.hbase.HBaseConfiguration;
 
 import java.io.File;
 import java.io.IOException;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Scanner;
@@ -34,6 +31,30 @@ public class Main {
         }
         loadSettings();
         switch (args[0]) {
+
+            /*case "baba":
+                System.out.println("yes");
+                try {
+                    Connection connection = DriverManager.getConnection("jdbc:ignite:thin://localhost");
+                    IgniteSearch.getInstance().queryUsers(connection);
+                    connection.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+                break;
+            case "baba1":
+                System.out.println("yes");
+                try {
+                    Connection connection = DriverManager.getConnection("jdbc:ignite:thin://localhost");
+                    IgniteSearch.getInstance().querParents(connection);
+                    connection.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+                break;*/
+            case "getstatus":
+                System.out.println("开始求解所有imei的告警数和类型");
+
             case "ImportAlarm":
                 HbaseUpload.main(args);
                 IgniteSearch.getInstance().stop();
