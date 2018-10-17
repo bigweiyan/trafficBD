@@ -303,7 +303,6 @@ public class AlarmScanner implements Closeable {
                         FilterList fList = new FilterList(FilterList.Operator.MUST_PASS_ALL, filterLists);
                         scan.setFilter(fList);
                     }
-
                     // 运行Scan并添加结果
                     ResultScanner scanner = table.getScanner(scan);
                     AlarmSearchUtils.addToList(scanner, result, pair.getKey(),query.tableName);

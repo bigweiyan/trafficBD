@@ -1,11 +1,36 @@
 package com.hitbd.proj;
 
+import java.io.IOException;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
+import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.client.Connection;
+import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.Get;
+import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.client.Table;
+import org.apache.hadoop.hbase.util.Bytes;
+
 import com.hitbd.proj.exception.ForeignKeyException;
 import com.hitbd.proj.exception.NotExistException;
 import com.hitbd.proj.exception.TimeException;
 import com.hitbd.proj.logic.AlarmScanner;
 import com.hitbd.proj.logic.Query;
-import com.hitbd.proj.model.AlarmImpl;
 import com.hitbd.proj.model.IAlarm;
 import com.hitbd.proj.model.Pair;
 import com.hitbd.proj.util.Serialization;
@@ -30,7 +55,6 @@ import java.util.*;
 
 public class HbaseSearch implements IHbaseSearch {
 
-    private static Connection connection;
     private static HbaseSearch search;
 
     private HbaseSearch(){};
@@ -38,189 +62,144 @@ public class HbaseSearch implements IHbaseSearch {
         if (search == null) search = new HbaseSearch();
         return search;
     }
-
-    @Override
-    public boolean connect() {
-        if (connection == null || connection.isClosed()) {
-            try {
-                if (Settings.HBASE_CONFIG == null)
-                    Settings.HBASE_CONFIG = HBaseConfiguration.create();
-                connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
-            } catch (IOException e) {
-                e.printStackTrace();
-                return false;
-            }
-        }
-        return true;
-    }
-
-    @Override
-    public boolean connect(Configuration config) {
-        if (connection == null || connection.isClosed()){
-            try {
-                Settings.HBASE_CONFIG = config;
-                connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
-            } catch (IOException e) {
-                e.printStackTrace();
-                return false;
-            }
-        }
-        return true;
-    }
-
-    @Override
-    public List<IAlarm> getAlarms(long startImei, long endImei, Date startTime, Date endTime) {
-        List<IAlarm> ret = new ArrayList<>();
-        Calendar calendar = Calendar.getInstance();
-        Date nowdate = calendar.getTime();
-        long milliSecond = nowdate.getTime() - Settings.BASETIME;
-        int period = (int)(milliSecond / (1000 * 60 * 60 * 24 * 4));
-        Date date48before = new Date(Settings.BASETIME + period * 1000L * 60 * 60 * 24 * 4 - 48 * 1000L * 60 * 60 * 24);
-
-        if(endTime.after(date48before)) {
-            Date mmddstartTime = startTime.before(date48before) ? date48before : startTime;
-            String endTableName = Utils.getTableName(endTime);
-
-            Formatter formatter = new Formatter();
-            StringBuilder sb = new StringBuilder();
-            String imeistr = String.valueOf(startImei);
-            for (int j = 0; j < 17 - imeistr.length(); j++) {
-                sb.append(0);
-            }
-            sb.append(startImei).append("00000").append("0");
-            String start = sb.toString();
-
-            sb.setLength(0);
-            imeistr = String.valueOf(endImei);
-            for (int j = 0; j < 17 - imeistr.length(); j++) {
-                sb.append(0);
-            }
-            sb.append(endImei).append("fffff").append("9");
-            String end = sb.toString();
-
-            while(!Utils.getTableName(mmddstartTime).equals(endTableName)) {
-                ResultScanner results = scanTable(Utils.getTableName(mmddstartTime),start,end);
-                milliSecond = mmddstartTime.getTime() - Settings.BASETIME;
+    /*
+        @Override
+        public List<IAlarm> getAlarms(long startImei, long endImei, Date startTime, Date endTime) {
+            List<IAlarm> ret = new ArrayList<>();
+            Calendar calendar = Calendar.getInstance();
+            Date nowdate = calendar.getTime();
+            long milliSecond = nowdate.getTime() - Settings.BASETIME;
+            int period = (int)(milliSecond / (1000 * 60 * 60 * 24 * 4));
+            Date date48before = new Date(Settings.BASETIME + period * 1000L * 60 * 60 * 24 * 4 - 48 * 1000L * 60 * 60 * 24);
+            if(endTime.after(date48before)) {
+                Date mmddstartTime = startTime.before(date48before) ? date48before : startTime;
+                String endTableName = Utils.getTableName(endTime);
+                Formatter formatter = new Formatter();
+                StringBuilder sb = new StringBuilder();
+                String imeistr = String.valueOf(startImei);
+                for (int j = 0; j < 17 - imeistr.length(); j++) {
+                    sb.append(0);
+                }
+                sb.append(startImei).append("00000").append("0");
+                String start = sb.toString();
+                sb.setLength(0);
+                imeistr = String.valueOf(endImei);
+                for (int j = 0; j < 17 - imeistr.length(); j++) {
+                    sb.append(0);
+                }
+                sb.append(endImei).append("fffff").append("9");
+                String end = sb.toString();
+                while(!Utils.getTableName(mmddstartTime).equals(endTableName)) {
+                    ResultScanner results = scanTable(Utils.getTableName(mmddstartTime),start,end);
+                    milliSecond = mmddstartTime.getTime() - Settings.BASETIME;
+                    period = (int)(milliSecond / (1000 * 60 * 60 * 24 * 4));
+                    addToList(results,startTime,endTime,ret,Settings.BASETIME + period * 1000L * 60 * 60 * 24 * 4);
+                    mmddstartTime = new Date(mmddstartTime.getTime()+ 1000L * 60 * 60 * 24 * 4);
+                    results.close();
+                }
+                ResultScanner results = scanTable(endTableName,start,end);
+                milliSecond = endTime.getTime() - Settings.BASETIME;
                 period = (int)(milliSecond / (1000 * 60 * 60 * 24 * 4));
                 addToList(results,startTime,endTime,ret,Settings.BASETIME + period * 1000L * 60 * 60 * 24 * 4);
-                mmddstartTime = new Date(mmddstartTime.getTime()+ 1000L * 60 * 60 * 24 * 4);
+            }
+            if(startTime.before(date48before)) {
+                Date historyendTime = endTime.before(date48before) ? endTime : date48before;
+                //history表中获取 scan范围计算
+                Formatter formatter = new Formatter();
+                StringBuilder sb = new StringBuilder();
+                String imeistr = String.valueOf(startImei);
+                for (int j = 0; j < 17 - imeistr.length(); j++) {
+                    sb.append(0);
+                }
+                sb.append(startImei).append(formatter.format("%08x", startTime.getTime()/1000).toString()).append("0");
+                String start = sb.toString();
+                sb.setLength(0);
+                imeistr = String.valueOf(endImei);
+                for (int j = 0; j < 17 - imeistr.length(); j++) {
+                    sb.append(0);
+                }
+                sb.append(endImei).append(formatter.format("%08x", historyendTime.getTime()/1000).toString()).append("9");
+                String end = sb.toString();
+                ResultScanner results = scanTable("alarm_history",start,end);
+                for(Result r:results) {
+                    IAlarm alarm = new AlarmImpl();
+                    String rowKey = Bytes.toString(r.getRow());
+                    alarm.setRowKey(rowKey);
+                    alarm.setImei(Long.valueOf(rowKey.substring(0, 17)));
+                    alarm.setCreateTime(new Date(Long.valueOf(rowKey.substring(17,25),16)*1000));
+                    alarm.setStatus(Bytes.toString(r.getValue("r".getBytes(), "stat".getBytes())));
+                    alarm.setType(Bytes.toString(r.getValue("r".getBytes(), "type".getBytes())));
+                    alarm.setViewed(!Bytes.toString(r.getValue("r".getBytes(), "viewed".getBytes())).equals("0"));
+                    String record = Bytes.toString(r.getValue("r".getBytes(), "record".getBytes()));
+                    try {
+                        CSVParser csvparser = CSVParser.parse(record, CSVFormat.DEFAULT);
+                        List<CSVRecord> csvrecord = csvparser.getRecords();
+                        alarm.setAddress(csvrecord.get(0).get(0));
+                        alarm.setEncId(csvrecord.get(0).get(1));
+                        alarm.setId(csvrecord.get(0).get(2));
+                        alarm.setLatitude(Float.valueOf(csvrecord.get(0).get(3)));
+                        alarm.setLongitude(Float.valueOf(csvrecord.get(0).get(4)));
+                        SimpleDateFormat dateformatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                        alarm.setPushTime(dateformatter.parse(csvrecord.get(0).get(5)));
+                        alarm.setVelocity(Float.valueOf(csvrecord.get(0).get(6)));
+                        ret.add(alarm);
+                    } catch (IOException | ParseException e1) {
+                        e1.printStackTrace();
+                    }
+                }
                 results.close();
             }
-
-            ResultScanner results = scanTable(endTableName,start,end);
-            milliSecond = endTime.getTime() - Settings.BASETIME;
-            period = (int)(milliSecond / (1000 * 60 * 60 * 24 * 4));
-            addToList(results,startTime,endTime,ret,Settings.BASETIME + period * 1000L * 60 * 60 * 24 * 4);
-
+            return ret;
         }
-
-        if(startTime.before(date48before)) {
-            Date historyendTime = endTime.before(date48before) ? endTime : date48before;
-
-            //history表中获取 scan范围计算
-            Formatter formatter = new Formatter();
-            StringBuilder sb = new StringBuilder();
-            String imeistr = String.valueOf(startImei);
-            for (int j = 0; j < 17 - imeistr.length(); j++) {
-                sb.append(0);
-            }
-            sb.append(startImei).append(formatter.format("%08x", startTime.getTime()/1000).toString()).append("0");
-            String start = sb.toString();
-
-            sb.setLength(0);
-            imeistr = String.valueOf(endImei);
-            for (int j = 0; j < 17 - imeistr.length(); j++) {
-                sb.append(0);
-            }
-            sb.append(endImei).append(formatter.format("%08x", historyendTime.getTime()/1000).toString()).append("9");
-            String end = sb.toString();
-
-
-            ResultScanner results = scanTable("alarm_history",start,end);
+        private ResultScanner scanTable(String tableName,String start,String end) {
+            Table table;
+            try {
+                table = connection.getTable(TableName.valueOf(tableName));
+                Scan scan = new Scan(start.getBytes(),end.getBytes());
+                scan.addFamily("r".getBytes());
+                ResultScanner scanner = table.getScanner(scan);
+                table.close();
+                return scanner;
+            } catch (IOException e) {
+                e.printStackTrace();
+            }  //IOException
+            return null;
+        }
+        private void addToList(ResultScanner results, Date startTime, Date endTime, List<IAlarm> ret,long basicTime) {
             for(Result r:results) {
-                IAlarm alarm = new AlarmImpl();
                 String rowKey = Bytes.toString(r.getRow());
-                alarm.setRowKey(rowKey);
-                alarm.setImei(Long.valueOf(rowKey.substring(0, 17)));
-                alarm.setCreateTime(new Date(Long.valueOf(rowKey.substring(17,25),16)*1000));
-                alarm.setStatus(Bytes.toString(r.getValue("r".getBytes(), "stat".getBytes())));
-                alarm.setType(Bytes.toString(r.getValue("r".getBytes(), "type".getBytes())));
-                alarm.setViewed(!Bytes.toString(r.getValue("r".getBytes(), "viewed".getBytes())).equals("0"));
-                String record = Bytes.toString(r.getValue("r".getBytes(), "record".getBytes()));
-                try {
-                    CSVParser csvparser = CSVParser.parse(record, CSVFormat.DEFAULT);
-                    List<CSVRecord> csvrecord = csvparser.getRecords();
-                    alarm.setAddress(csvrecord.get(0).get(0));
-                    alarm.setEncId(csvrecord.get(0).get(1));
-                    alarm.setId(csvrecord.get(0).get(2));
-                    alarm.setLatitude(Float.valueOf(csvrecord.get(0).get(3)));
-                    alarm.setLongitude(Float.valueOf(csvrecord.get(0).get(4)));
-                    SimpleDateFormat dateformatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-                    alarm.setPushTime(dateformatter.parse(csvrecord.get(0).get(5)));
-                    alarm.setVelocity(Float.valueOf(csvrecord.get(0).get(6)));
-                    ret.add(alarm);
-                } catch (IOException | ParseException e1) {
-                    e1.printStackTrace();
+                Date createDate = new Date(Long.valueOf(rowKey.substring(17,22),16)*1000+basicTime);
+                if(createDate.after(startTime)&&createDate.before(endTime)) {
+                    IAlarm alarm = new AlarmImpl();
+                    alarm.setRowKey(rowKey);
+                    alarm.setImei(Long.valueOf(rowKey.substring(0, 17)));
+                    alarm.setCreateTime(createDate);
+                    alarm.setStatus(Bytes.toString(r.getValue("r".getBytes(), "stat".getBytes())));
+                    alarm.setType(Bytes.toString(r.getValue("r".getBytes(), "type".getBytes())));
+                    alarm.setViewed(!Bytes.toString(r.getValue("r".getBytes(), "viewed".getBytes())).equals("0"));
+                    String record = Bytes.toString(r.getValue("r".getBytes(), "record".getBytes()));
+                    try {
+                        CSVParser csvparser = CSVParser.parse(record, CSVFormat.DEFAULT);
+                        List<CSVRecord> csvrecord = csvparser.getRecords();
+                        alarm.setAddress(csvrecord.get(0).get(0));
+                        alarm.setEncId(csvrecord.get(0).get(1));
+                        alarm.setId(csvrecord.get(0).get(2));
+                        alarm.setLatitude(Float.valueOf(csvrecord.get(0).get(3)));
+                        alarm.setLongitude(Float.valueOf(csvrecord.get(0).get(4)));
+                        SimpleDateFormat dateformatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                        alarm.setPushTime(dateformatter.parse(csvrecord.get(0).get(5)));
+                        alarm.setVelocity(Float.valueOf(csvrecord.get(0).get(6)));
+                        ret.add(alarm);
+                    } catch (IOException | ParseException e1) {
+                        e1.printStackTrace();
+                    }
                 }
             }
             results.close();
         }
-
-        return ret;
-    }
-
-    private ResultScanner scanTable(String tableName,String start,String end) {
-        Table table;
-        try {
-            table = connection.getTable(TableName.valueOf(tableName));
-            Scan scan = new Scan(start.getBytes(),end.getBytes());
-            scan.addFamily("r".getBytes());
-            ResultScanner scanner = table.getScanner(scan);
-            table.close();
-            return scanner;
-        } catch (IOException e) {
-            e.printStackTrace();
-        }  //IOException
-        return null;
-    }
-
-    private void addToList(ResultScanner results, Date startTime, Date endTime, List<IAlarm> ret,long basicTime) {
-        for(Result r:results) {
-            String rowKey = Bytes.toString(r.getRow());
-
-            Date createDate = new Date(Long.valueOf(rowKey.substring(17,22),16)*1000+basicTime);
-
-            if(createDate.after(startTime)&&createDate.before(endTime)) {
-                IAlarm alarm = new AlarmImpl();
-                alarm.setRowKey(rowKey);
-                alarm.setImei(Long.valueOf(rowKey.substring(0, 17)));
-                alarm.setCreateTime(createDate);
-                alarm.setStatus(Bytes.toString(r.getValue("r".getBytes(), "stat".getBytes())));
-                alarm.setType(Bytes.toString(r.getValue("r".getBytes(), "type".getBytes())));
-                alarm.setViewed(!Bytes.toString(r.getValue("r".getBytes(), "viewed".getBytes())).equals("0"));
-                String record = Bytes.toString(r.getValue("r".getBytes(), "record".getBytes()));
-                try {
-                    CSVParser csvparser = CSVParser.parse(record, CSVFormat.DEFAULT);
-                    List<CSVRecord> csvrecord = csvparser.getRecords();
-                    alarm.setAddress(csvrecord.get(0).get(0));
-                    alarm.setEncId(csvrecord.get(0).get(1));
-                    alarm.setId(csvrecord.get(0).get(2));
-                    alarm.setLatitude(Float.valueOf(csvrecord.get(0).get(3)));
-                    alarm.setLongitude(Float.valueOf(csvrecord.get(0).get(4)));
-                    SimpleDateFormat dateformatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-                    alarm.setPushTime(dateformatter.parse(csvrecord.get(0).get(5)));
-                    alarm.setVelocity(Float.valueOf(csvrecord.get(0).get(6)));
-                    ret.add(alarm);
-                } catch (IOException | ParseException e1) {
-                    e1.printStackTrace();
-                }
-            }
-        }
-        results.close();
-    }
-
+    */
     @Override
-    public void insertAlarm(List<IAlarm> alarms) throws TimeException, ForeignKeyException {
+    public void insertAlarm(Connection connection,List<IAlarm> alarms) throws TimeException, ForeignKeyException {
         for(IAlarm alarm:alarms) {
             //异常抛出
             String tableName = alarm.getTableName();
@@ -254,7 +233,7 @@ public class HbaseSearch implements IHbaseSearch {
     }
 
     @Override
-    public void setPushTime(List<Pair<String, String>> rowKeys, Date pushTime) throws NotExistException {
+    public void setPushTime(Connection connection,List<Pair<String, String>> rowKeys, Date pushTime) throws NotExistException {
         for(Pair<String,String> tableRowKey:rowKeys) {
             //异常抛出
             String tableName = tableRowKey.getKey();
@@ -286,7 +265,7 @@ public class HbaseSearch implements IHbaseSearch {
     }
 
     @Override
-    public void setViewedFlag(List<Pair<String, String>> rowKeys, boolean viewed) throws NotExistException {
+    public void setViewedFlag(Connection connection,List<Pair<String, String>> rowKeys, boolean viewed) throws NotExistException {
         for(Pair<String,String> rowKey:rowKeys) {
             //异常抛出
             String tablename = rowKey.getKey();
@@ -307,7 +286,7 @@ public class HbaseSearch implements IHbaseSearch {
     }
 
     @Override
-    public void deleteAlarm(List<Pair<String, String>> rowKeys) throws NotExistException {
+    public void deleteAlarm(Connection connection,List<Pair<String, String>> rowKeys) throws NotExistException {
         for(Pair<String,String> rowKey:rowKeys) {
             //异常抛出
             String tablename = rowKey.getKey();
@@ -777,43 +756,42 @@ public class HbaseSearch implements IHbaseSearch {
         // TODO 找到userCID可以访问的所有IMEI，以及他直接相关的C端用户id
         return queryAlarmByImei(hbase, map, sortType, filter);
     }
-
-    @Override
-    public Map<String, Integer> groupCountByImeiStatus(java.sql.Connection connection, int parentBId, boolean recursive) {
-        Map<String, Integer> map = new HashMap<>();
-        ArrayList<Long> imeilist = new ArrayList<>();
-        try {
-            if (!recursive) {
-                String sql = "select imei from device where user_id = " + String.valueOf(parentBId);
-                PreparedStatement pstmt =connection.prepareStatement(sql);
-                ResultSet rs = pstmt.executeQuery();
-                while (rs.next()) {
-                    imeilist.add(rs.getLong("imei"));
+    /*
+        @Override
+        public Map<String, Integer> groupCountByImeiStatus(java.sql.Connection connection, int parentBId, boolean recursive) {
+            Map<String, Integer> map = new HashMap<>();
+            ArrayList<Long> imeilist = new ArrayList<>();
+            try {
+                if (!recursive) {
+                    String sql = "select imei from device where user_id = " + String.valueOf(parentBId);
+                    PreparedStatement pstmt =connection.prepareStatement(sql);
+                    ResultSet rs = pstmt.executeQuery();
+                    while (rs.next()) {
+                        imeilist.add(rs.getLong("imei"));
+                    }
+                } else {
+                    Map<Integer, List<Long>> idandimei = IgniteSearch.getInstance().getChildrenDevicesOfUserB(connection, parentBId);
+                    for (Integer id : idandimei.keySet()) {
+                        List<Long> temp = idandimei.get(id);
+                        imeilist.addAll(temp);
+                    }
                 }
-            } else {
-                Map<Integer, List<Long>> idandimei = IgniteSearch.getInstance().getChildrenDevicesOfUserB(connection, parentBId);
-                for (Integer id : idandimei.keySet()) {
-                    List<Long> temp = idandimei.get(id);
-                    imeilist.addAll(temp);
+                for (int i = 0; i < imeilist.size(); i++) {
+                    List<IAlarm> ialarmlist;
+                    Date endtime = new Date();
+                    ialarmlist = getAlarms(imeilist.get(i), imeilist.get(i), new Date(Settings.BASETIME), endtime);
+                    String temp = ialarmlist.get(i).getStatus();
+                    if (map.containsKey(temp))
+                        map.replace(temp, map.get(temp), map.get(temp) + 1);
+                    else
+                        map.put(temp, 1);
                 }
+            }catch (SQLException e){
+                e.printStackTrace();
             }
-            for (int i = 0; i < imeilist.size(); i++) {
-                List<IAlarm> ialarmlist;
-                Date endtime = new Date();
-                ialarmlist = getAlarms(imeilist.get(i), imeilist.get(i), new Date(Settings.BASETIME), endtime);
-                String temp = ialarmlist.get(i).getStatus();
-                if (map.containsKey(temp))
-                    map.replace(temp, map.get(temp), map.get(temp) + 1);
-                else
-                    map.put(temp, 1);
-            }
-        }catch (SQLException e){
-            e.printStackTrace();
+            return map;
         }
-
-        return map;
-    }
-
+    */
     @Override
     public Map<String, Integer> groupCountByUserIdViewed(java.sql.Connection connection, ArrayList<Integer> parentBIds,
                                                          boolean recursive) {
@@ -918,18 +896,5 @@ public class HbaseSearch implements IHbaseSearch {
             e.printStackTrace();
         }
         return null;
-    }
-
-    @Override
-    public boolean close() {
-        if(connection!=null) {
-            try {
-                connection.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-                return false;
-            }
-        }
-        return true;
     }
 }
