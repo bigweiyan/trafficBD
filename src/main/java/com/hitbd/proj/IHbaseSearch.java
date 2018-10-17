@@ -171,7 +171,7 @@ public interface IHbaseSearch {
      * @return 每个pair是一个imei-分类信息的键值对，其中每个分类信息是一个类别-个数的键值对
      */
     Map<Long, Map<String, Integer>> getAlarmCountByStatus(Connection connection, String start,
-                                                                        String end, List<Long> imeis);
+                                                          String end, List<Long> imeis);
 
     /**
      * 找到imei在一定时间范围内的已读未读告警数目
@@ -182,6 +182,6 @@ public interface IHbaseSearch {
      * @return 每个pair是一个imei-分类信息的键值对，其中每个分类信息是一个类别-个数的键值对
      */
     Map<Long, Map<String, Integer>> getAlarmCountByRead(Connection connection, String start,
-                                                          String end, List<Long> imeis);
+                                                        String end, List<Long> imeis);
 
 }

@@ -1,14 +1,25 @@
 package com.hitbd.proj.model;
 
 import com.hitbd.proj.Settings;
-import org.apache.hadoop.yarn.webapp.hamlet.Hamlet;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.ArrayList;
-import java.util.Date;
 
 public class ModelTest {
+    /*@Test
+    public  void testmy(){
+        try {
+            Connection connection = DriverManager.getConnection("jdbc:ignite:thin://localhost");
+            IgniteSearch.getInstance().countImeiStatus(connection,"868120190370376,868120183875977,868120197134593"
+                    ,"2390,2489,2514"
+                    ,"'2%'","");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }*/
+    @Ignore
     @Test
     public void testString2List() {
         UserC c = new UserC();
@@ -27,7 +38,7 @@ public class ModelTest {
         Assert.assertEquals(123L, c.getAuthedDevices().get(0));
         Assert.assertEquals(456L, c.getAuthedDevices().get(1));
     }
-
+    @Ignore
     @Test
     public void testList2String() {
         UserC c = new UserC();
@@ -39,7 +50,7 @@ public class ModelTest {
         list.add(456L);
         Assert.assertEquals("123,456", c.getAuthedDevicesText());
     }
-
+    @Ignore
     @Test
     public void testExpireDate() {
         Device device = new Device(1,1);

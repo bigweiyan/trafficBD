@@ -16,6 +16,7 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.logger.log4j.Log4JLogger;
 import org.apache.log4j.Level;
 
+import java.io.*;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -804,6 +805,136 @@ public class IgniteSearch implements IIgniteSearch {
     public void stop(){
         if(ignite != null) Ignition.stop(true);
     }
+	/**
+	 * 补充代码5
+	 * 层序遍历获取用户的所有孩子和层数
+	 * @return
+	 */
+	public void getLevelAndChilds(Connection connection) {
+
+		String temp = "/data1/yy/userdata.csv";
+		String treefile = "/data1/yy/tree.csv";
+		BufferedWriter bw = null;
+		try {
+			bw = new BufferedWriter(new FileWriter(new File(treefile), true));
+		} catch (IOException e1) {
+			e1.printStackTrace();
+		}
+		BufferedReader buffer = null;
+		try {
+			buffer = new BufferedReader(new InputStreamReader(new FileInputStream(new File(temp))));
+		} catch (FileNotFoundException e1) {
+			e1.printStackTrace();
+		}
+		String linetxt ;
+		try {
+			while((linetxt = buffer.readLine())!=null) {
+				String[] items = linetxt.split(",");
+				List<Long> userAndDevice;
+				Date date = new Date();
+				userAndDevice = getDirectDevices(connection, Integer.valueOf(items[0]), 0, false);
+				long time = new Date().getTime() - date.getTime();
+				int totalImei = userAndDevice.size();
+				bw.write(items[0]+","+totalImei+","+time);
+				bw.newLine();
+				bw.flush();
+			}
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+	}
+	public void querParents(Connection connection){
+		String temp = "/data1/yy/user";
+		String treefile = "/data1/yy/all";
+		BufferedWriter bw = null;
+		try {
+			bw = new BufferedWriter(new FileWriter(new File(treefile), true));
+		} catch (IOException e1) {
+			e1.printStackTrace();
+		}
+		BufferedReader buffer = null;
+		try {
+			buffer = new BufferedReader(new InputStreamReader(new FileInputStream(new File(temp))));
+		} catch (FileNotFoundException e1) {
+			e1.printStackTrace();
+		}
+		String linetxt ;
+		try {
+			while((linetxt = buffer.readLine())!=null) {
+				String[] items = linetxt.split(",");
+				String sql = "select user_id,parent_id from user_b where user_id = " + items[0];
+				try{
+					PreparedStatement pstmt = connection.prepareStatement(sql);
+					ResultSet rs;
+					rs = pstmt.executeQuery();
+					if (rs.next()){
+						Integer userid;
+						userid = rs.getInt("user_id");
+						Integer parent_id;
+						parent_id = rs.getInt("parent_id");
+						bw.write(parent_id.toString()+","+userid.toString() + "," + items[1]);
+						bw.newLine();
+						bw.flush();
+
+					}
+					rs.close();pstmt.close();
+				} catch (SQLException e) {
+					e.printStackTrace();
+				}
+			}
+			if (bw != null) bw.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	public void queryUsers(Connection connection){
+		String temp = "/data1/yy/imeiCase";
+		String treefile = "/data1/yy/user";
+		BufferedWriter bw = null;
+		try {
+			bw = new BufferedWriter(new FileWriter(new File(treefile), true));
+		} catch (IOException e1) {
+			e1.printStackTrace();
+		}
+		BufferedReader buffer = null;
+		try {
+			buffer = new BufferedReader(new InputStreamReader(new FileInputStream(new File(temp))));
+		} catch (FileNotFoundException e1) {
+			e1.printStackTrace();
+		}
+		String linetxt ;
+		try {
+			while((linetxt = buffer.readLine())!=null) {
+				String sql = "select imei,user_b_id from device where imei = " + linetxt;
+				try{
+					PreparedStatement pstmt = connection.prepareStatement(sql);
+					ResultSet rs;
+					rs = pstmt.executeQuery();
+					if (rs.next()){
+						Integer userid;
+						userid = rs.getInt("user_b_id");
+						Long imei;
+						imei = rs.getLong("imei");
+						bw.write(userid.toString() + "," + imei.toString());
+						bw.newLine();
+						bw.flush();
+
+					}
+					rs.close();pstmt.close();
+				} catch (SQLException e) {
+					e.printStackTrace();
+				}
+			}
+			if (bw != null) bw.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+
 
     public void showInfo(){
     	System.out.println("alarm c used space " + alarmCCache.size(CachePeekMode.ALL));
