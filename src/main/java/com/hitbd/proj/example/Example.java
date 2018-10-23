@@ -106,5 +106,10 @@ public class Example {
             System.out.println("id:"+alarm.getId() + " imei:" + alarm.getImei() + " pushtime:" + alarm.getPushTime()
             + " speed:" + alarm.getVelocity() + " ing:" + alarm.getEncId() + " lat:" + alarm.getLatitude() + " addr:" + alarm.getAddress());
         }
+
+        // 关闭ignite连接.
+        ignite.close();
     }
+
+    //3.
 }
