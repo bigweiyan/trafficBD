@@ -1,6 +1,7 @@
 package com.hitbd.proj;
 
 import com.hitbd.proj.action.*;
+import com.hitbd.proj.example.Example;
 import com.hitbd.proj.logic.hbase.HbaseUpload;
 import com.hitbd.proj.logic.hbase.UserCUpload;
 import com.hitbd.proj.logic.ignite.CreateIgniteTable;
@@ -10,6 +11,7 @@ import org.apache.hadoop.hbase.HBaseConfiguration;
 
 import java.io.File;
 import java.io.IOException;
+import java.sql.SQLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Scanner;
@@ -37,7 +39,6 @@ public class Main {
                 break;
             case "ImportDevice":
                 DeviceUpload.main(args);
-                IgniteSearch.getInstance().stop();
                 break;
             case "ImportUserC":
                 UserCUpload.main(args);

@@ -341,7 +341,7 @@ public class HbaseSearch implements IHbaseSearch {
             for (int user : userBIds) userAndDevice
                     .put(user, IgniteSearch.getInstance().getDirectDevices(ignite, user, queryUser, false));
         }
-        pruning(hbase, filter, userAndDevice);
+        if (Settings.ENABLE_PRUNING) pruning(hbase, filter, userAndDevice);
         return queryAlarmByImei(hbase, userAndDevice, sortType, filter);
     }
 
@@ -426,14 +426,6 @@ public class HbaseSearch implements IHbaseSearch {
         AlarmScanner result = new AlarmScanner(sortType);
         result.setFilter(filter);
         result.setConnection(hbase);
-        // 如果需要提前剪枝，则此时开始剪枝线程
-        if (Settings.ENABLE_PRUNING) {
-            List<Long> imeis = new ArrayList<>();
-            for (Map.Entry<Integer, List<Long>> entry : userAndDevices.entrySet()) {
-                imeis.addAll(entry.getValue());
-            }
-            result.startPreparePruning(imeis, filter.getAllowTimeRange().getKey(), filter.getAllowTimeRange().getValue());
-        }
 
         // 计算需要在哪些表中进行查询
         List<String> usedTable;
