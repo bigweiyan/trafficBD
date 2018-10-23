@@ -19,8 +19,11 @@ public class Example {
         Connection ignite = DriverManager.getConnection("jdbc:ignite:thin://localhost");
         // HBase的连接. HBase连接可以在多线程环境中运行，无需创建不同HBase对象
         org.apache.hadoop.hbase.client.Connection hbase = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
+
         // 输入参数
         int user_id = 546885;
+        String startDate = "0801";
+        String endDate = "0830";
 
         // 读一个用户的所有设备
         List<Long> imeis = IgniteSearch.getInstance().getDirectDevices(ignite, user_id, 1, false);
@@ -30,7 +33,7 @@ public class Example {
         int totalAlarm = 0;
         for (Map.Entry<Integer, List<Long>> entry: user.entrySet()) {
             // 找到每个IMEI的摘要
-            Map<Long, Map<String, Integer>> results = HbaseSearch.getInstance().getAlarmCountByStatus(hbase, "0801", "0831", entry.getValue());
+            Map<Long, Map<String, Integer>> results = HbaseSearch.getInstance().getAlarmCountByStatus(hbase, startDate, endDate, entry.getValue());
             // 输出IMEI的摘要信息
             for (Map.Entry<Long, Map<String, Integer>> imeiInfo : results.entrySet()) {
                 System.out.println("User: " + entry.getKey() + " imei: " + imeiInfo.getKey() + " overSpeed:"  + imeiInfo.getValue());
@@ -40,9 +43,8 @@ public class Example {
             }
         }
         System.out.println("Total Alarm: " + totalAlarm);
+
         // 关闭ignite连接.
         ignite.close();
-        // 关闭ignite客户端实例. 停止语句需在程序结束前运行,单个测试结束不需要运行这个语句.
-        IgniteSearch.getInstance().stop();
     }
 }

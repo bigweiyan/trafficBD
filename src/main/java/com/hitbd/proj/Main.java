@@ -35,7 +35,7 @@ public class Main {
         switch (args[0]) {
             case "ImportAlarm":
                 HbaseUpload.main(args);
-                IgniteSearch.getInstance().stop();
+                //IgniteSearch.getInstance().stop();
                 break;
             case "ImportDevice":
                 DeviceUpload.main(args);
@@ -45,7 +45,7 @@ public class Main {
                 break;
             case "CreateIgniteTable":
                 CreateIgniteTable.main(args);
-                IgniteSearch.getInstance().stop();
+                //IgniteSearch.getInstance().stop();
                 break;
             case "TestAlarmCount":
                 new TestAlarmCount().main(args);
@@ -58,22 +58,22 @@ public class Main {
                 break;
             case "TestUserSearch":
                 new TestUserSearch().main(args);
-                IgniteSearch.getInstance().stop();
+                //IgniteSearch.getInstance().stop();
                 break;
             case "TestHbaseSearch":
                 new TestHbaseSearch().main(args);
-                IgniteSearch.getInstance().stop();
+                //IgniteSearch.getInstance().stop();
                 break;
             case "TestUpdate":
                 new TestUpdate().main(args);
                 break;
             case "TestOverSpeedSearch":
                 new TestOverSpeedSearch().main(args);
-                IgniteSearch.getInstance().stop();
+                //IgniteSearch.getInstance().stop();
                 break;
             case "shell":
                 new Shell().main();
-                IgniteSearch.getInstance().stop();
+                //IgniteSearch.getInstance().stop();
                 break;
             case "ImportAlarmCount":
                 new ImportAlarmCount().main(args);
