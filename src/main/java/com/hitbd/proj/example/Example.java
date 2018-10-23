@@ -43,7 +43,8 @@ public class Example {
             Map<Long, Map<String, Integer>> results = HbaseSearch.getInstance().getAlarmCountByStatus(hbase, startDate, endDate, entry.getValue());
             // 输出IMEI的摘要信息
             for (Map.Entry<Long, Map<String, Integer>> imeiInfo : results.entrySet()) {
-                System.out.println("User: " + entry.getKey() + " imei: " + imeiInfo.getKey() + " overSpeed:"  + imeiInfo.getValue());
+                System.out.println("User: " + entry.getKey() + " imei: " + imeiInfo.getKey() + " overSpeed:"
+                        + (imeiInfo.getValue().getOrDefault("6",0) + imeiInfo.getValue().getOrDefault("overSpeed",0)));
                 for (Integer i : imeiInfo.getValue().values()) {
                     totalAlarm += i;
                 }
@@ -111,5 +112,44 @@ public class Example {
         ignite.close();
     }
 
-    //3.
+    //3.告警统计
+    public void groupByStatus() throws SQLException, IOException {
+        // ignite的连接. ignite连接只能在单线程环境中运行，多线程需要开启不同连接
+        Connection ignite = DriverManager.getConnection("jdbc:ignite:thin://localhost");
+        // HBase的连接. HBase连接可以在多线程环境中运行，无需创建不同HBase对象
+        org.apache.hadoop.hbase.client.Connection hbase = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
+
+        List<Long> imeis = new ArrayList<>();
+        //输入参数
+        int user_id = 546885;
+        imeis.add(868120198998426L);
+        int user_parent_like = 12875;
+        String starttime = "0801";
+        String endtime = "0802";
+
+        //按user递归查询，递归读取用户所有设备，将所有设备放入一个list中
+//        HashMap<Integer, List<Long>> userAndDevice;
+//        userAndDevice = IgniteSearch.getInstance()
+//                .getLevelOrderChildrenDevicesOfUserB(ignite, user_parent_like, false);
+//        imeis = new ArrayList<>();
+//        for(Map.Entry<Integer, List<Long>> entry : userAndDevice.entrySet())
+//            imeis.addAll(entry.getValue());
+        //按user直接查询，读一个用户的所有设备
+//        imeis = IgniteSearch.getInstance().getDirectDevices(ignite, user_id, 0, false);
+        //按imei聚集
+        Map<Long, Map<String, Integer>> results = HbaseSearch.getInstance().getAlarmCountByStatus(hbase, starttime, endtime, imeis);
+        //输出按状态汇总的告警次数，输出前100条
+        int limit = 0;
+        for (Map.Entry<Long, Map<String, Integer>> imeiInfo : results.entrySet()) {
+            System.out.print("imei: " + imeiInfo.getKey() + " sos:"  + imeiInfo.getValue().getOrDefault("1",0));
+            System.out.print(" cutPower:" + imeiInfo.getValue().getOrDefault("2",0));
+            System.out.print(" vibration:" + imeiInfo.getValue().getOrDefault("3",0));
+            System.out.print(" enterTerminalGeozone:" + imeiInfo.getValue().getOrDefault("4",0));
+            System.out.println(" exitTerminalGeozone:" + imeiInfo.getValue().getOrDefault("5",0));
+            if(++limit >= 100) break;
+        }
+
+        ignite.close();
+    }
+
 }
