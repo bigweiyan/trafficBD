@@ -127,7 +127,7 @@ public class Example {
         String starttime = "0801";
         String endtime = "0802";
 
-        //按user递归查询，递归读取用户所有设备，将所有设备放入一个list中
+        //按user递归查询，读取所有设备，将所有设备放入一个list中
 //        HashMap<Integer, List<Long>> userAndDevice;
 //        userAndDevice = IgniteSearch.getInstance()
 //                .getLevelOrderChildrenDevicesOfUserB(ignite, user_parent_like, false);
@@ -147,6 +147,43 @@ public class Example {
             System.out.print(" enterTerminalGeozone:" + imeiInfo.getValue().getOrDefault("4",0));
             System.out.println(" exitTerminalGeozone:" + imeiInfo.getValue().getOrDefault("5",0));
             if(++limit >= 100) break;
+        }
+
+        ignite.close();
+    }
+
+    //4.获取用户告警记录排行前十的设备
+    public void topTenImei() throws SQLException, IOException {
+        // ignite的连接. ignite连接只能在单线程环境中运行，多线程需要开启不同连接
+        Connection ignite = DriverManager.getConnection("jdbc:ignite:thin://localhost");
+        // HBase的连接. HBase连接可以在多线程环境中运行，无需创建不同HBase对象
+        org.apache.hadoop.hbase.client.Connection hbase = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
+
+        List<Long> imeis = new ArrayList<>();
+        //输入参数
+        int user_id = 546885;
+        int user_parent_like = 12875;
+        String starttime = "0801";
+        String endtime = "0802";
+
+        //按user递归查询，读取所有设备，将所有设备放入一个list中
+//        HashMap<Integer, List<Long>> userAndDevice;
+//        userAndDevice = IgniteSearch.getInstance()
+//                .getLevelOrderChildrenDevicesOfUserB(ignite, user_parent_like, false);
+//        imeis = new ArrayList<>();
+//        for(Map.Entry<Integer, List<Long>> entry : userAndDevice.entrySet())
+//            imeis.addAll(entry.getValue());
+        //按user直接查询，读一个用户的所有设备
+        imeis = IgniteSearch.getInstance().getDirectDevices(ignite, user_id, 0, false);
+        //查询设备告警记录数
+        Map<Long, Integer> map = HbaseSearch.getInstance().getAlarmCount(hbase, starttime, endtime, imeis);
+        //告警记录map按value降序排序，构造比较器，将map转为list进行排序，也可使用大小为10的堆进行排序（若设备数较多，达到部分有序即可）
+        Comparator<Map.Entry<Long, Integer>> valueComparatordesc = (o1, o2) -> o2.getValue()-o1.getValue();
+        List<Map.Entry<Long, Integer>> list = new ArrayList<>(map.entrySet());
+        Collections.sort(list, valueComparatordesc);
+        //取前十设备输出
+        for (int i = 0;i < 10 ;i++) {
+            System.out.println("imei:" + list.get(i).getKey() + " count:" + list.get(i).getValue());
         }
 
         ignite.close();
