@@ -19,8 +19,11 @@ public class Example {
         Connection ignite = DriverManager.getConnection("jdbc:ignite:thin://localhost");
         // HBase的连接. HBase连接可以在多线程环境中运行，无需创建不同HBase对象
         org.apache.hadoop.hbase.client.Connection hbase = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
+        // 输入参数
+        int user_id = 546885;
+
         // 读一个用户的所有设备
-        List<Long> imeis = IgniteSearch.getInstance().getDirectDevices(ignite, 546885, 1, false);
+        List<Long> imeis = IgniteSearch.getInstance().getDirectDevices(ignite, user_id, 1, false);
         HashMap<Integer, List<Long>> user = new HashMap<>();
         user.put(331579, imeis);
         // 分别对应每个用户，获取所有的摘要
