@@ -26,18 +26,20 @@ import com.hitbd.proj.logic.AlarmScanner;
 import com.hitbd.proj.model.IAlarm;
 import com.hitbd.proj.model.Pair;
 
-public class TestHbaseSearch {
+public class TestOverSpeedSearch {
     private BlockingQueue<Long> queryImei;
     private BlockingQueue<Integer> queryUserRecursive;
     private BlockingQueue<Integer> queryUserDirect;
     private String logDate = new SimpleDateFormat("dd-HH_mm_ss-").format(new Date());
     private AtomicInteger responseTime = new AtomicInteger();
     private AtomicInteger responseCount = new AtomicInteger();
-    private AtomicInteger finishedTime = new AtomicInteger();
+    private AtomicInteger imeiFinishedTime = new AtomicInteger();
+    private AtomicInteger userRecursiveFinishedTime = new AtomicInteger();
+    private AtomicInteger userDirectFinishedTime = new AtomicInteger();
     private AtomicInteger alarmScanned = new AtomicInteger();
     Connection connection;
     
-    private int testCount = 500;
+    private int testCount = 1000;
     
     public void main(String[] args) {
         // verify input
@@ -61,7 +63,7 @@ public class TestHbaseSearch {
         try (FileWriter logWriter = new FileWriter(Settings.LOG_DIR + logDate + "main" + ".log")){
             Scanner scanner = new Scanner(file);
             connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
-            while(scanner.hasNext() && queryImei.size() < 0.4 * testCount) {
+            while(scanner.hasNext() && queryImei.size() < 0.4*testCount) {
                 long imei = Long.parseLong(scanner.nextLine());
                 queryImei.offer(imei);
             }
@@ -80,7 +82,7 @@ public class TestHbaseSearch {
             Date start = new Date();
             logWriter.write("Test start at " + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(start) + "\n");
             System.out.println("Please wait at least "
-                    + testCount / Settings.Test.IMEI_PER_QUERY
+                    + testCount / Settings.Test.IMEI_PER_QUERY / Settings.Test.QUERY_THREAD_PER_TEST
                     + " dots");
             // start thread
             SearchThread[] threads = new SearchThread[Settings.Test.QUERY_THREAD_PER_TEST];
@@ -99,11 +101,15 @@ public class TestHbaseSearch {
             Date end = new Date();
             logWriter.write("Test end at " + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(end) + "\n");
             logWriter.write("Total time:" + (end.getTime() - start.getTime()) + "ms\n");
-            logWriter.write(String.format("Average Time:%.2fms\n" , (end.getTime() - start.getTime()) * 1.0f / testCount));
-            logWriter.write(String.format("Average response time:%.2fms\n", responseTime.get() * 1.0f / responseCount.get()));
-            if (Settings.Test.WAIT_UNTIL_FINISH) {
-                logWriter.write(String.format("Average finish time:%dms\n", finishedTime.get() / responseCount.get()));
-            }
+            
+            logWriter.write(String.format("Average response time:%.2fms\n", responseTime.get() * 1.0f / testCount));
+            logWriter.write(String.format("imei Average response time:%.2fms\n", imeiFinishedTime.get() * 1.0f / (testCount*0.4)));
+            logWriter.write(String.format("user direct Average response time:%.2fms\n", userDirectFinishedTime.get() * 1.0f / (testCount*0.56)));
+            logWriter.write(String.format("user recursive Average response time:%.2fms\n", userRecursiveFinishedTime.get() * 1.0f / (testCount*0.04)));
+            
+            
+            
+           
             logWriter.write("Total alarm scanned:" + alarmScanned.get() + "\n");
         }catch (IOException e){
             e.printStackTrace();
@@ -147,76 +153,42 @@ public class TestHbaseSearch {
                     
                     Date date = new Date();
                     QueryFilter filter = new QueryFilter();
-                    filter.setAllowTimeRange(new Pair<>(startTime,endTime));
-                    HashSet<String> viewed = new HashSet<>();
-                    viewed.add("1");
-                    filter.setAllowReadStatus(viewed);
-                    HashSet<String> status = new HashSet<>();
-                    status.add("1");
-                    status.add("10");
-                    status.add("11");
-                    status.add("12");
-                    status.add("128");
-                    status.add("13");
-                    status.add("14");
-                    status.add("15");
-                    status.add("16");
-                    status.add("17");
-                    status.add("18");
-                    status.add("19");
-                    status.add("192");
-                    status.add("194");
-                    status.add("195");
-                    status.add("2");
-                    status.add("20");
-                    status.add("22");
-                    status.add("23");
-                    status.add("24");
-                    status.add("25");
-                    filter.setAllowAlarmStatus(status);
+                    filter.setAllowTimeRange(new Pair<>(startTime, endTime));
+                    HashSet<String> stat = new HashSet<>();
+                    stat.add("6");
+                    stat.add("overSpeed");
+                    filter.setAllowAlarmStatus(stat);
                     // start work
                     AlarmScanner result = HbaseSearch.getInstance()
-                            .queryAlarmByUser(connection, ignite, userBatch.get(0), userBatch, false, HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
-					Long igniteTime = new Date().getTime() - date.getTime();
+                            .queryAlarmByUser(connection,ignite, userBatch.get(0), userBatch, true, HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
+                    Long igniteTime = new Date().getTime() - date.getTime();
                     int imeiCount = result.totalImei;
                     int queryCount = result.queries.size();
                     long response = 0;
                     int resultBatchSize = Settings.Test.RESULT_SIZE;
-                    int get = Settings.Test.SHOW_ALL_RESULT ? resultBatchSize : 5;
-                    if (result.notFinished()) {
+                    List<Pair<Integer,IAlarm>> ret = new ArrayList<>();
+                    while (result.notFinished()) {
                         List<Pair<Integer, IAlarm>> top = result.next(resultBatchSize);
-                        if (Settings.Test.SHOW_TOP_RESULT || Settings.Test.SHOW_ALL_RESULT) {
-                            for (int i = 0; i < get; i++) {
-                                if (i == top.size()) break;
-                                IAlarm alarm = top.get(i).getValue();
-                                logWriter.write(alarm.getCreateTime() + "," + alarm.getImei() + "," + alarm.getType() + "\n");
-                            }
+                        for(Pair<Integer,IAlarm> alarm:top) {
+                            if(alarm.getValue().getVelocity()>0)
+                                ret.add(alarm);
                         }
-                        response = new Date().getTime() - date.getTime();
+                        if(ret.size()>=resultBatchSize) 
+                            break;
+                        
                     }
-                    if (Settings.Test.WAIT_UNTIL_FINISH) {
-                        while (result.notFinished()) {
-                            List<Pair<Integer, IAlarm>> n = result.next(resultBatchSize);
-                            if (Settings.Test.SHOW_ALL_RESULT) {
-                                for (Pair<Integer, IAlarm> pair : n) {
-                                    IAlarm alarm = pair.getValue();
-                                    logWriter.write(alarm.getCreateTime() + "," + alarm.getImei() + "," + alarm.getType() + "\n");
-                                }
-                            }
-                        }
-
-                    }
+                    response = new Date().getTime() - date.getTime();
                     long totalTime = new Date().getTime() - date.getTime();
                     responseCount.incrementAndGet();
                     responseTime.addAndGet((int)response);
-                    finishedTime.addAndGet((int)totalTime);
+                    userRecursiveFinishedTime.addAndGet((int)response);
                     alarmScanned.addAndGet(result.getTotalAlarm());
                     logWriter.write("Ignite time" + igniteTime + "ms\n");
                     logWriter.write("Response time: " + response + " ms\n");
                     logWriter.write("Finish time: " + totalTime + " ms\n");
                     logWriter.write("Query created: " + queryCount + "\n");
                     logWriter.write("Alarm scanned: " + result.getTotalAlarm() + "\n");
-                    logWriter.write("Time used per IMEI: " + totalTime / imeiCount + " ms\n");
+//                    logWriter.write("Time used per IMEI: " + totalTime / imeiCount + " ms\n");
                     result.close();
                     System.out.print(".");
                 }
@@ -241,74 +213,41 @@ public class TestHbaseSearch {
                     Date date = new Date();
                     QueryFilter filter = new QueryFilter();
                     filter.setAllowTimeRange(new Pair<>(startTime, endTime));
-                    HashSet<String> viewed = new HashSet<>();
-                    viewed.add("1");
-                    filter.setAllowReadStatus(viewed);
-                    HashSet<String> status = new HashSet<>();
-                    status.add("1");
-                    status.add("10");
-                    status.add("11");
-                    status.add("12");
-                    status.add("128");
-                    status.add("13");
-                    status.add("14");
-                    status.add("15");
-                    status.add("16");
-                    status.add("17");
-                    status.add("18");
-                    status.add("19");
-                    status.add("192");
-                    status.add("194");
-                    status.add("195");
-                    status.add("2");
-                    status.add("20");
-                    status.add("22");
-                    status.add("23");
-                    status.add("24");
-                    status.add("25");
-                    filter.setAllowAlarmStatus(status);
+                    HashSet<String> stat = new HashSet<>();
+                    stat.add("6");
+                    stat.add("OverSpeed");
+                    filter.setAllowAlarmStatus(stat);
                     // start work
                     AlarmScanner result = HbaseSearch.getInstance()
-                            .queryAlarmByUser(connection, ignite, userBatch.get(0), userBatch, true, HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
+                            .queryAlarmByUser(connection,ignite, userBatch.get(0), userBatch, false, HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
                     Long igniteTime = new Date().getTime() - date.getTime();
                     int imeiCount = result.totalImei;
                     int queryCount = result.queries.size();
                     long response = 0;
                     int resultBatchSize = Settings.Test.RESULT_SIZE;
-                    int get = Settings.Test.SHOW_ALL_RESULT ? resultBatchSize : 5;
-                    if (result.notFinished()) {
+                    List<Pair<Integer,IAlarm>> ret = new ArrayList<>();
+                    while (result.notFinished()) {
                         List<Pair<Integer, IAlarm>> top = result.next(resultBatchSize);
-                        if (Settings.Test.SHOW_TOP_RESULT || Settings.Test.SHOW_ALL_RESULT) {
-                            for (int i = 0; i < get; i++) {
-                                IAlarm alarm = top.get(i).getValue();
-                                logWriter.write(alarm.getCreateTime() + "," + alarm.getImei() + "," + alarm.getType() + "\n");
-                            }
+                        for(Pair<Integer,IAlarm> alarm:top) {
+                            if(alarm.getValue().getVelocity()>0)
+                                ret.add(alarm);
                         }
-                        response = new Date().getTime() - date.getTime();
+                        if(ret.size()>=resultBatchSize) 
+                            break;
+                        
                     }
-                    if (Settings.Test.WAIT_UNTIL_FINISH) {
-                        while (result.notFinished()) {
-                            List<Pair<Integer, IAlarm>> n = result.next(resultBatchSize);
-                            if (Settings.Test.SHOW_ALL_RESULT) {
-                                for (Pair<Integer, IAlarm> pair : n) {
-                                    IAlarm alarm = pair.getValue();
-                                    logWriter.write(alarm.getCreateTime() + "," + alarm.getImei() + "," + alarm.getType() + "\n");
-                                }
-                            }
-                        }
-
-                    }
+                    response = new Date().getTime() - date.getTime();
                     long totalTime = new Date().getTime() - date.getTime();
                     responseCount.incrementAndGet();
                     responseTime.addAndGet((int)response);
-                    finishedTime.addAndGet((int)totalTime);
+                    userDirectFinishedTime.addAndGet((int)response);
                     alarmScanned.addAndGet(result.getTotalAlarm());
                     logWriter.write("Ignite time" + igniteTime + "ms\n");
                     logWriter.write("Response time: " + response + " ms\n");
                     logWriter.write("Finish time: " + totalTime + " ms\n");
                     logWriter.write("Query created: " + queryCount + "\n");
                     logWriter.write("Alarm scanned: " + result.getTotalAlarm() + "\n");
-                    if (imeiCount > 0) logWriter.write("Time used per IMEI: " + totalTime / imeiCount + " ms\n");
+                    //logWriter.write("Time used per IMEI: " + totalTime / imeiCount + " ms\n");
                     result.close();
                     System.out.print(".");
                 }
@@ -335,74 +274,38 @@ public class TestHbaseSearch {
                     Date date = new Date();
                     QueryFilter filter = new QueryFilter();
                     filter.setAllowTimeRange(new Pair<>(startTime, endTime));
-                    HashSet<String> viewed = new HashSet<>();
-                    viewed.add("1");
-                    filter.setAllowReadStatus(viewed);
-                    HashSet<String> status = new HashSet<>();
-                    status.add("1");
-                    status.add("10");
-                    status.add("11");
-                    status.add("12");
-                    status.add("128");
-                    status.add("13");
-                    status.add("14");
-                    status.add("15");
-                    status.add("16");
-                    status.add("17");
-                    status.add("18");
-                    status.add("19");
-                    status.add("192");
-                    status.add("194");
-                    status.add("195");
-                    status.add("2");
-                    status.add("20");
-                    status.add("22");
-                    status.add("23");
-                    status.add("24");
-                    status.add("25");
-                    filter.setAllowAlarmStatus(status);
+                    HashSet<String> stat = new HashSet<>();
+                    stat.add("6");
+                    stat.add("OverSpeed");
+                    filter.setAllowAlarmStatus(stat);
                     // start work
                     AlarmScanner result = HbaseSearch.getInstance()
-                            .queryAlarmByImei(connection, batch, HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
-                    Long igniteTime = new Date().getTime() - date.getTime();
-                    int imeiCount = result.totalImei;
+                            .queryAlarmByImei(connection,batch, HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
                     int queryCount = result.queries.size();
                     long response = 0;
                     int resultBatchSize = Settings.Test.RESULT_SIZE;
-                    int get = Settings.Test.SHOW_ALL_RESULT ? resultBatchSize : 5;
-                    if (result.notFinished()) {
+                    List<Pair<Integer,IAlarm>> ret = new ArrayList<>();
+                    while (result.notFinished()) {
                         List<Pair<Integer, IAlarm>> top = result.next(resultBatchSize);
-                        if (Settings.Test.SHOW_TOP_RESULT || Settings.Test.SHOW_ALL_RESULT) {
-                            for (int i = 0; i < get; i++) {
-                                if (i == top.size()) break;
-                                IAlarm alarm = top.get(i).getValue();
-                                logWriter.write(alarm.getCreateTime() + "," + alarm.getImei() + "," + alarm.getType() + "\n");
-                            }
+                        for(Pair<Integer,IAlarm> alarm:top) {
+                            if(alarm.getValue().getVelocity()>0)
+                                ret.add(alarm);
                         }
-                        response = new Date().getTime() - date.getTime();
+                        if(ret.size()>=resultBatchSize) 
+                            break;
+                        
                     }
-                    if (Settings.Test.WAIT_UNTIL_FINISH) {
-                        while (result.notFinished()) {
-                            List<Pair<Integer, IAlarm>> n = result.next(resultBatchSize);
-                            if (Settings.Test.SHOW_ALL_RESULT) {
-                                for (Pair<Integer, IAlarm> pair : n) {
-                                    IAlarm alarm = pair.getValue();
-                                    logWriter.write(alarm.getCreateTime() + "," + alarm.getImei() + "," + alarm.getType() + "\n");
-                                }
-                            }
-                        }
-
-                    }
+                    response = new Date().getTime() - date.getTime();
                     long totalTime = new Date().getTime() - date.getTime();
                     responseCount.incrementAndGet();
                     responseTime.addAndGet((int)response);
-                    finishedTime.addAndGet((int)totalTime);
+                    imeiFinishedTime.addAndGet((int)response);
                     alarmScanned.addAndGet(result.getTotalAlarm());
                     logWriter.write("Response time: " + response + " ms\n");
                     logWriter.write("Finish time: " + totalTime + " ms\n");
                     logWriter.write("Query created: " + queryCount + "\n");
                     logWriter.write("Alarm scanned: " + result.getTotalAlarm() + "\n");
-                    if (imeiCount > 0 ) logWriter.write("Time used per IMEI: " + totalTime / imeiCount + " ms\n");
+                    logWriter.write(String.format("Time used per IMEI: %.2fms\n", (int)totalTime * 1.0f / imeiBatch.size()));
                     result.close();
                     System.out.print(".");
                 }
