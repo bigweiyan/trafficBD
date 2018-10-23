@@ -63,12 +63,12 @@ public class Example {
         // HBase的连接. HBase连接可以在多线程环境中运行，无需创建不同HBase对象
         org.apache.hadoop.hbase.client.Connection hbase = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
 
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         List<Integer> user_id = new ArrayList<>();
         List<Long> imeis = new ArrayList<>();
         //输入参数
-        Date startTime = sdf.parse("2018-08-03");
-        Date endTime = sdf.parse("2018-08-06");
+        Date startTime = sdf.parse("2018-08-03 00:00:00");
+        Date endTime = sdf.parse("2018-08-06 00:00:00");
         user_id.add(546885);
         imeis.add(868120198998426L);
         float speed = 0;
@@ -105,7 +105,7 @@ public class Example {
         for(Pair<Integer,IAlarm> userAndAlarm:ret) {
             IAlarm alarm = userAndAlarm.getValue();
             System.out.println("id:"+alarm.getId() + " imei:" + alarm.getImei() + " pushtime:" + alarm.getPushTime()
-            + " speed:" + alarm.getVelocity() + " ing:" + alarm.getEncId() + " lat:" + alarm.getLatitude() + " addr:" + alarm.getAddress());
+            + " speed:" + alarm.getVelocity() + " lng:" + alarm.getLongitude() + " lat:" + alarm.getLatitude() + " addr:" + alarm.getAddress());
         }
 
         // 关闭ignite连接.
@@ -187,6 +187,85 @@ public class Example {
         }
 
         ignite.close();
+    }
+
+    //5.查询告警明细
+    public void alarmDetail() throws SQLException, IOException, ParseException {
+        // ignite的连接. ignite连接只能在单线程环境中运行，多线程需要开启不同连接
+        Connection ignite = DriverManager.getConnection("jdbc:ignite:thin://localhost");
+        // HBase的连接. HBase连接可以在多线程环境中运行，无需创建不同HBase对象
+        org.apache.hadoop.hbase.client.Connection hbase = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
+
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        List<Integer> user_id = new ArrayList<>();
+        List<Long> imeis = new ArrayList<>();
+        //输入参数
+        Date startTime = sdf.parse("2018-08-03 00:00:00");
+        Date endTime = sdf.parse("2018-08-06 00:00:00");
+        user_id.add(546885);
+        imeis.add(868120198998426L);
+        int user_parent_like = 12875;
+
+        //过滤器设置，过滤内容可调
+        QueryFilter filter = new QueryFilter();
+        filter.setAllowTimeRange(new Pair<>(startTime, endTime));
+        HashSet<String> viewed = new HashSet<>();
+        viewed.add("1");
+        filter.setAllowReadStatus(viewed);
+        HashSet<String> status = new HashSet<>();
+        status.add("1");
+        status.add("10");
+        status.add("11");
+        status.add("12");
+        status.add("128");
+        status.add("13");
+        status.add("14");
+        status.add("15");
+        status.add("16");
+        status.add("17");
+        status.add("18");
+        status.add("19");
+        status.add("192");
+        status.add("194");
+        status.add("195");
+        status.add("2");
+        status.add("20");
+        status.add("22");
+        status.add("23");
+        status.add("24");
+        status.add("25");
+        filter.setAllowAlarmStatus(status);
+        HashSet<String> type = new HashSet<>();
+        type.add("other");
+        filter.setAllowAlarmType(type);
+
+        //告警查询
+        //按user_parent递归查询
+//        AlarmScanner result = HbaseSearch.getInstance()
+//                .queryAlarmByUser(hbase, ignite, user_parent_like, user_id, true, HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
+        //按user_id查询
+//        AlarmScanner result = HbaseSearch.getInstance()
+//                .queryAlarmByUser(hbase, ignite, user_parent_like,user_id, false, HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
+        //按设备查询
+        HashMap<Integer, List<Long>> batch = new HashMap<>();
+        batch.put(0,imeis);
+        AlarmScanner result = HbaseSearch.getInstance()
+                .queryAlarmByImei(hbase, batch, HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
+
+        //输出前100条告警
+        if (result.notFinished()) {
+            List<Pair<Integer, IAlarm>> top = result.next(100);
+            for(Pair<Integer,IAlarm> userAndAlarm:top) {
+                IAlarm alarm = userAndAlarm.getValue();
+                System.out.print("id:" + alarm.getId() + " imei:" + alarm.getImei() + " geoid:" + alarm.getEncId()
+                + " alarmType:" + alarm.getType() + " status:" + alarm.getStatus() + " pushtime:" + alarm.getPushTime()
+                + " lng:" + alarm.getLongitude() + " lat:" + alarm.getLatitude() + " addr:" + alarm.getAddress()
+                + " speed:" + alarm.getVelocity() + " readstatus:" + alarm.getViewed() + " creattime:" + alarm.getCreateTime());
+                //按设备查询在该处并不能给出真的userid，因为没去查找其所属user
+                System.out.println(" userid:" + userAndAlarm.getKey());
+            }
+        }
+
     }
 
 }
