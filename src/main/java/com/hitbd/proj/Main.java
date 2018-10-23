@@ -1,6 +1,7 @@
 package com.hitbd.proj;
 
 import com.hitbd.proj.action.*;
+import com.hitbd.proj.example.Example;
 import com.hitbd.proj.logic.hbase.HbaseUpload;
 import com.hitbd.proj.logic.hbase.UserCUpload;
 import com.hitbd.proj.logic.ignite.CreateIgniteTable;
@@ -10,6 +11,7 @@ import org.apache.hadoop.hbase.HBaseConfiguration;
 
 import java.io.File;
 import java.io.IOException;
+import java.sql.SQLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Scanner;
@@ -33,18 +35,17 @@ public class Main {
         switch (args[0]) {
             case "ImportAlarm":
                 HbaseUpload.main(args);
-                IgniteSearch.getInstance().stop();
+                //IgniteSearch.getInstance().stop();
                 break;
             case "ImportDevice":
                 DeviceUpload.main(args);
-                IgniteSearch.getInstance().stop();
                 break;
             case "ImportUserC":
                 UserCUpload.main(args);
                 break;
             case "CreateIgniteTable":
                 CreateIgniteTable.main(args);
-                IgniteSearch.getInstance().stop();
+                //IgniteSearch.getInstance().stop();
                 break;
             case "TestAlarmCount":
                 new TestAlarmCount().main(args);
@@ -57,22 +58,22 @@ public class Main {
                 break;
             case "TestUserSearch":
                 new TestUserSearch().main(args);
-                IgniteSearch.getInstance().stop();
+                //IgniteSearch.getInstance().stop();
                 break;
             case "TestHbaseSearch":
                 new TestHbaseSearch().main(args);
-                IgniteSearch.getInstance().stop();
+                //IgniteSearch.getInstance().stop();
                 break;
             case "TestUpdate":
                 new TestUpdate().main(args);
                 break;
             case "TestOverSpeedSearch":
                 new TestOverSpeedSearch().main(args);
-                IgniteSearch.getInstance().stop();
+                //IgniteSearch.getInstance().stop();
                 break;
             case "shell":
                 new Shell().main();
-                IgniteSearch.getInstance().stop();
+                //IgniteSearch.getInstance().stop();
                 break;
             case "ImportAlarmCount":
                 new ImportAlarmCount().main(args);

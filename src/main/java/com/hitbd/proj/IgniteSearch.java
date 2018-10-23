@@ -27,25 +27,25 @@ public class IgniteSearch implements IIgniteSearch {
     static IgniteCache<Long, Integer> alarmCCache;
     static IgniteCache<Long, Integer> viewedCCache;
     static IgniteSearch search = null;
-	static {
-		IgniteConfiguration configuration = new IgniteConfiguration();
-		configuration.setClientMode(true);
-        Log4JLogger log4JLogger = new Log4JLogger();
-        log4JLogger.setLevel(Level.ERROR);
-		configuration.setGridLogger(log4JLogger);
-        Ignition.setClientMode(true);
-        ignite = Ignition.start();
-        CacheConfiguration<Long, Integer> cfg = new CacheConfiguration<Long, Integer>();
-        cfg.setName("alarm_c");
-        cfg.setCacheMode(CacheMode.PARTITIONED);// 存储方式 PARTITIONED适合分布式存储
-        cfg.setIndexedTypes(Long.class, Integer.class); // 必须设置索引类否则只能以key-value方式查询
-        alarmCCache = ignite.getOrCreateCache(cfg);// 根据配置创建缓存
-        cfg = new CacheConfiguration<Long, Integer>();
-        cfg.setName("viewed_c");
-        cfg.setCacheMode(CacheMode.PARTITIONED);// 存储方式 PARTITIONED适合分布式存储
-        cfg.setIndexedTypes(Long.class, Integer.class); // 必须设置索引类否则只能以key-value方式查询
-        viewedCCache = ignite.getOrCreateCache(cfg);// 根据配置创建缓存
-	}
+//	static {
+//		IgniteConfiguration configuration = new IgniteConfiguration();
+//		configuration.setClientMode(true);
+//        Log4JLogger log4JLogger = new Log4JLogger();
+//        log4JLogger.setLevel(Level.ERROR);
+//		configuration.setGridLogger(log4JLogger);
+//        Ignition.setClientMode(true);
+//        ignite = Ignition.start();
+//        CacheConfiguration<Long, Integer> cfg = new CacheConfiguration<Long, Integer>();
+//        cfg.setName("alarm_c");
+//        cfg.setCacheMode(CacheMode.PARTITIONED);// 存储方式 PARTITIONED适合分布式存储
+//        cfg.setIndexedTypes(Long.class, Integer.class); // 必须设置索引类否则只能以key-value方式查询
+//        alarmCCache = ignite.getOrCreateCache(cfg);// 根据配置创建缓存
+//        cfg = new CacheConfiguration<Long, Integer>();
+//        cfg.setName("viewed_c");
+//        cfg.setCacheMode(CacheMode.PARTITIONED);// 存储方式 PARTITIONED适合分布式存储
+//        cfg.setIndexedTypes(Long.class, Integer.class); // 必须设置索引类否则只能以key-value方式查询
+//        viewedCCache = ignite.getOrCreateCache(cfg);// 根据配置创建缓存
+//	}
 
     private IgniteSearch(){};
 
@@ -801,9 +801,9 @@ public class IgniteSearch implements IIgniteSearch {
         return userImeiMap;
     }
 
-    public void stop(){
-        if(ignite != null) Ignition.stop(true);
-    }
+//    public void stop(){
+//        if(ignite != null) Ignition.stop(true);
+//    }
 
     public void showInfo(){
     	System.out.println("alarm c used space " + alarmCCache.size(CachePeekMode.ALL));

@@ -37,7 +37,7 @@ public class TestHbaseSearch {
     private AtomicInteger alarmScanned = new AtomicInteger();
     Connection connection;
     
-    private int testCount = 100;
+    private int testCount = 500;
     
     public void main(String[] args) {
         // verify input
@@ -61,7 +61,7 @@ public class TestHbaseSearch {
         try (FileWriter logWriter = new FileWriter(Settings.LOG_DIR + logDate + "main" + ".log")){
             Scanner scanner = new Scanner(file);
             connection = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
-            while(scanner.hasNext() && queryImei.size() < 0.4*testCount) {
+            while(scanner.hasNext() && queryImei.size() < 0.4 * testCount) {
                 long imei = Long.parseLong(scanner.nextLine());
                 queryImei.offer(imei);
             }
@@ -80,7 +80,7 @@ public class TestHbaseSearch {
             Date start = new Date();
             logWriter.write("Test start at " + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(start) + "\n");
             System.out.println("Please wait at least "
-                    + testCount / Settings.Test.IMEI_PER_QUERY / Settings.Test.QUERY_THREAD_PER_TEST
+                    + testCount / Settings.Test.IMEI_PER_QUERY
                     + " dots");
             // start thread
             SearchThread[] threads = new SearchThread[Settings.Test.QUERY_THREAD_PER_TEST];
@@ -149,8 +149,31 @@ public class TestHbaseSearch {
                     QueryFilter filter = new QueryFilter();
                     filter.setAllowTimeRange(new Pair<>(startTime,endTime));
                     HashSet<String> viewed = new HashSet<>();
-                    viewed.add("0");
+                    viewed.add("1");
                     filter.setAllowReadStatus(viewed);
+                    HashSet<String> status = new HashSet<>();
+                    status.add("1");
+                    status.add("10");
+                    status.add("11");
+                    status.add("12");
+                    status.add("128");
+                    status.add("13");
+                    status.add("14");
+                    status.add("15");
+                    status.add("16");
+                    status.add("17");
+                    status.add("18");
+                    status.add("19");
+                    status.add("192");
+                    status.add("194");
+                    status.add("195");
+                    status.add("2");
+                    status.add("20");
+                    status.add("22");
+                    status.add("23");
+                    status.add("24");
+                    status.add("25");
+                    filter.setAllowAlarmStatus(status);
                     // start work
                     AlarmScanner result = HbaseSearch.getInstance()
                             .queryAlarmByUser(connection, ignite, userBatch.get(0), userBatch, false, HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
@@ -219,8 +242,31 @@ public class TestHbaseSearch {
                     QueryFilter filter = new QueryFilter();
                     filter.setAllowTimeRange(new Pair<>(startTime, endTime));
                     HashSet<String> viewed = new HashSet<>();
-                    viewed.add("0");
+                    viewed.add("1");
                     filter.setAllowReadStatus(viewed);
+                    HashSet<String> status = new HashSet<>();
+                    status.add("1");
+                    status.add("10");
+                    status.add("11");
+                    status.add("12");
+                    status.add("128");
+                    status.add("13");
+                    status.add("14");
+                    status.add("15");
+                    status.add("16");
+                    status.add("17");
+                    status.add("18");
+                    status.add("19");
+                    status.add("192");
+                    status.add("194");
+                    status.add("195");
+                    status.add("2");
+                    status.add("20");
+                    status.add("22");
+                    status.add("23");
+                    status.add("24");
+                    status.add("25");
+                    filter.setAllowAlarmStatus(status);
                     // start work
                     AlarmScanner result = HbaseSearch.getInstance()
                             .queryAlarmByUser(connection, ignite, userBatch.get(0), userBatch, true, HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
@@ -290,8 +336,31 @@ public class TestHbaseSearch {
                     QueryFilter filter = new QueryFilter();
                     filter.setAllowTimeRange(new Pair<>(startTime, endTime));
                     HashSet<String> viewed = new HashSet<>();
-                    viewed.add("0");
+                    viewed.add("1");
                     filter.setAllowReadStatus(viewed);
+                    HashSet<String> status = new HashSet<>();
+                    status.add("1");
+                    status.add("10");
+                    status.add("11");
+                    status.add("12");
+                    status.add("128");
+                    status.add("13");
+                    status.add("14");
+                    status.add("15");
+                    status.add("16");
+                    status.add("17");
+                    status.add("18");
+                    status.add("19");
+                    status.add("192");
+                    status.add("194");
+                    status.add("195");
+                    status.add("2");
+                    status.add("20");
+                    status.add("22");
+                    status.add("23");
+                    status.add("24");
+                    status.add("25");
+                    filter.setAllowAlarmStatus(status);
                     // start work
                     AlarmScanner result = HbaseSearch.getInstance()
                             .queryAlarmByImei(connection, batch, HbaseSearch.SORT_BY_PUSH_TIME|HbaseSearch.SORT_DESC, filter);
