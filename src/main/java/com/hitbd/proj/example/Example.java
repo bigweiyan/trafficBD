@@ -268,4 +268,39 @@ public class Example {
 
     }
 
+    //6.获取未读告警记录总数
+    public void unreadAlarm() throws SQLException, IOException {
+        // ignite的连接. ignite连接只能在单线程环境中运行，多线程需要开启不同连接
+        Connection ignite = DriverManager.getConnection("jdbc:ignite:thin://localhost");
+        // HBase的连接. HBase连接可以在多线程环境中运行，无需创建不同HBase对象
+        org.apache.hadoop.hbase.client.Connection hbase = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
+
+        List<Long> imeis = new ArrayList<>();
+        //输入参数
+        int user_id = 546885;
+        imeis.add(868120198998426L);
+        int user_parent_like = 12875;
+        String starttime = "0801";
+        String endtime = "0802";
+
+        //按user递归查询，读取所有设备，将所有设备放入一个list中
+//        HashMap<Integer, List<Long>> userAndDevice;
+//        userAndDevice = IgniteSearch.getInstance()
+//                .getLevelOrderChildrenDevicesOfUserB(ignite, user_parent_like, false);
+//        imeis = new ArrayList<>();
+//        for(Map.Entry<Integer, List<Long>> entry : userAndDevice.entrySet())
+//            imeis.addAll(entry.getValue());
+        //按user直接查询，读一个用户的所有设备
+//        imeis = IgniteSearch.getInstance().getDirectDevices(ignite, user_id, 0, false);
+        //按imei聚集
+        Map<Long, Map<String, Integer>> results = HbaseSearch.getInstance().getAlarmCountByRead(hbase, starttime, endtime, imeis);
+        int count = 0;
+        for(Map.Entry<Long, Map<String, Integer>> imeiInfo : results.entrySet()) {
+            count += imeiInfo.getValue().getOrDefault("0",0);
+        }
+        System.out.println("unread alarm count:" + count);
+    }
+
+    
+
 }
