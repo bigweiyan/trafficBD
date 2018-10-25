@@ -4,6 +4,7 @@ import com.hitbd.proj.HbaseSearch;
 import com.hitbd.proj.IgniteSearch;
 import com.hitbd.proj.QueryFilter;
 import com.hitbd.proj.Settings;
+import com.hitbd.proj.exception.NotExistException;
 import com.hitbd.proj.logic.AlarmScanner;
 import com.hitbd.proj.model.IAlarm;
 import com.hitbd.proj.model.Pair;
@@ -296,11 +297,184 @@ public class Example {
         Map<Long, Map<String, Integer>> results = HbaseSearch.getInstance().getAlarmCountByRead(hbase, starttime, endtime, imeis);
         int count = 0;
         for(Map.Entry<Long, Map<String, Integer>> imeiInfo : results.entrySet()) {
+            //所有设备未读告警数量加和
             count += imeiInfo.getValue().getOrDefault("0",0);
         }
         System.out.println("unread alarm count:" + count);
     }
 
-    
+    //7.按用户统计最近一天告警设备数
+    public void alarmDeviceCountByUser() throws SQLException, IOException {
+        // ignite的连接. ignite连接只能在单线程环境中运行，多线程需要开启不同连接
+        Connection ignite = DriverManager.getConnection("jdbc:ignite:thin://localhost");
+        // HBase的连接. HBase连接可以在多线程环境中运行，无需创建不同HBase对象
+        org.apache.hadoop.hbase.client.Connection hbase = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
+
+        //输入参数
+        int user_id = 546885;
+        String starttime = "0801";
+        String endtime = "0802";
+
+        //按user直接查询，读一个用户的所有设备
+        List<Long> imeis = IgniteSearch.getInstance().getDirectDevices(ignite, user_id, 0, false);
+        Map<Long, Integer> map = HbaseSearch.getInstance().getAlarmCount(hbase, starttime, endtime, imeis);
+        //输出产生告警的设备数
+        System.out.println(map.size());
+
+    }
+
+    //8.修改告警已读状态
+    public void updateViewed() throws SQLException, IOException, ParseException, NotExistException {
+        // ignite的连接. ignite连接只能在单线程环境中运行，多线程需要开启不同连接
+        Connection ignite = DriverManager.getConnection("jdbc:ignite:thin://localhost");
+        // HBase的连接. HBase连接可以在多线程环境中运行，无需创建不同HBase对象
+        org.apache.hadoop.hbase.client.Connection hbase = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
+
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        List<Integer> user_id = new ArrayList<>();
+        List<Long> imeis = new ArrayList<>();
+        //输入参数
+        Date startTime = sdf.parse("2018-08-03 00:00:00");
+        Date endTime = sdf.parse("2018-08-06 00:00:00");
+        user_id.add(546885);
+        imeis.add(868120198998426L);
+        int user_parent_like = 12875;
+
+        //过滤器设置，过滤内容可调
+        QueryFilter filter = new QueryFilter();
+        filter.setAllowTimeRange(new Pair<>(startTime, endTime));
+        HashSet<String> viewed = new HashSet<>();
+        viewed.add("0");
+        filter.setAllowReadStatus(viewed);
+        HashSet<String> status = new HashSet<>();
+        status.add("1");
+        status.add("10");
+        status.add("11");
+        status.add("12");
+        status.add("128");
+        status.add("13");
+        status.add("14");
+        status.add("15");
+        status.add("16");
+        status.add("17");
+        status.add("18");
+        status.add("19");
+        status.add("192");
+        status.add("194");
+        status.add("195");
+        status.add("2");
+        status.add("20");
+        status.add("22");
+        status.add("23");
+        status.add("24");
+        status.add("25");
+        filter.setAllowAlarmStatus(status);
+        HashSet<String> type = new HashSet<>();
+        type.add("other");
+        filter.setAllowAlarmType(type);
+
+        //告警查询
+        //按user_parent递归查询
+//        AlarmScanner result = HbaseSearch.getInstance()
+//                .queryAlarmByUser(hbase, ignite, user_parent_like, user_id, true, HbaseSearch.NO_SORT, filter);
+        //按user_id查询
+//        AlarmScanner result = HbaseSearch.getInstance()
+//                .queryAlarmByUser(hbase, ignite, user_parent_like,user_id, false, HbaseSearch.NO_SORT, filter);
+        //按设备查询
+        HashMap<Integer, List<Long>> batch = new HashMap<>();
+        batch.put(0,imeis);
+        AlarmScanner result = HbaseSearch.getInstance()
+                .queryAlarmByImei(hbase, batch, HbaseSearch.NO_SORT, filter);
+
+        //将所有告警查询到的告警结果存入list中等待更新，存入要更新告警的表名和行键
+        List<Pair<String,String>> updateAlarm = new ArrayList<>();
+        while (result.notFinished()) {
+            List<Pair<Integer, IAlarm>> top = result.next(100);
+            for(Pair<Integer,IAlarm> alarm:top) {
+                //将告警所在的表名和行键取出
+                updateAlarm.add(new Pair<>(alarm.getValue().getTableName(),alarm.getValue().getRowKey()));
+            }
+        }
+        //修改已读信息
+        HbaseSearch.getInstance().setViewedFlag(hbase,updateAlarm,true);
+    }
+
+    //9.清除告警数据
+    public void deleteAlarm() throws SQLException, IOException, ParseException, NotExistException {
+        // ignite的连接. ignite连接只能在单线程环境中运行，多线程需要开启不同连接
+        Connection ignite = DriverManager.getConnection("jdbc:ignite:thin://localhost");
+        // HBase的连接. HBase连接可以在多线程环境中运行，无需创建不同HBase对象
+        org.apache.hadoop.hbase.client.Connection hbase = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
+
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        List<Integer> user_id = new ArrayList<>();
+        List<Long> imeis = new ArrayList<>();
+        //输入参数
+        Date startTime = sdf.parse("2018-08-03 00:00:00");
+        Date endTime = sdf.parse("2018-08-06 00:00:00");
+        user_id.add(546885);
+        imeis.add(868120198998426L);
+        int user_parent_like = 12875;
+
+        //过滤器设置，过滤内容可调
+        QueryFilter filter = new QueryFilter();
+        filter.setAllowTimeRange(new Pair<>(startTime, endTime));
+        HashSet<String> viewed = new HashSet<>();
+        viewed.add("0");
+        filter.setAllowReadStatus(viewed);
+        HashSet<String> status = new HashSet<>();
+        status.add("1");
+        status.add("10");
+        status.add("11");
+        status.add("12");
+        status.add("128");
+        status.add("13");
+        status.add("14");
+        status.add("15");
+        status.add("16");
+        status.add("17");
+        status.add("18");
+        status.add("19");
+        status.add("192");
+        status.add("194");
+        status.add("195");
+        status.add("2");
+        status.add("20");
+        status.add("22");
+        status.add("23");
+        status.add("24");
+        status.add("25");
+        filter.setAllowAlarmStatus(status);
+        HashSet<String> type = new HashSet<>();
+        type.add("other");
+        filter.setAllowAlarmType(type);
+
+        //告警查询
+        //按user_parent递归查询
+//        AlarmScanner result = HbaseSearch.getInstance()
+//                .queryAlarmByUser(hbase, ignite, user_parent_like, user_id, true, HbaseSearch.NO_SORT, filter);
+        //按user_id查询
+//        AlarmScanner result = HbaseSearch.getInstance()
+//                .queryAlarmByUser(hbase, ignite, user_parent_like,user_id, false, HbaseSearch.NO_SORT, filter);
+        //按设备查询
+        HashMap<Integer, List<Long>> batch = new HashMap<>();
+        batch.put(0,imeis);
+        AlarmScanner result = HbaseSearch.getInstance()
+                .queryAlarmByImei(hbase, batch, HbaseSearch.NO_SORT, filter);
+
+        //将所有告警查询到的告警结果存入list中等待删除，存入要删除告警的表名和行键
+        List<Pair<String,String>> deleteAlarm = new ArrayList<>();
+        while (result.notFinished()) {
+            List<Pair<Integer, IAlarm>> top = result.next(100);
+            for(Pair<Integer,IAlarm> alarm:top) {
+                //将告警所在的表名和行键取出
+                deleteAlarm.add(new Pair<>(alarm.getValue().getTableName(),alarm.getValue().getRowKey()));
+            }
+        }
+        //删除告警信息
+        HbaseSearch.getInstance().deleteAlarm(hbase,deleteAlarm);
+    }
+
+    //10.
 
 }
