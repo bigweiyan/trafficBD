@@ -225,9 +225,9 @@ public class HbaseSearch implements IHbaseSearch {
             for (int j = 0; j < 17 - imeiStr.length(); j++) {
                 sb.append(0);
             }
-            sb.append(imeiStr).append(Utils.getRelativeSecond(alarm.getCreateTime())).append((IgniteSearch.getInstance().getAlarmCount(alarm.getImei())+1)%10);
+//            sb.append(imeiStr).append(Utils.getRelativeSecond(alarm.getCreateTime())).append((IgniteSearch.getInstance().getAlarmCount(alarm.getImei())+1)%10);
+            sb.append(imeiStr).append(Utils.getRelativeSecond(alarm.getCreateTime())).append("0");
             String rowKey = sb.toString();
-
             Table table;
             try {
                 table = connection.getTable(TableName.valueOf(tableName));
@@ -282,18 +282,25 @@ public class HbaseSearch implements IHbaseSearch {
 
     @Override
     public void setViewedFlag(Connection connection,List<Pair<String, String>> rowKeys, boolean viewed) throws NotExistException {
+        HashMap<String,List<Put>> tableList = new HashMap<>();
+        //构造put列表
         for(Pair<String,String> rowKey:rowKeys) {
-            //异常抛出
-            String tablename = rowKey.getKey();
-            String rowkey = rowKey.getValue();
-
-            Table table;
+            String tableName = rowKey.getKey();
+            Put put = new Put(Bytes.toBytes(rowKey.getValue()));
+            put.addColumn("r".getBytes(),"viewed".getBytes(),(viewed?"1":"0").getBytes());
+            if(tableList.containsKey(tableName)) {
+                tableList.get(tableName).add(put);
+            } else {
+                List<Put> putList = new ArrayList<>();
+                putList.add(put);
+                tableList.put(tableName,putList);
+            }
+        }
+        //批处理
+        for (Map.Entry<String, List<Put>> entry : tableList.entrySet()) {
             try {
-                table = connection.getTable(TableName.valueOf(tablename));
-
-                Put put = new Put(Bytes.toBytes(rowkey));
-                put.addColumn("r".getBytes(), "viewed".getBytes(), (viewed?"1":"0").getBytes());
-                table.put(put);
+                Table table = connection.getTable(TableName.valueOf(entry.getKey()));
+                table.put(entry.getValue());
                 table.close();
             } catch (IOException e) {
                 e.printStackTrace();
@@ -301,24 +308,31 @@ public class HbaseSearch implements IHbaseSearch {
         }
     }
 
-    @Override
+   @Override
     public void deleteAlarm(Connection connection,List<Pair<String, String>> rowKeys) throws NotExistException {
-        for(Pair<String,String> rowKey:rowKeys) {
-            //异常抛出
-            String tablename = rowKey.getKey();
-            String rowkey = rowKey.getValue();
-
-            Table table;
-            try {
-                table = connection.getTable(TableName.valueOf(tablename));
-
-                Delete delete = new Delete(rowkey.getBytes());
-                table.delete(delete);
-                table.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
+       HashMap<String,List<Delete>> tableList = new HashMap<>();
+       //构造delete列表
+       for(Pair<String,String> rowKey:rowKeys) {
+           String tableName = rowKey.getKey();
+           Delete delete = new Delete(Bytes.toBytes(rowKey.getValue()));
+           if(tableList.containsKey(tableName)) {
+               tableList.get(tableName).add(delete);
+           } else {
+               List<Delete> deleteList = new ArrayList<>();
+               deleteList.add(delete);
+               tableList.put(tableName,deleteList);
+           }
+       }
+       //批处理
+       for (Map.Entry<String, List<Delete>> entry : tableList.entrySet()) {
+           try {
+               Table table = connection.getTable(TableName.valueOf(entry.getKey()));
+               table.delete(entry.getValue());
+               table.close();
+           } catch (IOException e) {
+               e.printStackTrace();
+           }
+       }
     }
 
     @Override
