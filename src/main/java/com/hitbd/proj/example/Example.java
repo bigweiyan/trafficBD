@@ -475,6 +475,25 @@ public class Example {
         HbaseSearch.getInstance().deleteAlarm(hbase,deleteAlarm);
     }
 
-    //10.
+    //10.查询一个月内产生告警数据最多的10个imei
+    //与5类似，将5中的时间间隔改为一个月即可
+
+    //11.获取某月中imei是否有告警记录
+    public void alarmExist() throws IOException {
+        // HBase的连接. HBase连接可以在多线程环境中运行，无需创建不同HBase对象
+        org.apache.hadoop.hbase.client.Connection hbase = ConnectionFactory.createConnection(Settings.HBASE_CONFIG);
+
+        //输入参数
+        String starttime = "0801";
+        String endtime = "0831";
+        Long imei = 868120198998426L;
+
+        //查询是否有告警记录
+        List<Long> list = new ArrayList<>();
+        list.add(imei);
+        Map<Long, Integer> map = HbaseSearch.getInstance().getAlarmCount(hbase, starttime, endtime, list);
+        //输出该imei告警个数，无告警则输出0
+        System.out.println("alarm count:" + map.getOrDefault(imei,0));
+    }
 
 }
